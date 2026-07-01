@@ -69,9 +69,25 @@ def vendas_csv(vendas, caminho, incluir_valor=False, incluir_custo=False):
     return len(linhas)
 
 
-def recebimentos_csv(recebimentos, caminho):
+def entradas_csv(entradas, caminho):
+    """Todas as entregas da janela (~6 meses): uma linha por entrada.
+    E o insumo do 'espectro' (giro x ultimas entregas) do detector de estoque."""
+    cab = ["codigo", "data", "qtd"]
+    linhas = [[r["codigo"], r["data"], r["qtd"]] for r in entradas]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
+def recebimentos_csv(entradas, caminho):
+    """Deriva a ULTIMA entrega por item (data + qtd dessa entrega) a partir da
+    lista de entradas. E o formato que o detector de salao ja espera."""
+    ultima = {}
+    for r in entradas:
+        cod = r["codigo"]
+        if cod not in ultima or str(r["data"]) > str(ultima[cod]["data"]):
+            ultima[cod] = r
     cab = ["codigo", "data_ultimo_recebimento", "qtd_recebida"]
-    linhas = [[r["codigo"], r["data_ultimo_recebimento"], r["qtd_recebida"]] for r in recebimentos]
+    linhas = [[cod, u["data"], u["qtd"]] for cod, u in ultima.items()]
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
 

@@ -34,12 +34,22 @@ def vendas(janela_dias=120):
     return linhas
 
 
-def recebimentos():
+def entradas(janela_dias=180):
+    """Varias entregas por item ao longo de ~6 meses (uma linha por entrada)."""
     hoje = date.today()
-    return [
-        {"codigo": "2411", "data_ultimo_recebimento": (hoje - timedelta(days=9)).isoformat(), "qtd_recebida": 120},
-        {"codigo": "2795", "data_ultimo_recebimento": (hoje - timedelta(days=2)).isoformat(), "qtd_recebida": 480},
+    plano = [
+        ("2411", [(150, 100), (70, 100), (9, 120)]),   # 3 entregas
+        ("2795", [(120, 480), (30, 480), (2, 480)]),
+        ("3905", [(150, 60)]),                          # so 1 entrega (ex.: item de ruptura)
     ]
+    linhas = []
+    for cod, entregas in plano:
+        for dias_atras, qtd in entregas:
+            if dias_atras <= janela_dias:
+                linhas.append({"codigo": cod,
+                               "data": (hoje - timedelta(days=dias_atras)).isoformat(),
+                               "qtd": qtd})
+    return linhas
 
 
 def pedidos():

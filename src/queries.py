@@ -18,7 +18,7 @@ SELECT
     p.custo         AS custo_atual,     -- custo corrente do cadastro (cotacao/pricing) --TODO
     p.preco_atacado AS preco_atacado,                                            --TODO
     p.preco_varejo  AS preco_varejo,                                             --TODO
-    p.preco_promo   AS preco_promocao,  -- so se a promo for um preco GUARDADO   --TODO
+    p.preco_promo   AS preco_promocao,  -- preco de promocao GUARDADO no ERP     --TODO
     p.curva         AS curva,                                                     --TODO
     p.ativo         AS ativo
 FROM produtos p                                                                  --TODO
@@ -43,15 +43,19 @@ GROUP BY i.produto_codigo, p.descricao, DATE(v.data_emissao)
 ORDER BY codigo, data
 """
 
-RECEBIMENTOS = """
+# ENTRADAS: uma linha por entrega (NAO agrega) nos ultimos {janela_entradas} dias
+# (~6 meses). E o "proxy de estoque": como o ERP nao tem saldo, cruzar o giro
+# (vendas) com as ultimas entregas estima a cobertura restante. Dela tambem se
+# deriva o recebimentos.csv (ultima entrega por item) para o detector de salao.
+ENTRADAS = """
 SELECT
-    i.produto_codigo    AS codigo,                                               --TODO
-    MAX(e.data_entrada) AS data_ultimo_recebimento,                              --TODO
-    SUM(i.quantidade)   AS qtd_recebida                                          --TODO
+    i.produto_codigo     AS codigo,                                              --TODO
+    DATE(e.data_entrada) AS data,                                                --TODO
+    i.quantidade         AS qtd                                                  --TODO
 FROM entradas e                                                                  --TODO
 JOIN entradas_itens i ON i.entrada_id = e.id                                     --TODO
-WHERE e.data_entrada >= CURDATE() - INTERVAL {janela} DAY
-GROUP BY i.produto_codigo
+WHERE e.data_entrada >= CURDATE() - INTERVAL {janela_entradas} DAY
+ORDER BY i.produto_codigo, e.data_entrada
 """
 
 PEDIDOS = """

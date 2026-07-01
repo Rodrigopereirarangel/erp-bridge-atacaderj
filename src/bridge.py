@@ -48,23 +48,24 @@ def carregar_config(caminho):
 def coletar(cfg, usar_demo):
     """Devolve as 4 tabelas brutas, do banco ou do demo."""
     janela = cfg.get("janela_dias", 120)
+    janela_ent = cfg.get("janela_entradas_dias", 180)
     if usar_demo:
         return (demo_data.catalogo(), demo_data.vendas(janela),
-                demo_data.recebimentos(), demo_data.pedidos())
+                demo_data.entradas(janela_ent), demo_data.pedidos())
 
     import db
     conn = db.conectar(cfg["db"])
     try:
         cat = db.consultar(conn, queries.CATALOGO)
         ven = db.consultar(conn, queries.VENDAS.format(janela=int(janela)))
-        rec = db.consultar(conn, queries.RECEBIMENTOS.format(janela=int(janela)))
+        ent = db.consultar(conn, queries.ENTRADAS.format(janela_entradas=int(janela_ent)))
         ped = db.consultar(conn, queries.PEDIDOS)
     finally:
         conn.close()
-    return cat, ven, rec, ped
+    return cat, ven, ent, ped
 
 
-def escrever(cfg, cat, ven, rec, ped, alvo):
+def escrever(cfg, cat, ven, ent, ped, alvo):
     saida = cfg["saida"]
     salao = saida["detector_salao_dir"]
     estoque = saida["detector_estoque_dir"]
@@ -84,10 +85,14 @@ def escrever(cfg, cat, ven, rec, ped, alvo):
                                    incluir_valor=True, incluir_custo=True)
         rel.append(f"detector-estoque/vendas.csv: {n}")
 
-    if alvo in ("all", "movimentos", "recebimentos"):
-        n = projections.recebimentos_csv(rec, os.path.join(salao, "recebimentos.csv"))
+    if alvo in ("all", "movimentos", "entradas", "recebimentos"):
+        # entradas.csv (todas as entregas, ~6 meses) -> so o detector de estoque (espectro)
+        n = projections.entradas_csv(ent, os.path.join(estoque, "entradas.csv"))
+        rel.append(f"detector-estoque/entradas.csv: {n}")
+        # recebimentos.csv (ultima entrega por item, derivada) -> os dois detectores
+        n = projections.recebimentos_csv(ent, os.path.join(salao, "recebimentos.csv"))
         rel.append(f"detector-salao/recebimentos.csv: {n}")
-        n = projections.recebimentos_csv(rec, os.path.join(estoque, "recebimentos.csv"))
+        n = projections.recebimentos_csv(ent, os.path.join(estoque, "recebimentos.csv"))
         rel.append(f"detector-estoque/recebimentos.csv: {n}")
 
     if alvo in ("all", "movimentos", "pedidos"):
@@ -101,7 +106,7 @@ def main():
     ap = argparse.ArgumentParser(description="Ponte ERP -> consumidores AtacadeRJ")
     ap.add_argument("--demo", action="store_true", help="usa dados falsos, sem tocar no banco")
     ap.add_argument("--only", default="all",
-                    choices=["all", "catalogo", "movimentos", "vendas", "recebimentos", "pedidos"],
+                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos"],
                     help="qual bloco gerar (default: all)")
     ap.add_argument("--config", default=None, help="caminho do config (default: config.local.json)")
     args = ap.parse_args()
@@ -110,8 +115,8 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, rec, ped = coletar(cfg, args.demo)
-        relatorio = escrever(cfg, cat, ven, rec, ped, args.only)
+        cat, ven, ent, ped = coletar(cfg, args.demo)
+        relatorio = escrever(cfg, cat, ven, ent, ped, args.only)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")

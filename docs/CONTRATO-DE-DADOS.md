@@ -17,8 +17,13 @@ Assim o mapeamento do ERP fica **num lugar só** (`src/queries.py`).
 |---|---|---|
 | **catalogo**     | `codigo, descricao, embalagem(opc), custo_atual, preco_atacado, preco_varejo, preco_promocao, curva, ativo` | 3–5x/dia |
 | **vendas**       | `codigo, descricao, data, qtd_vendida, valor, custo_venda` (últimos `janela_dias`, dia a dia) | diário (05:00) |
-| **recebimentos** | `codigo, data_ultimo_recebimento, qtd_recebida` | diário (05:00) |
+| **entradas**     | `codigo, data, qtd` — **todas** as entregas dos últimos ~6 meses (`janela_entradas_dias`) | diário (05:00) |
 | **pedidos**      | `codigo, data_pedido, qtd_pedida, status, previsao_entrega` (só abertos) | diário (05:00) |
+
+> **Entrada = proxy de estoque (definição do usuário):** o ERP não tem saldo, então
+> puxamos **todas as entregas de ~6 meses** e o detector cruza **giro × últimas
+> entregas** para estimar a cobertura restante. Do mesmo dado deriva-se o
+> `recebimentos.csv` (a **última** entrega por item) que o detector de salão já lê.
 
 > **Dois custos (definição do usuário):** `custo_atual` vem do **cadastro** (custo de
 > hoje → cotação/pricing decidem com ele); `custo_venda` vem do **item do pedido**
@@ -61,7 +66,7 @@ O HTML oficial usa um catálogo com **chaves compactas**. A projeção escreve:
 | `q`     | `embalagem`       | qtd por embalagem (fator) — **opcional** |
 | `v`     | `preco_atacado`   | **preço atacado** (base) |
 | `vu`    | `preco_varejo`    | **preço varejo** (unitário) |
-| `vp`    | `preco_promocao`  | **preço promoção** (só se guardado — ver "A confirmar") |
+| `vp`    | `preco_promocao`  | **preço promoção** (guardado no ERP) |
 | `custo` | `custo_atual`     | custo corrente (piso de margem / limite de desconto) |
 | `cv`    | `curva`           | curva ABC |
 
@@ -97,6 +102,10 @@ codigo;descricao;data;qtd_vendida;valor;custo_venda
 ```
 codigo;data_ultimo_recebimento;qtd_recebida
 ```
+`entradas.csv`  (**todas** as entregas dos últimos ~6 meses — proxy de estoque)
+```
+codigo;data;qtd
+```
 `pedidos.csv`  (pedidos abertos de fornecedor)
 ```
 codigo;data_pedido;qtd_pedida;status;previsao_entrega
@@ -105,6 +114,8 @@ codigo;data_pedido;qtd_pedida;status;previsao_entrega
 ```
 codigo;curva
 ```
+> `recebimentos.csv` (última entrega) é **derivado** do `entradas.csv`, então
+> serve os dois detectores sem query extra.
 
 ---
 
@@ -116,16 +127,16 @@ Repo: `pricing-atacaderj`. Lê MySQL direto per SKU:
 
 ---
 
-## A confirmar (decisões de negócio, não do ERP)
+## Decisões (fechadas)
 
-1. **Promoção (`vp`)**: existe um preço de promoção *armazenado* no ERP, ou a
-   promoção é **calculada** (como o HTML faz hoje: desconto máx. respeitando piso)?
-2. **Recebimentos — espectro, não binário** (definição do usuário): o detector NÃO
-   trata "recebeu recente" como sim/não; monta um **espectro de probabilidade**
-   cruzando **tempo desde o recebimento × giro no período × quantidade recebida**.
-   A ponte já carrega os 3 ingredientes (data + `qtd_recebida`; série diária de
-   `vendas`). **Em aberto:** trazer **só a última** entrada por item (simples, casa
-   com o detector atual) ou **todas as entradas da janela** (permite estimar
-   cobertura ciclo a ciclo → espectro mais rico)?
-3. **Unidade**: `qtd_vendida` sai na **mesma unidade** de `preco/custo`? Se não,
-   trazer o fator em `embalagem` e converter na projeção.
+1. **Promoção (`vp`)**: é um **preço guardado no ERP** → mapear a coluna (não é calculada).
+2. **Recebimentos = proxy de estoque**: puxar **todas as entregas dos últimos ~6 meses**
+   (`entradas.csv`); o detector cruza **giro × últimas entregas** para estimar cobertura.
+   `recebimentos.csv` (última entrega) é derivado.
+3. **Dois custos**: `custo_atual` (cadastro) e `custo_venda` (congelado no pedido).
+4. **`categoria`/`fornecedor`**: removidos (não usados).
+
+## Ainda em aberto
+
+- **Unidade**: `qtd_vendida` (e `qtd` de entrada) saem na **mesma unidade** de
+  `preco/custo`? Se não, trazer o fator em `embalagem` e converter na projeção.

@@ -16,8 +16,8 @@ ERP MySQL ──(viewer, SELECT)──►  │  vendas       (diário)  │─�
 | Bloco | Vira | Para quem |
 |---|---|---|
 | **catalogo** | `produtos.json` (chaves `c,p,q,v,vu,vp,custo,cv`) + `curva_abc.csv` | Cotação HTML; detectores |
-| **vendas** | `vendas.csv` (salão, sem valor) + `vendas.csv` (estoque, com R$) | os 2 detectores; pricing (giro deriva daqui) |
-| **recebimentos** | `recebimentos.csv` (última entrega) | os 2 detectores |
+| **vendas** | `vendas.csv` (salão) + `vendas.csv` (estoque, com R$ e `custo_venda`) | os 2 detectores; pricing (giro deriva daqui) |
+| **entradas** | `entradas.csv` (todas as entregas ~6 meses) + `recebimentos.csv` (última, derivada) | detector de estoque (proxy de estoque); detector de salão |
 | **pedidos** | `pedidos.csv` (pedidos de compra abertos) | detector de estoque (cruzamento "já comprei?") |
 
 ## Começar (2 minutos, sem banco)
@@ -33,10 +33,15 @@ tocar no ERP. Os arquivos vão para os caminhos de `config.example.json > saida`
 
 1. `copy config.example.json config.local.json` e preencha `db` (host, `viewer`, senha, database)
    e os caminhos de `saida`. **`config.local.json` não é versionado** (tem a senha).
-2. Abra `src/queries.py` e troque os **`--TODO`** (nomes reais de tabela/coluna). É o
+2. **Achar as tabelas/colunas** (na máquina que alcança o MySQL):
+   ```bash
+   python src/inspect_schema.py produto preco custo curva venda entrada pedido
+   ```
+   Lista tabelas e colunas (só leitura) para você/eu identificarmos as certas.
+3. Abra `src/queries.py` e troque os **`--TODO`** (nomes reais de tabela/coluna). É o
    único lugar amarrado ao ERP.
-3. Teste: `python src/bridge.py --only catalogo`
-4. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
+4. Teste: `python src/bridge.py --only catalogo`
+5. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
    (catálogo 08/12/15/18h; movimentos 05:00, antes do detector das 05:30).
 
 ## Segurança
