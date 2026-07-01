@@ -38,7 +38,7 @@ def cotacao_produtos_json(catalogo, caminho, gerado_em):
             "v": r.get("preco_atacado"),
             "vu": r.get("preco_varejo"),
             "vp": r.get("preco_promocao"),
-            "custo": r.get("custo"),
+            "custo": r.get("custo_atual"),
             "cv": r.get("curva"),
         }
         for r in catalogo
@@ -51,13 +51,20 @@ def cotacao_produtos_json(catalogo, caminho, gerado_em):
 
 # ---------- Consumidores 2 e 3: Detectores (CSV ;) ----------
 
-def vendas_csv(vendas, caminho, incluir_valor):
+def vendas_csv(vendas, caminho, incluir_valor=False, incluir_custo=False):
+    cab = ["codigo", "descricao", "data", "qtd_vendida"]
     if incluir_valor:
-        cab = ["codigo", "descricao", "data", "qtd_vendida", "valor"]
-        linhas = [[r["codigo"], r["descricao"], r["data"], r["qtd_vendida"], r["valor"]] for r in vendas]
-    else:
-        cab = ["codigo", "descricao", "data", "qtd_vendida"]
-        linhas = [[r["codigo"], r["descricao"], r["data"], r["qtd_vendida"]] for r in vendas]
+        cab.append("valor")            # so o detector de ESTOQUE usa R$
+    if incluir_custo:
+        cab.append("custo_venda")      # CMV congelado no dia -> margem realizada
+    linhas = []
+    for r in vendas:
+        ln = [r["codigo"], r["descricao"], r["data"], r["qtd_vendida"]]
+        if incluir_valor:
+            ln.append(r.get("valor"))
+        if incluir_custo:
+            ln.append(r.get("custo_venda"))
+        linhas.append(ln)
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
 

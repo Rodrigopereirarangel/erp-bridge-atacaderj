@@ -14,17 +14,14 @@ CATALOGO = """
 SELECT
     p.codigo        AS codigo,
     p.descricao     AS descricao,
-    p.embalagem     AS embalagem,      -- qtd por caixa / fator de conversao   --TODO
-    p.custo         AS custo,                                                    --TODO
+    p.embalagem     AS embalagem,      -- qtd por caixa / fator (OPCIONAL)      --TODO
+    p.custo         AS custo_atual,     -- custo corrente do cadastro (cotacao/pricing) --TODO
     p.preco_atacado AS preco_atacado,                                            --TODO
     p.preco_varejo  AS preco_varejo,                                             --TODO
-    p.preco_promo   AS preco_promocao,  -- ou NULL se promo for calculada        --TODO
+    p.preco_promo   AS preco_promocao,  -- so se a promo for um preco GUARDADO   --TODO
     p.curva         AS curva,                                                     --TODO
-    f.nome          AS fornecedor,                                                --TODO
-    p.categoria     AS categoria,                                                 --TODO
     p.ativo         AS ativo
 FROM produtos p                                                                  --TODO
-LEFT JOIN fornecedores f ON f.id = p.fornecedor_id                               --TODO
 WHERE p.ativo = 1
 ORDER BY p.descricao
 """
@@ -34,8 +31,9 @@ SELECT
     i.produto_codigo     AS codigo,                                              --TODO
     p.descricao          AS descricao,                                           --TODO
     DATE(v.data_emissao) AS data,                                                --TODO
-    SUM(i.quantidade)    AS qtd_vendida,                                         --TODO
-    SUM(i.valor_total)   AS valor        -- receita R$ do dia                    --TODO
+    SUM(i.quantidade)               AS qtd_vendida,                             --TODO
+    SUM(i.valor_total)              AS valor,       -- receita R$ do dia         --TODO
+    SUM(i.quantidade * i.custo_no_pedido) AS custo_venda  -- CMV do dia (custo congelado no pedido) --TODO
 FROM vendas v                                                                    --TODO
 JOIN vendas_itens i ON i.venda_id = v.id                                         --TODO
 JOIN produtos p     ON p.codigo = i.produto_codigo                              --TODO
@@ -62,10 +60,8 @@ SELECT
     pc.data_pedido      AS data_pedido,                                          --TODO
     i.quantidade        AS qtd_pedida,                                           --TODO
     pc.status           AS status,                                               --TODO
-    pc.previsao_entrega AS previsao_entrega,                                     --TODO
-    f.nome              AS fornecedor                                            --TODO
+    pc.previsao_entrega AS previsao_entrega                                      --TODO
 FROM pedidos_compra pc                                                           --TODO
 JOIN pedidos_compra_itens i ON i.pedido_id = pc.id                               --TODO
-LEFT JOIN fornecedores f ON f.id = pc.fornecedor_id                              --TODO
 WHERE pc.status IN ('aberto', 'parcial')  -- so o que ainda nao chegou           --TODO
 """

@@ -15,10 +15,15 @@ Assim o mapeamento do ERP fica **num lugar só** (`src/queries.py`).
 
 | Extração | Colunas canônicas (devolvidas pelo SQL) | Cadência |
 |---|---|---|
-| **catalogo**     | `codigo, descricao, embalagem, custo, preco_atacado, preco_varejo, preco_promocao, curva, fornecedor, categoria, ativo` | 3–5x/dia |
-| **vendas**       | `codigo, descricao, data, qtd_vendida, valor` (últimos `janela_dias`, dia a dia) | diário (05:00) |
+| **catalogo**     | `codigo, descricao, embalagem(opc), custo_atual, preco_atacado, preco_varejo, preco_promocao, curva, ativo` | 3–5x/dia |
+| **vendas**       | `codigo, descricao, data, qtd_vendida, valor, custo_venda` (últimos `janela_dias`, dia a dia) | diário (05:00) |
 | **recebimentos** | `codigo, data_ultimo_recebimento, qtd_recebida` | diário (05:00) |
-| **pedidos**      | `codigo, data_pedido, qtd_pedida, status, previsao_entrega, fornecedor` (só abertos) | diário (05:00) |
+| **pedidos**      | `codigo, data_pedido, qtd_pedida, status, previsao_entrega` (só abertos) | diário (05:00) |
+
+> **Dois custos (definição do usuário):** `custo_atual` vem do **cadastro** (custo de
+> hoje → cotação/pricing decidem com ele); `custo_venda` vem do **item do pedido**
+> (custo **congelado no dia da venda** → margem realizada correta no BI/priorização).
+> `categoria`/`fornecedor` foram **removidos** (não usados).
 
 > **Origem no ERP — A PREENCHER JUNTOS** (por isso os `SELECT`s estão como TODO):
 >
@@ -26,10 +31,10 @@ Assim o mapeamento do ERP fica **num lugar só** (`src/queries.py`).
 > |---|---|
 > | Tabela + coluna do **cadastro de produtos** | `produtos (codigo, descricao, ...)` |
 > | Colunas de **preço**: atacado, varejo, promoção | `preco1=atacado, preco2=varejo, preco_promo=promoção?` |
-> | Coluna de **custo** e de **curva ABC** | `custo_medio`, `curva` |
-> | Tabela de **itens de venda** (nota + item) | `vendas / vendas_itens` |
+> | **Custo ATUAL** (cadastro) + **curva ABC** | `custo_medio`, `curva` |
+> | Tabela de **itens de venda** + **custo no pedido** (`custo_venda`) | `vendas / vendas_itens (custo_no_pedido)` |
 > | Tabela de **entradas/recebimentos** | `entradas / entradas_itens` |
-> | Tabela de **pedidos de compra** + campo de status "aberto" | `pedidos_compra (status IN ...)` |
+> | Tabela de **pedidos de compra** + qual `status` = "aberto" | `pedidos_compra (status IN ...)` |
 > | **Unidade** de `qtd_vendida` vs preço/custo | "venda em unidade, preço por caixa de N" |
 
 ---
@@ -53,11 +58,11 @@ O HTML oficial usa um catálogo com **chaves compactas**. A projeção escreve:
 |---|---|---|
 | `c`     | `codigo`          | código interno |
 | `p`     | `descricao`       | descrição |
-| `q`     | `embalagem`       | qtd por embalagem (fator) |
+| `q`     | `embalagem`       | qtd por embalagem (fator) — **opcional** |
 | `v`     | `preco_atacado`   | **preço atacado** (base) |
 | `vu`    | `preco_varejo`    | **preço varejo** (unitário) |
-| `vp`    | `preco_promocao`  | **preço promoção** (novo — ver "A confirmar") |
-| `custo` | `custo`           | custo (piso de margem) |
+| `vp`    | `preco_promocao`  | **preço promoção** (só se guardado — ver "A confirmar") |
+| `custo` | `custo_atual`     | custo corrente (piso de margem / limite de desconto) |
 | `cv`    | `curva`           | curva ABC |
 
 > **Dependência conhecida:** falta o `cotacao_ia.html` fazer `fetch("produtos.json")`
@@ -84,9 +89,9 @@ codigo;data_ultimo_recebimento;qtd_recebida
 
 Repo: `detector-ruptura-estoque-atacaderj`  ·  pasta: `data/input/`  ·  separador `;`
 
-`vendas.csv`  (**com valor R$**)
+`vendas.csv`  (**com valor R$ e custo do dia**)
 ```
-codigo;descricao;data;qtd_vendida;valor
+codigo;descricao;data;qtd_vendida;valor;custo_venda
 ```
 `recebimentos.csv`
 ```
@@ -115,7 +120,12 @@ Repo: `pricing-atacaderj`. Lê MySQL direto per SKU:
 
 1. **Promoção (`vp`)**: existe um preço de promoção *armazenado* no ERP, ou a
    promoção é **calculada** (como o HTML faz hoje: desconto máx. respeitando piso)?
-2. **"Última entrega"**: `recebimentos` traz **só a última** entrada por item, ou
-   **todas** as entradas da janela? (Os detectores usam a data da última.)
+2. **Recebimentos — espectro, não binário** (definição do usuário): o detector NÃO
+   trata "recebeu recente" como sim/não; monta um **espectro de probabilidade**
+   cruzando **tempo desde o recebimento × giro no período × quantidade recebida**.
+   A ponte já carrega os 3 ingredientes (data + `qtd_recebida`; série diária de
+   `vendas`). **Em aberto:** trazer **só a última** entrada por item (simples, casa
+   com o detector atual) ou **todas as entradas da janela** (permite estimar
+   cobertura ciclo a ciclo → espectro mais rico)?
 3. **Unidade**: `qtd_vendida` sai na **mesma unidade** de `preco/custo`? Se não,
    trazer o fator em `embalagem` e converter na projeção.

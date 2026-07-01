@@ -9,15 +9,15 @@ from datetime import date, timedelta
 
 def catalogo():
     base = [
-        ("2411", "KELLOGGS SUCRILHOS 240G", 12, 14.20, 18.90, 22.50, 16.90, "A", "Kelloggs", "Matinais"),
-        ("2795", "MINEIRINHO 250ML", 24, 1.05, 1.79, 2.49, None, "B", "Mineirinho", "Limpeza"),
-        ("3905", "SAPOLIO RADIUM 450ML", 12, 2.30, 3.49, 4.20, 2.99, "C", "Bombril", "Limpeza"),
+        ("2411", "KELLOGGS SUCRILHOS 240G", 12, 14.20, 18.90, 22.50, 16.90, "A"),
+        ("2795", "MINEIRINHO 250ML", 24, 1.05, 1.79, 2.49, None, "B"),
+        ("3905", "SAPOLIO RADIUM 450ML", 12, 2.30, 3.49, 4.20, 2.99, "C"),
     ]
     return [
-        {"codigo": c, "descricao": d, "embalagem": q, "custo": cu,
+        {"codigo": c, "descricao": d, "embalagem": q, "custo_atual": cu,
          "preco_atacado": pa, "preco_varejo": pv, "preco_promocao": pp,
-         "curva": cv, "fornecedor": fo, "categoria": ca, "ativo": 1}
-        for (c, d, q, cu, pa, pv, pp, cv, fo, ca) in base
+         "curva": cv, "ativo": 1}
+        for (c, d, q, cu, pa, pv, pp, cv) in base
     ]
 
 
@@ -29,7 +29,8 @@ def vendas(janela_dias=120):
             d = hoje - timedelta(days=k)
             qtd = 5 + (k % 7)
             linhas.append({"codigo": cod, "descricao": desc, "data": d.isoformat(),
-                           "qtd_vendida": qtd, "valor": round(qtd * 18.9, 2)})
+                           "qtd_vendida": qtd, "valor": round(qtd * 18.9, 2),
+                           "custo_venda": round(qtd * 14.2, 2)})
     return linhas
 
 
