@@ -44,6 +44,19 @@ tocar no ERP. Os arquivos vão para os caminhos de `config.example.json > saida`
 5. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
    (catálogo 08/12/15/18h; movimentos 05:00, antes do detector das 05:30).
 
+## Onde roda (topologia segura)
+
+- **Servidor MySQL + apps do ERP** → **NÃO recebe nada. Intocado.** Nenhuma
+  instalação, nenhum processo, nenhum arquivo mexido.
+- **PC-ponte** (outra máquina, na mesma rede do servidor) → roda **este** script.
+  Conecta no MySQL do servidor **por TCP** com o usuário `viewer` (só `SELECT`) e
+  grava os arquivos **localmente**, na pasta que os consumidores (cotação/detectores) leem.
+- **A IA nunca roda no servidor.** Ela só ajuda a escrever os `SELECT`s; o que roda
+  no PC-ponte é este script fixo, read-only.
+
+Boa prática no PC-ponte: rodar a Tarefa Agendada sob um **usuário Windows dedicado,
+sem admin**, com permissão de escrita **só na pasta de saída**.
+
 ## Segurança
 
 - Usuário **`viewer`** só faz `SELECT`. O código tem uma **segunda trava**
