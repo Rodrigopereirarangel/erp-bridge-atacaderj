@@ -1,0 +1,26 @@
+{
+  "_comentario": "Copie para config.local.json e preencha. config.local.json NAO e versionado (tem a senha).",
+  "_saida_real_sugerida": {
+    "cotacao_produtos_json": "C:/Users/COMPUTADOR/Downloads/produtos.json",
+    "detector_salao_dir":   "C:/Users/COMPUTADOR/detector-ruptura-atacaderj/data/input",
+    "detector_estoque_dir": "C:/Users/COMPUTADOR/detector-ruptura-estoque-atacaderj/data/input"
+  },
+
+  "db": {
+    "host": "192.168.0.10",
+    "port": 3306,
+    "user": "viewer",
+    "password": "TROCAR_AQUI",
+    "database": "nome_do_banco",
+    "charset": "utf8mb4",
+    "connect_timeout": 15
+  },
+
+  "janela_dias": 120,
+
+  "saida": {
+    "cotacao_produtos_json": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/cotacao/produtos.json",
+    "detector_salao_dir":   "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-salao",
+    "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque"
+  }
+}

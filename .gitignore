@@ -1,0 +1,16 @@
+# Segredos e config real (NUNCA versionar — contém a senha do viewer)
+config.local.json
+
+# Saída gerada (arquivos que alimentam os consumidores)
+saida/*
+!saida/.gitkeep
+
+# Logs
+*.log
+bridge_erros.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
