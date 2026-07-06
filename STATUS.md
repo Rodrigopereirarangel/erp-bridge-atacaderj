@@ -79,3 +79,5 @@ saída para preencher os 4 `SELECT` de `src/queries.py`.
 - **2026-07-06** — Topologia confirmada. PC-ponte **DESKTOP-3BLTBIV** (192.168.0.164)
   alcança o MySQL da CONCENTRADOR (192.168.0.245:3306, `TcpTestSucceeded=True`).
   Repo criado no GitHub (privado) com este STATUS. Próximo: viewer host + inspect_schema.
+- **2026-07-06** — Adicionado `CLAUDE.md`: o Claude do PC-ponte lê esse arquivo ao
+  abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
