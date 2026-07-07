@@ -32,10 +32,13 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [x] Escolher o PC-ponte: **DESKTOP-3BLTBIV** (24h, rede da loja)
 - [x] Teste de rede PC-ponte → servidor (`Test-NetConnection 3306` = `True`)
 - [x] Subir o `erp-bridge` no GitHub (repo **privado**) + este STATUS
-- [ ] Confirmar o **host do `viewer`** (tem que aceitar `192.168.0.%`, não só `localhost`)
-- [ ] No PC-ponte: instalar **Git + Python 3.12** (winget) + `pip install -r requirements.txt`
-- [ ] No PC-ponte: `git clone` deste repo
-- [ ] Preencher **`config.local.json`** (host `192.168.0.245`, viewer, senha, database)
+- [ ] **BLOQUEADO AQUI →** Liberar acesso de rede no MySQL: o usuário testado (`rodrigo`)
+  é recusado vindo do PC-ponte (`Access denied for 'rodrigo'@'DESKTOP-3BLTBIV'`) —
+  existe só como `@'localhost'`. Rodar na CONCENTRADOR o `CREATE USER
+  'viewer'@'192.168.0.%'` + `GRANT SELECT` (comando pronto na seção abaixo)
+- [x] No PC-ponte: instalar **Git + Python 3.12** (winget) + `pip install -r requirements.txt` (Python 3.12.10, pymysql 2.2.8)
+- [x] No PC-ponte: `git clone` deste repo → `C:\Users\User\erp-bridge-atacaderj`
+- [x] Preencher **`config.local.json`** (host/porta/user/senha ok; **`database` pendente** — sai do `SHOW DATABASES` pós-liberação)
 - [ ] `python src/inspect_schema.py ...` → obter tabelas/colunas reais
 - [ ] Preencher os **4 SELECT** em `src/queries.py` com o schema real
 - [ ] Testar: `python src/bridge.py --only catalogo` → gera `produtos.json` real
@@ -69,10 +72,31 @@ python src/inspect_schema.py produto preco custo curva venda entrada pedido
 - user: `viewer`
 - database: *(a preencher — se não souber, `SHOW DATABASES` no HeidiSQL revela)*
 
-## Próximo passo imediato
+## Próximo passo imediato — DESBLOQUEIO (rodar NA CONCENTRADOR)
 
-Confirmar o host do `viewer` e rodar o `inspect_schema` no PC-ponte; colar a
-saída para preencher os 4 `SELECT` de `src/queries.py`.
+Na máquina CONCENTRADOR, abrir o cliente MySQL (HeidiSQL / linha de comando,
+logado como `root` ou outro usuário com privilégio de GRANT) e rodar:
+
+```sql
+CREATE USER 'viewer'@'192.168.0.%' IDENTIFIED BY '<SENHA_AQUI>';
+GRANT SELECT ON *.* TO 'viewer'@'192.168.0.%';
+FLUSH PRIVILEGES;
+```
+
+> `<SENHA_AQUI>` = a senha combinada com o Claude do PC-ponte (a mesma que já
+> está no `config.local.json` de lá — **nunca** escrever a senha neste arquivo:
+> o repo é público).
+
+> Por que `viewer` e não liberar o `rodrigo`? O `rodrigo` provavelmente tem
+> privilégios de escrita/admin — expor ele à rede inteira é risco desnecessário.
+> O `viewer` nasce **só-SELECT** (a arquitetura do projeto já assume isso).
+> Depois que o `SHOW DATABASES` revelar o banco do ERP, dá para restringir:
+> `REVOKE SELECT ON *.* FROM 'viewer'@'192.168.0.%';`
+> `GRANT SELECT ON <banco_do_erp>.* TO 'viewer'@'192.168.0.%';`
+
+Feito isso, no PC-ponte: trocar `user` para `viewer` no `config.local.json`,
+testar conexão, `SHOW DATABASES` → preencher `database`, e seguir para o
+`inspect_schema` + preencher os 4 `SELECT` de `src/queries.py`.
 
 ## Log de progresso
 
@@ -81,3 +105,10 @@ saída para preencher os 4 `SELECT` de `src/queries.py`.
   Repo criado no GitHub (privado) com este STATUS. Próximo: viewer host + inspect_schema.
 - **2026-07-06** — Adicionado `CLAUDE.md`: o Claude do PC-ponte lê esse arquivo ao
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
+- **2026-07-07** — Sessão no PC-ponte (DESKTOP-3BLTBIV): repo clonado em
+  `C:\Users\User\erp-bridge-atacaderj`; Python 3.12.10 + pymysql 2.2.8 instalados
+  (winget); `config.local.json` criado (gitignored, confirmado). Teste de login no
+  MySQL 192.168.0.245 com o usuário fornecido (`rodrigo`) → **`Access denied for
+  'rodrigo'@'DESKTOP-3BLTBIV'`** = usuário só existe em `localhost`. **Bloqueado
+  aguardando** o `CREATE USER 'viewer'@'192.168.0.%'` na CONCENTRADOR (comando
+  pronto na seção "Próximo passo imediato").
