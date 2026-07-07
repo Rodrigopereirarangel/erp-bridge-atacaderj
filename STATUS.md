@@ -89,6 +89,15 @@ python src\inspect_schema.py venda nota pedido produto
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
 - **2026-07-07 (manhã)** — Sessão no PC-ponte (DESKTOP-3BLTBIV): repo clonado,
   Python 3.12.10 instalado, config criado. Login no MySQL 3306 recusado.
+- **2026-07-07 (AUDITORIA)** — Saída da ponte conferida item a item contra 4
+  relatórios manuais do ERP (Cadastro Atacado, Gestão Preço, Curva ABC 01–07/07,
+  Pedidos DAV 06/07): **dados batem** — custo/promo/curva/vendas/DAV ~100%.
+  Divergências têm explicação e estão documentadas em
+  `docs/AUDITORIA-2026-07-07.md`: relatórios mostram preço da EMPRESA e a ponte
+  o preço da FILIAL (que é o cobrado no caixa); `q` do json é a caixa, não a
+  qtde mínima do atacado; `vendas.csv` é bruta (não desconta devoluções — 3 de
+  2.731 itens na janela). Repo `cotacao-auditoria-atacaderj` NÃO acessível
+  deste PC (token só alcança o erp-bridge).
 - **2026-07-07 (VIRADA)** — Usuário revelou que acessa por **SQL Server
   Management Studio**: o ERP é **Solidcon sobre SQL Server 2014**, porta 1433 —
   não MySQL! Login `rodrigo` funcionou na hora, sem tocar no servidor. Mapeado o
