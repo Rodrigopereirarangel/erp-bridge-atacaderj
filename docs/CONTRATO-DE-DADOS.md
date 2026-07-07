@@ -70,10 +70,11 @@ O HTML oficial usa um catálogo com **chaves compactas**. A projeção escreve:
 | `custo` | `custo_atual`     | custo corrente (piso de margem / limite de desconto) |
 | `cv`    | `curva`           | curva ABC |
 
-> **Como o HTML recebe o catálogo (design 2026-07-07):** o app continua com catálogo
-> **embutido** — o bridge injeta os dados no bloco marcado do template e grava o
-> `cotacao.html` completo na pasta compartilhada. Sem `fetch`, sem servidor. Ver
-> `superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
+> **Como o app recebe o catálogo (design 2026-07-07):** o app roda como **artifact
+> no claude.ai**; o bridge gera o **`catalogo_bridge.json`** (arquivo único com
+> `gerado_em` + produtos `c,p,q,v,vu,custo,cv`; promo vence: `v = promoção` quando
+> menor) e um **robô agendado** o sobe pelo botão "📦 Catálogo" do app → storage
+> compartilhado. Ver `superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
 
 ---
 

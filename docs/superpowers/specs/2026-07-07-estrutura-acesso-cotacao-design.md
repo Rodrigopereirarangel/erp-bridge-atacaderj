@@ -1,106 +1,122 @@
-# Design — Estrutura geral de acesso: cotação via HTML injetado em pasta compartilhada
+# Design — Estrutura geral: bridge → arquivo único → artifact no claude.ai (robô de upload)
 
 **Data:** 2026-07-07 · **Status:** aprovado pelo usuário (brainstorm de 2026-07-07)
+**Substitui** a versão anterior desta spec (injeção no HTML + pasta compartilhada),
+descartada ao constatar que o app da cotação roda como **artifact no claude.ai**.
 
-## Contexto e decisões de escopo
+## Contexto e fatos que moldaram o design
 
-- O bridge (este repo) extrai do MySQL do ERP (viewer só-leitura) e gera
-  `produtos.json` + CSVs, agendado no PC-ponte (`DESKTOP-3BLTBIV`, 24h, rede da loja).
-- **Decisão (2026-07-07): o loop de feedback (apelidos/correções) foi descartado.**
-  Saiu do checklist e do escopo. O bridge é só extração → arquivos.
-- **Decisão (2026-07-07): o funcionário nunca acessa o repositório.** GitHub guarda
-  só código e memória do projeto (STATUS/specs). O único contato do funcionário com
-  o sistema é um atalho que abre a cotação no navegador.
-- Cenário A segue inegociável: **custo/preço não saem da rede da loja.**
+- O bridge (este repo) extrai do MySQL do ERP (viewer só-leitura) no PC-ponte
+  (`DESKTOP-3BLTBIV`, 24h, rede da loja) — agendado pelo Agendador de Tarefas.
+- O app da cotação (`cotacao-auditoria-atacaderj`) **não é um HTML estático**:
+  chama a IA do Claude (leitura de listas manuscritas, interpretação, busca
+  semântica) via proxy do claude.ai e usa `window.storage`. **Ele roda como
+  artifact no claude.ai** — é isso que dá IA sem API key paga (consome a sessão
+  Claude de cada usuário) e storage compartilhado entre os funcionários.
+- Limites do claude.ai (verificados): artifact não enxerga a rede da loja; não
+  existe API para escrever no storage ou editar artifact (nem via skill, MCP,
+  Cowork ou chat); republicar o HTML (~646KB) diariamente estoura limite de
+  saída e arrisca corromper o app. **A única porta de escrita é um navegador
+  logado usando o próprio app.**
+- Decisões anteriores mantidas: loop de feedback descartado; funcionário nunca
+  acessa repositório; custo/preço **nunca vão para o GitHub** (Cenário A).
 
-## Como o funcionário acessa
+## Princípio central
 
-Atalho "Cotação AtacadeRJ" na área de trabalho dos PCs da loja, apontando para
-`\\DESKTOP-3BLTBIV\cotacao\cotacao.html`. Dois cliques → navegador abre a página
-com o catálogo da última rodada do bridge. Sem conta, sem senha, sem URL digitada,
-sem GitHub.
+**Separar o app dos dados.** O app publica-se como artifact **uma vez** (link
+fixo). Os dados (banco de preços) viajam todo dia como **um arquivo pequeno**,
+pela porta que o app já tem: o botão de upload, que grava no storage
+compartilhado e distribui a todos os usuários do artifact.
 
-## Fluxo de dados (mudança em relação ao plano anterior)
+## Arquitetura (rotina diária, zero toque humano)
 
-O plano anterior era servir `produtos.json` por HTTP e o HTML fazer `fetch`.
-**Substituído por injeção sem servidor:**
+1. **Bridge** (agendado, ex. 05:00): extrai do MySQL e grava na pasta da loja o
+   **arquivo único de importação** — catálogo unificado (atacado + varejo +
+   promoção + curva ABC + custo) com data/hora de geração. Escrita atômica.
+2. **Robô de upload** (agendado, ex. 05:30, mesmo PC-ponte): script
+   **Playwright determinístico** (sem IA em runtime; Claude só o escreve uma
+   vez) abre o link do artifact num navegador com sessão claude.ai persistente
+   e sobe o arquivo pelo botão "📦 Catálogo" do app → storage compartilhado
+   distribui a todos.
+3. **Funcionário**: abre o link fixo do artifact (logado na própria conta
+   Claude, como já é hoje) e cota. Nunca atualiza nada.
+4. **Rede de segurança**: a trava `verificarBancoAtualizado()` do app acusa na
+   tela se o banco não for de hoje — falha do robô **nunca é silenciosa**.
 
-1. O bridge roda agendado (catálogo 08/12/15/18h) e extrai o catálogo como hoje.
-2. Passo novo de projeção: o bridge pega o **template** do HTML da cotação
-   (o app do repo `cotacao-auditoria-atacaderj`, que já funciona com catálogo
-   embutido) e **substitui o bloco marcado do catálogo** pelos dados recém-extraídos.
-3. Grava `cotacao.html` completo na pasta compartilhada, com **escrita atômica**
-   (grava `cotacao.html.tmp` e renomeia por cima). Ninguém abre arquivo pela metade.
-4. Se a extração falhar, nada é gravado: o `cotacao.html` da última rodada boa
-   permanece — a cotação nunca sai do ar.
+## Contingências (hierarquia)
 
-Os CSVs dos detectores continuam exatamente como estão. O `produtos.json` continua
-sendo gerado (outros consumidores o usam); a cotação apenas deixa de depender dele
-em tempo de abertura.
+- **Plano A (rotina):** robô agendado — zero toque.
+- **Plano B (dia de falha do robô):** upload manual do mesmo arquivo — abrir o
+  artifact, botão 📦, escolher o arquivo da pasta (~30s). Disparado pelo aviso
+  da trava, não por vigilância humana.
+- **Plano C (falha do próprio bridge/MySQL):** fluxo atual do app — upload
+  manual dos 3 relatórios exportados do ERP (atacado, varejo, curva ABC).
+  Permanece intacto no app.
 
-**Por que sem servidor:** um mini-site HTTP no ponte seria um processo 24h a mais,
-que pode cair sem ninguém perceber. Pasta compartilhada é servida pelo próprio
-Windows — não existe peça nova para travar.
+## O arquivo único de importação
+
+- Formato: JSON (`catalogo_bridge.json`), contendo `gerado_em`
+  (data/hora) e `produtos` com as chaves que o app já usa:
+  `c, p, q, v, vu, custo, cv`.
+- **Regra de promoção igual à do upload manual atual** (`mesclarCatalogos`):
+  quando `preco_promocao > 0` e menor que o preço, `v = promoção` — coerente
+  com a spec "promoção vence = desconto zero".
+- Mescla: varejo é a base completa; produto presente no atacado usa preço/qtde
+  do Atacado 1; curva A marca `cv:'A'` (teto de desconto 3%, demais 5%).
+- Validações antes de gravar: total de produtos plausível, data = hoje. Se a
+  extração falhar, **não grava** — o arquivo anterior permanece e a trava do
+  app fará seu papel.
 
 ## Mudanças concretas
 
-### Repo `cotacao-auditoria-atacaderj` (app da cotação)
-
-Estado real do HTML (conferido em 2026-07-07): `CATALOG` e `CATALOG_TEXT` vivem
-**dentro do mesmo `<script id="app-core">`** que o código; o app já tem fluxo
-manual de atualização (upload de 3 relatórios → mescla → salva em
-`atacaderj_catalogo` no storage) e uma trava `verificarBancoAtualizado()` que
-exige atualização diária. Mudanças necessárias:
-
-1. **Separar os dados** num `<script id="catalogo-dados">` próprio, contendo só
-   `const CATALOG=[...]` + `const CATALOG_GERADO_EM="dd/mm/aaaa hh:mm"`. O
-   `CATALOG_TEXT` deixa de ser embutido: derivar em runtime com
-   `montarTextoCatalogo()` (função que já existe no app).
-2. **Inverter a precedência**: hoje o catálogo do storage vence o embutido.
-   Passar a usar o embutido quando `CATALOG_GERADO_EM` for mais novo que a data
-   do storage (catálogo injetado fresco nunca pode perder para upload antigo).
-3. **Trava de banco desatualizado**: `verificarBancoAtualizado()` passa a
-   aceitar `CATALOG_GERADO_EM` de hoje como "banco atualizado" — sem isso, todo
-   funcionário cairia no modal de autorização do gerente diariamente.
-4. O botão "📦 Catálogo" (upload dos 3 relatórios) **permanece como
-   contingência manual** — deixa de ser a rotina.
-
 ### Repo `erp-bridge-atacaderj` (este)
-- Novo módulo `src/inject_html.py`: lê o template, valida a presença do marcador
-  `catalogo-dados`, injeta `CATALOG` + `CATALOG_GERADO_EM`, grava atômico.
-- Chaves injetadas por produto: `c, p, q, v, vu, custo, cv` (mesmo contrato do
-  `produtos.json`). **Regra de promoção igual à do upload manual do app**:
-  quando `preco_promocao > 0` e menor que o preço, `v = promoção` (coerente com
-  `mesclarCatalogos` e com a spec "promoção vence = desconto zero").
-- `config.local.json` ganha duas chaves em `saida`:
-  - `cotacao_html_template` — caminho do HTML-molde (clone do repo da cotação no ponte;
-    atualiza com `git pull` quando o app evoluir);
-  - `cotacao_html_saida` — caminho final na pasta compartilhada.
-- `--demo` também gera `cotacao.html` com dados falsos, para validar o app de ponta
-  a ponta sem tocar o ERP.
-- Falha dura e explícita se o marcador não for encontrado no template (protege
-  contra template desatualizado).
+- Nova projeção: `catalogo_bridge.json` (mescla acima + `gerado_em`), gravado
+  em caminho configurável no `config.local.json`.
+- Novo componente: **robô de upload** (`robo/` — script Playwright + tarefa
+  agendada no `register-tasks.ps1`), com log local de sucesso/falha. Usa perfil
+  de navegador persistente logado na conta claude.ai do usuário.
+- O `produtos.json` e os CSVs dos detectores continuam exatamente como estão.
 
-### PC-ponte (setup único, manual)
-- Compartilhar a pasta de saída da cotação na rede como **somente leitura**
-  (`\\DESKTOP-3BLTBIV\cotacao`).
-- Criar o atalho nos PCs dos funcionários.
+### Repo `cotacao-auditoria-atacaderj` (app da cotação)
+- Aceitar o **arquivo único** no fluxo de atualização: além dos 3 relatórios, o
+  botão "📦 Catálogo" reconhece `catalogo_bridge.json`, valida `gerado_em`
+  (tem que ser de hoje) e grava direto no storage compartilhado.
+- O fluxo dos 3 relatórios não muda (é o plano C).
+- Sem mexer em `CATALOG` embutido, precedência de storage ou trava de data — o
+  storage continua sendo a fonte, como hoje; a trava já valida por data.
+
+### Setup único (manual, uma vez)
+- Publicar o app como artifact na conta Claude do usuário; distribuir o link
+  aos funcionários (cada um loga com a própria conta Claude).
+- No PC-ponte: instalar Playwright, criar o perfil de navegador logado no
+  claude.ai, registrar as tarefas agendadas (bridge e robô).
 
 ## Segurança
 
-- Custo/preço permanecem na rede local (pasta compartilhada só-leitura; GitHub sem dados).
-- Sem porta nova, sem serviço novo, sem credencial nova. O viewer segue só-`SELECT`
-  com a trava do `src/db.py`.
+- Custo/preço não vão para o GitHub (inalterado). Eles já residem no storage
+  do artifact no claude.ai — realidade atual do app, não uma mudança.
+- Nenhuma porta da rede da loja é exposta à internet (sem túnel, sem MCP
+  remoto). O tráfego é sempre de saída, pelo navegador do PC-ponte.
+- Viewer segue só-`SELECT` com a trava do `src/db.py`; servidor do ERP intocado.
 
-## Testes
+## Riscos e mitigação
 
-- `python src/bridge.py --demo` → `cotacao.html` com dados falsos abre e cota.
-- Teste do marcador: template sem marcador → o bridge falha com mensagem clara e
-  **não** sobrescreve o arquivo publicado.
-- Teste de atomicidade: arquivo publicado nunca existe em estado parcial.
+- **Robô é o elo frágil** (sessão expira, claude.ai muda a interface): falha é
+  visível pela trava do app; plano B leva 30s; log local do robô registra o
+  motivo. O alvo dos cliques é majoritariamente o **nosso** app (DOM sob nosso
+  controle), reduzindo a superfície exposta a mudanças do claude.ai.
+- **Consumo de sessão dos funcionários** (limites do plano Claude de cada um):
+  característica do app atual, fora do escopo desta spec.
+
+## Plano de migração documentado (se o claude.ai inviabilizar o robô)
+
+Caminho B: o app sai do claude.ai e roda na rede da loja; o bridge injeta o
+catálogo direto no HTML (design da versão anterior desta spec); IA passa a API
+key paga (custo por cotação); storage compartilhado reimplementado localmente.
+Zero-toque estrutural, ao custo de abandonar o custo zero de IA.
 
 ## Fora de escopo
 
-- Loop de feedback (apelidos/correções) — descartado.
-- Auditoria (`dashboard.html`) — ferramenta do Rodrigo, não entra no acesso do funcionário.
+- Loop de feedback (apelidos/correções) — descartado em 2026-07-07.
+- Auditoria (`dashboard.html`) — ferramenta do usuário, não dos funcionários.
 - Pricing semanal — design separado, entra depois.
