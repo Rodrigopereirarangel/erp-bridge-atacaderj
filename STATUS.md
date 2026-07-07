@@ -41,7 +41,6 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [ ] Testar: `python src/bridge.py --only catalogo` → gera `produtos.json` real
 - [ ] Agendar: `scripts/register-tasks.ps1` (catálogo 08/12/15/18h; movimentos 05:00)
 - [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local
-- [ ] Loop de feedback (apelidos/correções) → GitHub via serverless (Apps Script)
 
 ## Comandos-chave (rodar no PC-ponte)
 
@@ -81,3 +80,5 @@ saída para preencher os 4 `SELECT` de `src/queries.py`.
   Repo criado no GitHub (privado) com este STATUS. Próximo: viewer host + inspect_schema.
 - **2026-07-06** — Adicionado `CLAUDE.md`: o Claude do PC-ponte lê esse arquivo ao
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
+- **2026-07-07** — **Decisão:** loop de feedback (apelidos/correções) **descartado**
+  — removido do escopo e do checklist. O bridge fica só extração → arquivos.
