@@ -1,5 +1,6 @@
 {
   "_comentario": "Copie para config.local.json e preencha. config.local.json NAO e versionado (tem a senha).",
+  "_db_atacaderj": "tipo sqlserver, host 192.168.0.245, port 1433, database Solidcon, driver 'SQL Server' (o ERP e Solidcon sobre SQL Server 2014 — nao MySQL)",
   "_saida_real_sugerida": {
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/Downloads/produtos.json",
     "detector_salao_dir":   "C:/Users/COMPUTADOR/detector-ruptura-atacaderj/data/input",
@@ -7,12 +8,13 @@
   },
 
   "db": {
-    "host": "192.168.0.10",
-    "port": 3306,
-    "user": "viewer",
+    "tipo": "sqlserver",
+    "driver": "SQL Server",
+    "host": "192.168.0.245",
+    "port": 1433,
+    "user": "TROCAR_AQUI",
     "password": "TROCAR_AQUI",
-    "database": "nome_do_banco",
-    "charset": "utf8mb4",
+    "database": "Solidcon",
     "connect_timeout": 15
   },
 

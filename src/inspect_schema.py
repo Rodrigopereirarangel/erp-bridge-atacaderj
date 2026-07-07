@@ -30,12 +30,16 @@ def main():
     cfg = json.load(open(cfg_path, encoding="utf-8"))
     schema = cfg["db"]["database"]
 
+    # No SQL Server o "database" e o TABLE_CATALOG (conexao ja entra nele);
+    # no MySQL o "database" e o TABLE_SCHEMA.
+    filtro = ("TABLE_CATALOG" if cfg["db"].get("tipo", "mysql") == "sqlserver"
+              else "TABLE_SCHEMA")
     conn = db.conectar(cfg["db"])
     try:
         linhas = db.consultar(conn, f"""
             SELECT TABLE_NAME AS t, COLUMN_NAME AS c, DATA_TYPE AS dt
             FROM information_schema.columns
-            WHERE TABLE_SCHEMA = '{schema}'
+            WHERE {filtro} = '{schema}'
             ORDER BY TABLE_NAME, ORDINAL_POSITION
         """)
     finally:

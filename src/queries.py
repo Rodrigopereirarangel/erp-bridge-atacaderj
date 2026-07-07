@@ -1,71 +1,115 @@
 # -*- coding: utf-8 -*-
-"""Os 4 SELECTs da ponte.
+"""Os 4 SELECTs da ponte — PREENCHIDOS com o schema real (2026-07-07).
 
->>> AQUI e o unico lugar que amarra ao ERP. <<<
-Cada query DEVE devolver as colunas canonicas documentadas em
-docs/CONTRATO-DE-DADOS.md (use `AS` para renomear). Os nomes de TABELA e
-COLUNA abaixo sao PLACEHOLDERS marcados com  --TODO:  — a gente troca juntos
-pelos nomes reais do seu banco. Enquanto nao trocar, rode com --demo.
+Banco: SQL Server 2014, database **Solidcon** (ERP Solidcon; a "loja" e a
+filial 1 / SEQLOJA 1). Validado contra o consolidado oficial do PDV
+(DORSAL.tbConsVenda): SUM(qtVenda*vlVenda) do dia bate ao centavo.
 
-`{janela}` e substituido em runtime pela janela em dias (config.janela_dias).
+Fatos do schema que estas queries dependem (conferidos em producao):
+- nmProduto e NULL em TODO o banco; o nome real vem de tbSuperProduto.nmProdutoPai
+  (tbProduto <-> tbSuperProduto e 1:1 via cdSuperProduto).
+- VW_NEOGRID_PRODUTO_PRECO/ESTOQUE (views que o ERP mantem p/ integradores):
+  SEQPRODUTO = cdProduto; SEQLOJA 1 = loja. PRECO_ATACADO/QUANTIDADE_ATACADO,
+  PRECO_PROMOCAO e CURVA_ABC ja calculados ('X' = sem curva/morto -> vira NULL).
+- tbVendaPDV: 1 linha por produto/cupom; vlVenda e vlCusto sao UNITARIOS
+  -> valor do dia = SUM(qtVenda*vlVenda); CMV = SUM(qtVenda*vlCusto).
+- tbNotaItem.qtItemNota vem em VOLUMES (== qtVolumes); unidades = x qtEmbalagem.
+  Entregas: tbNotaEntrada.dtChegada (cdNotaEntrada = tbNota.cdNota, 100% casa).
+- Pedidos de compra = tbPedido com inEntrada=1; abertos = dtAtendido IS NULL.
+  tbPedidoCompra (cdPedidoCompra = cdPedido) da a dtEntregaPrevista.
+  qtPedidoItem em volumes (mesma convencao da nota) -> x qtEmbalagem.
+
+`{janela}` / `{janela_entradas}` sao substituidos em runtime (config).
 """
 
 CATALOGO = """
 SELECT
-    p.codigo        AS codigo,
-    p.descricao     AS descricao,
-    p.embalagem     AS embalagem,      -- qtd por caixa / fator (OPCIONAL)      --TODO
-    p.custo         AS custo_atual,     -- custo corrente do cadastro (cotacao/pricing) --TODO
-    p.preco_atacado AS preco_atacado,                                            --TODO
-    p.preco_varejo  AS preco_varejo,                                             --TODO
-    p.preco_promo   AS preco_promocao,  -- preco de promocao GUARDADO no ERP     --TODO
-    p.curva         AS curva,                                                     --TODO
-    p.ativo         AS ativo
-FROM produtos p                                                                  --TODO
-WHERE p.ativo = 1
-ORDER BY p.descricao
+    p.cdProduto                      AS codigo,
+    sp.nmProdutoPai                  AS descricao,
+    pr.embalagem,
+    pr.custo_atual,
+    pr.preco_atacado,
+    pr.preco_varejo,
+    pr.preco_promocao,
+    e.CURVA_ABC                      AS curva,
+    1                                AS ativo
+FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
+         -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
+    SELECT SEQPRODUTO, SEQLOJA,
+           QUANTIDADE_CAIXA               AS embalagem,
+           CUSTO_ULTIMA_ENTRADA           AS custo_atual,
+           NULLIF(PRECO_ATACADO, 0)       AS preco_atacado,
+           PRECO_NORMAL                   AS preco_varejo,
+           NULLIF(PRECO_PROMOCAO, 0)      AS preco_promocao,
+           ROW_NUMBER() OVER (PARTITION BY SEQPRODUTO
+                              ORDER BY QUANTIDADE_CAIXA DESC) AS rn
+    FROM dbo.VW_NEOGRID_PRODUTO_PRECO
+    WHERE SEQLOJA = 1
+) pr
+JOIN (
+    SELECT SEQPRODUTO, SEQLOJA, MIN(NULLIF(CURVA_ABC, 'X')) AS CURVA_ABC
+    FROM dbo.VW_NEOGRID_PRODUTO_ESTOQUE
+    GROUP BY SEQPRODUTO, SEQLOJA
+) e ON e.SEQPRODUTO = pr.SEQPRODUTO AND e.SEQLOJA = pr.SEQLOJA
+JOIN dbo.tbProduto p       ON p.cdProduto = pr.SEQPRODUTO
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+WHERE pr.rn = 1
+ORDER BY sp.nmProdutoPai
 """
 
 VENDAS = """
 SELECT
-    i.produto_codigo     AS codigo,                                              --TODO
-    p.descricao          AS descricao,                                           --TODO
-    DATE(v.data_emissao) AS data,                                                --TODO
-    SUM(i.quantidade)               AS qtd_vendida,                             --TODO
-    SUM(i.valor_total)              AS valor,       -- receita R$ do dia         --TODO
-    SUM(i.quantidade * i.custo_no_pedido) AS custo_venda  -- CMV do dia (custo congelado no pedido) --TODO
-FROM vendas v                                                                    --TODO
-JOIN vendas_itens i ON i.venda_id = v.id                                         --TODO
-JOIN produtos p     ON p.codigo = i.produto_codigo                              --TODO
-WHERE v.data_emissao >= CURDATE() - INTERVAL {janela} DAY
-  AND v.status = 'faturada'                                                      --TODO
-GROUP BY i.produto_codigo, p.descricao, DATE(v.data_emissao)
+    v.cdProduto                                    AS codigo,
+    MAX(sp.nmProdutoPai)                           AS descricao,
+    CAST(v.dtVenda AS date)                        AS data,
+    CAST(SUM(v.qtVenda) AS decimal(14,3))          AS qtd_vendida,
+    CAST(SUM(v.qtVenda * v.vlVenda) AS decimal(14,2))  AS valor,
+    CAST(SUM(v.qtVenda * v.vlCusto) AS decimal(14,2))  AS custo_venda
+FROM dbo.tbVendaPDV v
+JOIN dbo.tbProduto p       ON p.cdProduto = v.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+WHERE v.cdProduto IS NOT NULL
+  AND v.dtVenda >= DATEADD(day, -{janela}, CAST(GETDATE() AS date))
+GROUP BY v.cdProduto, CAST(v.dtVenda AS date)
 ORDER BY codigo, data
 """
 
-# ENTRADAS: uma linha por entrega (NAO agrega) nos ultimos {janela_entradas} dias
-# (~6 meses). E o "proxy de estoque": como o ERP nao tem saldo, cruzar o giro
-# (vendas) com as ultimas entregas estima a cobertura restante. Dela tambem se
-# deriva o recebimentos.csv (ultima entrega por item) para o detector de salao.
+# ENTRADAS: uma linha por (produto, dia de chegada) nos ultimos {janela_entradas}
+# dias (~6 meses). E o "proxy de estoque": o saldo do ERP existe mas esta
+# negativo/nao confiavel (implantacao out/2025), entao cruzar giro (vendas) com
+# as ultimas entregas continua sendo o desenho certo. Dela deriva o
+# recebimentos.csv (ultima entrega por item) para o detector de salao.
 ENTRADAS = """
 SELECT
-    i.produto_codigo     AS codigo,                                              --TODO
-    DATE(e.data_entrada) AS data,                                                --TODO
-    i.quantidade         AS qtd                                                  --TODO
-FROM entradas e                                                                  --TODO
-JOIN entradas_itens i ON i.entrada_id = e.id                                     --TODO
-WHERE e.data_entrada >= CURDATE() - INTERVAL {janela_entradas} DAY
-ORDER BY i.produto_codigo, e.data_entrada
+    i.cdProduto                                        AS codigo,
+    CAST(ne.dtChegada AS date)                         AS data,
+    CAST(SUM(i.qtItemNota * i.qtEmbalagem) AS decimal(14,3)) AS qtd
+FROM dbo.tbNotaItem i
+JOIN dbo.tbNotaEntrada ne
+  ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
+WHERE ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+GROUP BY i.cdProduto, CAST(ne.dtChegada AS date)
+ORDER BY codigo, data
 """
 
 PEDIDOS = """
 SELECT
-    i.produto_codigo    AS codigo,                                               --TODO
-    pc.data_pedido      AS data_pedido,                                          --TODO
-    i.quantidade        AS qtd_pedida,                                           --TODO
-    pc.status           AS status,                                               --TODO
-    pc.previsao_entrega AS previsao_entrega                                      --TODO
-FROM pedidos_compra pc                                                           --TODO
-JOIN pedidos_compra_itens i ON i.pedido_id = pc.id                               --TODO
-WHERE pc.status IN ('aberto', 'parcial')  -- so o que ainda nao chegou           --TODO
+    i.cdProduto                                        AS codigo,
+    CAST(p.dtPedido AS date)                           AS data_pedido,
+    CAST(SUM((i.qtPedidoItem - COALESCE(i.qtAtendida, 0)) * i.qtEmbalagem)
+         AS decimal(14,3))                             AS qtd_pedida,
+    CASE WHEN SUM(COALESCE(i.qtAtendida, 0)) > 0
+         THEN 'parcial' ELSE 'aberto' END              AS status,
+    CAST(MAX(pc.dtEntregaPrevista) AS date)            AS previsao_entrega
+FROM dbo.tbPedidoItem i
+JOIN dbo.tbPedido p
+  ON p.cdPedido = i.cdPedido AND p.cdPessoaFilial = i.cdPessoaFilial
+LEFT JOIN dbo.tbPedidoCompra pc
+  ON pc.cdPedidoCompra = p.cdPedido AND pc.cdPessoaFilial = p.cdPessoaFilial
+WHERE p.inEntrada = 1
+  AND p.dtAtendido IS NULL
+  AND COALESCE(i.inAtendido, 0) = 0
+GROUP BY i.cdProduto, CAST(p.dtPedido AS date)
+HAVING SUM((i.qtPedidoItem - COALESCE(i.qtAtendida, 0)) * i.qtEmbalagem) > 0
+ORDER BY codigo, data_pedido
 """

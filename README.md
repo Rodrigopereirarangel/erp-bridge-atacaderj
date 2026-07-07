@@ -1,14 +1,17 @@
 # erp-bridge-atacaderj
 
-Ponte **única** que extrai do ERP (MySQL, usuário **`viewer` somente-leitura**) e
-alimenta, sozinha e agendada, todos os sistemas do AtacadeRJ — **acabando com a
-exportação manual de relatórios**. Custo recorrente **R$ 0**; roda local no PC da rede.
+Ponte **única** que extrai do ERP (**Solidcon / SQL Server 2014**, login
+**somente-leitura**) e alimenta, sozinha e agendada, todos os sistemas do
+AtacadeRJ — **acabando com a exportação manual de relatórios**. Custo
+recorrente **R$ 0**; roda local no PC da rede. **Status: em produção no
+PC-ponte desde 2026-07-07** (queries validadas ao centavo contra o
+consolidado oficial do PDV).
 
 ```
-                                 ┌─ catalogo   (3-5x/dia) ─┐
-ERP MySQL ──(viewer, SELECT)──►  │  vendas       (diário)  │──► arquivos ──► cotação / detectores / pricing
- (só leitura)   src/bridge.py    │  recebimentos (diário)  │
-   agendado ↑                    └─ pedidos      (diário) ──┘
+                                     ┌─ catalogo   (3-5x/dia) ─┐
+ERP SQL Server ──(SELECT apenas)──►  │  vendas       (diário)  │──► arquivos ──► cotação / detectores / pricing
+  (Solidcon)      src/bridge.py      │  entradas     (diário)  │
+   agendado ↑                        └─ pedidos      (diário) ──┘
 ```
 
 ## O que ele gera (contrato completo em [`docs/CONTRATO-DE-DADOS.md`](docs/CONTRATO-DE-DADOS.md))
@@ -31,25 +34,22 @@ tocar no ERP. Os arquivos vão para os caminhos de `config.example.json > saida`
 
 ## Ligar no banco de verdade
 
-1. `copy config.example.json config.local.json` e preencha `db` (host, `viewer`, senha, database)
-   e os caminhos de `saida`. **`config.local.json` não é versionado** (tem a senha).
-2. **Achar as tabelas/colunas** (na máquina que alcança o MySQL):
-   ```bash
-   python src/inspect_schema.py produto preco custo curva venda entrada pedido
-   ```
-   Lista tabelas e colunas (só leitura) para você/eu identificarmos as certas.
-3. Abra `src/queries.py` e troque os **`--TODO`** (nomes reais de tabela/coluna). É o
-   único lugar amarrado ao ERP.
-4. Teste: `python src/bridge.py --only catalogo`
-5. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
+1. `copy config.example.json config.local.json` e preencha `db` (tipo
+   `sqlserver`, host, login somente-leitura, senha, database `Solidcon`) e os
+   caminhos de `saida`. **`config.local.json` não é versionado** (tem a senha).
+2. As queries **já estão preenchidas** com o schema real do Solidcon
+   (`src/queries.py`, T-SQL — o cabeçalho documenta os fatos do schema).
+   Se algo mudar no ERP: `python src/inspect_schema.py <termos>` para explorar.
+3. Teste: `python src/bridge.py --only catalogo`
+4. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
    (catálogo 08/12/15/18h; movimentos 05:00, antes do detector das 05:30).
 
 ## Onde roda (topologia segura)
 
-- **Servidor MySQL + apps do ERP** → **NÃO recebe nada. Intocado.** Nenhuma
+- **Servidor SQL Server + apps do ERP** → **NÃO recebe nada. Intocado.** Nenhuma
   instalação, nenhum processo, nenhum arquivo mexido.
 - **PC-ponte** (outra máquina, na mesma rede do servidor) → roda **este** script.
-  Conecta no MySQL do servidor **por TCP** com o usuário `viewer` (só `SELECT`) e
+  Conecta no SQL Server **por TCP** com login somente-leitura (só `SELECT`) e
   grava os arquivos **localmente**, na pasta que os consumidores (cotação/detectores) leem.
 - **A IA nunca roda no servidor.** Ela só ajuda a escrever os `SELECT`s; o que roda
   no PC-ponte é este script fixo, read-only.
@@ -59,11 +59,13 @@ sem admin**, com permissão de escrita **só na pasta de saída**.
 
 ## Segurança
 
-- Usuário **`viewer`** só faz `SELECT`. O código tem uma **segunda trava**
+- O login do banco só faz `SELECT`. O código tem uma **segunda trava**
   (`src/db.py` recusa qualquer coisa que não seja `SELECT`/`WITH`).
 - Preço/custo **não saem da rede local**. A senha fica só em `config.local.json`.
 
 ## Estado
 
-Design/scaffold pronto e validável por `--demo`. **Falta preencher os `SELECT`s**
-com o schema real — ver a tabela "origem no ERP" em `docs/CONTRATO-DE-DADOS.md`.
+**Funcionando em produção** (2026-07-07): os 4 `SELECT`s estão preenchidos com o
+schema real do Solidcon e validados — vendas batem ao centavo com o consolidado
+oficial do PDV. Origem de cada dado: `docs/CONTRATO-DE-DADOS.md`. Pendências no
+`STATUS.md` (agendar tarefas + ligar o HTML da cotação).

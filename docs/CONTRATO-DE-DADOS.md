@@ -30,17 +30,22 @@ Assim o mapeamento do ERP fica **num lugar só** (`src/queries.py`).
 > (custo **congelado no dia da venda** → margem realizada correta no BI/priorização).
 > `categoria`/`fornecedor` foram **removidos** (não usados).
 
-> **Origem no ERP — A PREENCHER JUNTOS** (por isso os `SELECT`s estão como TODO):
+> **Origem no ERP — PREENCHIDA (2026-07-07)**. ERP = **Solidcon / SQL Server 2014**,
+> database `Solidcon`, loja = filial 1 / SEQLOJA 1:
 >
-> | Preciso de você | Ex. do que responder |
+> | Dado | Origem real |
 > |---|---|
-> | Tabela + coluna do **cadastro de produtos** | `produtos (codigo, descricao, ...)` |
-> | Colunas de **preço**: atacado, varejo, promoção | `preco1=atacado, preco2=varejo, preco_promo=promoção?` |
-> | **Custo ATUAL** (cadastro) + **curva ABC** | `custo_medio`, `curva` |
-> | Tabela de **itens de venda** + **custo no pedido** (`custo_venda`) | `vendas / vendas_itens (custo_no_pedido)` |
-> | Tabela de **entradas/recebimentos** | `entradas / entradas_itens` |
-> | Tabela de **pedidos de compra** + qual `status` = "aberto" | `pedidos_compra (status IN ...)` |
-> | **Unidade** de `qtd_vendida` vs preço/custo | "venda em unidade, preço por caixa de N" |
+> | Cadastro de produtos | `tbProduto` (código) + **`tbSuperProduto.nmProdutoPai`** (nome — `nmProduto` é NULL no banco inteiro; 1:1 via `cdSuperProduto`) |
+> | Preços atacado/varejo/promoção + qtd caixa | **`VW_NEOGRID_PRODUTO_PRECO`** (view que o ERP mantém p/ integradores): `PRECO_ATACADO`, `PRECO_NORMAL`, `PRECO_PROMOCAO`, `QUANTIDADE_CAIXA`. ⚠️ 1 linha POR EMBALAGEM → pegar a linha da maior caixa (ROW_NUMBER) |
+> | Custo atual + curva ABC | `CUSTO_ULTIMA_ENTRADA` (mesma view; é a base da margem do ERP) + `VW_NEOGRID_PRODUTO_ESTOQUE.CURVA_ABC` (`'X'` = sem curva → NULL) |
+> | Vendas (dia × produto, R$ e CMV) | **`tbVendaPDV`** (1 linha por produto/cupom; desde 2023): `vlVenda`/`vlCusto` são **unitários** → `SUM(qt*vl)`. Prova: bate ao centavo com `DORSAL.tbConsVenda` |
+> | Entradas/recebimentos | `tbNotaItem` + `tbNotaEntrada.dtChegada` (`cdNotaEntrada = tbNota.cdNota`). ⚠️ `qtItemNota` vem em **VOLUMES** → unidades = `× qtEmbalagem` |
+> | Pedidos de compra abertos | `tbPedido` (`inEntrada=1`, aberto = `dtAtendido IS NULL`) + `tbPedidoItem` (`qtPedidoItem` em volumes) + `tbPedidoCompra.dtEntregaPrevista` (`cdPedidoCompra = cdPedido`) |
+> | Unidades | venda do PDV em **unidades**; entradas/pedidos em volumes ×`qtEmbalagem` → tudo sai em **unidades** nos CSVs |
+>
+> **Descoberta**: o ERP até tem saldo (`tbEstoqueFisico`), mas está negativo em
+> vários itens (implantação out/2025) → o **proxy por entradas continua sendo o
+> desenho certo**.
 
 ---
 
