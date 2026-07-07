@@ -32,6 +32,18 @@ O único ponto amarrado ao ERP são os 4 `SELECT` de `src/queries.py`.
   **Nunca** commite senha, nem custo, nem preço. Peça a senha ao usuário quando
   precisar; não a escreva em arquivo versionado.
 
+## Planos de implementação pendentes (cotação no claude.ai)
+
+Há **dois planos prontos** para executar com a skill `superpowers:executing-plans`
+(roteiro humano completo em **[docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md](docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md)**):
+
+1. Repo `cotacao-auditoria-atacaderj` → `docs/superpowers/plans/2026-07-07-aceitar-catalogo-bridge.md`
+   (app aceita o arquivo único; **executar primeiro** — o robô depende dos IDs criados lá).
+2. Este repo → `docs/superpowers/plans/2026-07-07-catalogo-bridge-e-robo.md`
+   (projeção `catalogo_bridge.json` + robô Playwright + tarefas agendadas).
+
+O design por trás: `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
+
 ## Seu trabalho agora (continue pelo STATUS.md)
 
 1. Garanta Git e Python (`git --version`, `python --version`); se faltar:

@@ -89,6 +89,11 @@ saída para preencher os 4 `SELECT` de `src/queries.py`.
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
 - **2026-07-07** — **Decisão:** loop de feedback (apelidos/correções) **descartado**
   — removido do escopo e do checklist. O bridge fica só extração → arquivos.
+- **2026-07-07** — **Planos de implementação escritos e commitados** (um por repo) +
+  roteiro copiar-e-colar para o PC-ponte em `docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md`
+  (pré-requisitos, prompts prontos para o Claude Code das 2 sessões e os 4 passos
+  manuais da implantação). Ordem: 1º o plano do app (`cotacao-auditoria-atacaderj`),
+  2º o deste repo (robô depende dos IDs do app).
 - **2026-07-07** — **Design aprovado e revisado** (estrutura de acesso): descoberto
   que o app da cotação roda como **artifact no claude.ai** (IA via sessão + storage
   compartilhado) — a injeção no HTML foi descartada. Modelo final: bridge gera
