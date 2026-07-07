@@ -70,8 +70,10 @@ O HTML oficial usa um catálogo com **chaves compactas**. A projeção escreve:
 | `custo` | `custo_atual`     | custo corrente (piso de margem / limite de desconto) |
 | `cv`    | `curva`           | curva ABC |
 
-> **Dependência conhecida:** falta o `cotacao_ia.html` fazer `fetch("produtos.json")`
-> no início (hoje o catálogo é embutido). É um ajuste de 1 linha — fazemos depois.
+> **Como o HTML recebe o catálogo (design 2026-07-07):** o app continua com catálogo
+> **embutido** — o bridge injeta os dados no bloco marcado do template e grava o
+> `cotacao.html` completo na pasta compartilhada. Sem `fetch`, sem servidor. Ver
+> `superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
 
 ---
 

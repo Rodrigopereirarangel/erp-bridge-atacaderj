@@ -52,7 +52,9 @@ O único ponto amarrado ao ERP são os 4 `SELECT` de `src/queries.py`.
 6. Teste: `python src/bridge.py --only catalogo` → deve gerar `produtos.json`.
 7. Agende: em PowerShell (Admin) `./scripts/register-tasks.ps1`
    (catálogo 08/12/15/18h; movimentos 05:00 — este PC fica 24h, ok).
-8. Ligue o HTML da cotação: `fetch("produtos.json")` + servir na rede local.
+8. Ligue o HTML da cotação: o bridge **injeta o catálogo no HTML** e grava na pasta
+   compartilhada `\\DESKTOP-3BLTBIV\cotacao` (sem servidor — ver
+   `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`).
 
 ## Sempre que avançar
 

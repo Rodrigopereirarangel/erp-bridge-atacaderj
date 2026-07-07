@@ -40,7 +40,10 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [ ] Preencher os **4 SELECT** em `src/queries.py` com o schema real
 - [ ] Testar: `python src/bridge.py --only catalogo` → gera `produtos.json` real
 - [ ] Agendar: `scripts/register-tasks.ps1` (catálogo 08/12/15/18h; movimentos 05:00)
-- [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local
+- [ ] Ligar o HTML da cotação: **injetar o catálogo no HTML** + gravar na **pasta
+  compartilhada** `\\DESKTOP-3BLTBIV\cotacao` (sem servidor — design em
+  `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`)
+- [ ] No PC-ponte: compartilhar a pasta da cotação (só leitura) + atalho nos PCs da loja
 
 ## Comandos-chave (rodar no PC-ponte)
 
@@ -82,3 +85,7 @@ saída para preencher os 4 `SELECT` de `src/queries.py`.
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
 - **2026-07-07** — **Decisão:** loop de feedback (apelidos/correções) **descartado**
   — removido do escopo e do checklist. O bridge fica só extração → arquivos.
+- **2026-07-07** — **Design aprovado** (estrutura de acesso): funcionário **nunca**
+  acessa o repositório — só um atalho que abre `\\DESKTOP-3BLTBIV\cotacao\cotacao.html`.
+  O bridge **injeta o catálogo no HTML** (sem servidor, sem fetch) e grava atômico na
+  pasta compartilhada. Spec: `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
