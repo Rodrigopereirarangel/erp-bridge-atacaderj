@@ -32,10 +32,10 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [x] Escolher o PC-ponte: **DESKTOP-3BLTBIV** (24h, rede da loja)
 - [x] Teste de rede PC-ponte → servidor (`Test-NetConnection 3306` = `True`)
 - [x] Subir o `erp-bridge` no GitHub (repo **privado**) + este STATUS
-- [ ] **BLOQUEADO AQUI →** Liberar acesso de rede no MySQL: o usuário testado (`rodrigo`)
-  é recusado vindo do PC-ponte (`Access denied for 'rodrigo'@'DESKTOP-3BLTBIV'`) —
-  existe só como `@'localhost'`. Rodar na CONCENTRADOR o `CREATE USER
-  'viewer'@'192.168.0.%'` + `GRANT SELECT` (comando pronto na seção abaixo)
+- [ ] **BLOQUEADO AQUI →** Liberar acesso de rede no MySQL para o `rodrigo`
+  (já é somente-leitura; faz o papel do `viewer`). Recusado vindo do PC-ponte
+  (`Access denied for 'rodrigo'@'DESKTOP-3BLTBIV'`) — existe só como
+  `@'localhost'`. Comandos prontos na seção "Próximo passo imediato"
 - [x] No PC-ponte: instalar **Git + Python 3.12** (winget) + `pip install -r requirements.txt` (Python 3.12.10, pymysql 2.2.8)
 - [x] No PC-ponte: `git clone` deste repo → `C:\Users\User\erp-bridge-atacaderj`
 - [x] Preencher **`config.local.json`** (host/porta/user/senha ok; **`database` pendente** — sai do `SHOW DATABASES` pós-liberação)
@@ -74,29 +74,39 @@ python src/inspect_schema.py produto preco custo curva venda entrada pedido
 
 ## Próximo passo imediato — DESBLOQUEIO (rodar NA CONCENTRADOR)
 
-Na máquina CONCENTRADOR, abrir o cliente MySQL (HeidiSQL / linha de comando,
-logado como `root` ou outro usuário com privilégio de GRANT) e rodar:
+**Decisão do usuário (2026-07-07): usar o próprio `rodrigo`** — ele já é
+somente-leitura (faz o papel do `viewer`). Falta só permitir que ele conecte
+**vindo da rede** (hoje só existe como `@localhost`).
 
+Na CONCENTRADOR, abrir o cliente MySQL (HeidiSQL / linha de comando, logado
+como `root` ou usuário com privilégio de GRANT):
+
+**1) Diagnóstico — ver de quais hosts o `rodrigo` pode conectar:**
 ```sql
-CREATE USER 'viewer'@'192.168.0.%' IDENTIFIED BY '<SENHA_AQUI>';
-GRANT SELECT ON *.* TO 'viewer'@'192.168.0.%';
+SELECT user, host FROM mysql.user WHERE user = 'rodrigo';
+```
+
+**2a) Se só aparecer `rodrigo | localhost`** → criar a entrada de rede
+(mesma senha; `@localhost` continua intocado):
+```sql
+CREATE USER 'rodrigo'@'192.168.0.%' IDENTIFIED BY '<MESMA_SENHA>';
+GRANT SELECT ON *.* TO 'rodrigo'@'192.168.0.%';
 FLUSH PRIVILEGES;
 ```
 
-> `<SENHA_AQUI>` = a senha combinada com o Claude do PC-ponte (a mesma que já
-> está no `config.local.json` de lá — **nunca** escrever a senha neste arquivo:
-> o repo é público).
+**2b) Se já existir `rodrigo | %` (ou `192.168.%`)** → a senha da entrada de
+rede é outra; igualar:
+```sql
+ALTER USER 'rodrigo'@'%' IDENTIFIED BY '<MESMA_SENHA>';
+FLUSH PRIVILEGES;
+```
 
-> Por que `viewer` e não liberar o `rodrigo`? O `rodrigo` provavelmente tem
-> privilégios de escrita/admin — expor ele à rede inteira é risco desnecessário.
-> O `viewer` nasce **só-SELECT** (a arquitetura do projeto já assume isso).
-> Depois que o `SHOW DATABASES` revelar o banco do ERP, dá para restringir:
-> `REVOKE SELECT ON *.* FROM 'viewer'@'192.168.0.%';`
-> `GRANT SELECT ON <banco_do_erp>.* TO 'viewer'@'192.168.0.%';`
+> `<MESMA_SENHA>` = a senha que já está no `config.local.json` do PC-ponte.
+> **Nunca** escrever a senha neste arquivo (repo público).
 
-Feito isso, no PC-ponte: trocar `user` para `viewer` no `config.local.json`,
-testar conexão, `SHOW DATABASES` → preencher `database`, e seguir para o
-`inspect_schema` + preencher os 4 `SELECT` de `src/queries.py`.
+Feito isso, no PC-ponte: testar conexão, `SHOW DATABASES` → preencher
+`database` no `config.local.json`, e seguir para o `inspect_schema` +
+preencher os 4 `SELECT` de `src/queries.py`.
 
 ## Log de progresso
 
