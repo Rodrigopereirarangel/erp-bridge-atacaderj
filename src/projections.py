@@ -99,6 +99,19 @@ def pedidos_csv(pedidos, caminho):
     return len(linhas)
 
 
+def pedidos_venda_csv(itens, caminho):
+    """Itens dos pedidos de venda/DAV emitidos (janela) — insumo da auditoria
+    de desconto do app de cotacao (substitui o upload manual do relatorio
+    rptPedidosVendaEmitidaDAVPorItens)."""
+    cab = ["pedido", "emissao", "dav", "cliente", "vendedor", "codigo", "produto",
+           "emb", "unidades_por_emb", "qtde", "valor", "valor_tabela", "custo_un"]
+    linhas = [[r["pedido"], r["emissao"], r["dav"], r["cliente"], r["vendedor"],
+               r["codigo"], r["produto"], r["emb"], r["unidades_por_emb"],
+               r["qtde"], r["valor"], r["valor_tabela"], r["custo_un"]] for r in itens]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
 def curva_abc_csv(catalogo, caminho):
     cab = ["codigo", "curva"]
     linhas = [[r["codigo"], r.get("curva")] for r in catalogo if r.get("curva") is not None]

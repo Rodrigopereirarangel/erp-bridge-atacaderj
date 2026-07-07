@@ -20,6 +20,7 @@
 
   "janela_dias": 120,
   "janela_entradas_dias": 180,
+  "janela_pedidos_venda_dias": 7,
 
   "saida": {
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/cotacao/produtos.json",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Os 4 SELECTs da ponte — PREENCHIDOS com o schema real (2026-07-07).
+"""Os 5 SELECTs da ponte — PREENCHIDOS com o schema real (2026-07-07).
 
 Banco: SQL Server 2014, database **Solidcon** (ERP Solidcon; a "loja" e a
 filial 1 / SEQLOJA 1). Validado contra o consolidado oficial do PDV
@@ -18,6 +18,13 @@ Fatos do schema que estas queries dependem (conferidos em producao):
 - Pedidos de compra = tbPedido com inEntrada=1; abertos = dtAtendido IS NULL.
   tbPedidoCompra (cdPedidoCompra = cdPedido) da a dtEntregaPrevista.
   qtPedidoItem em volumes (mesma convencao da nota) -> x qtEmbalagem.
+- Pedidos de VENDA (DAV) = tbPedido com inEntrada=0; a "emissao" que o relatorio
+  rptPedidosVendaEmitidaDAVPorItens usa e dtAtendido (nao dtPedido!).
+  tbPedidoVenda (cdPedidoVenda = cdPedido) da cliente (cdPessoaComercial ->
+  tbPessoa) e vendedor (cdVendedor -> tbPedidoVendedor.nmVendedor).
+  tbPedidoItem: vlPedidoItem/vlVendaOriginal/vlCusto sao POR VOLUME
+  (custo unitario = vlCusto / qtEmbalagem). Validado item a item contra o
+  relatorio manual de 06/07: 199/199 linhas, 14/14 pedidos (2026-07-07).
 
 `{janela}` / `{janela_entradas}` sao substituidos em runtime (config).
 """
@@ -90,6 +97,43 @@ JOIN dbo.tbNotaEntrada ne
 WHERE ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
 GROUP BY i.cdProduto, CAST(ne.dtChegada AS date)
 ORDER BY codigo, data
+"""
+
+# PEDIDOS_VENDA: itens dos pedidos de venda/DAV emitidos (dtAtendido) nos
+# ultimos {janela_pedidos_venda} dias — replica o rptPedidosVendaEmitidaDAV
+# PorItens e alimenta a AUDITORIA DE DESCONTO do app de cotacao (que hoje
+# depende de exportar esse relatorio a mao). Precos/custos por volume viram
+# por unidade no proprio SELECT quando faz sentido (custo_un).
+PEDIDOS_VENDA = """
+SELECT
+    p.cdPedido                                 AS pedido,
+    CAST(p.dtAtendido AS date)                 AS emissao,
+    pv.NrDAVPDV                                AS dav,
+    ps.nmPessoa                                AS cliente,
+    vd.nmVendedor                              AS vendedor,
+    i.cdProduto                                AS codigo,
+    sp.nmProdutoPai                            AS produto,
+    RTRIM(i.cdEmbalagem)
+      + CASE WHEN i.qtEmbalagem > 1
+             THEN '-' + CAST(CAST(i.qtEmbalagem AS int) AS varchar(10))
+             ELSE '' END                       AS emb,
+    CAST(i.qtEmbalagem AS int)                 AS unidades_por_emb,
+    CAST(i.qtPedidoItem AS decimal(14,2))      AS qtde,
+    CAST(i.vlPedidoItem AS decimal(14,2))      AS valor,
+    CAST(i.vlVendaOriginal AS decimal(14,2))   AS valor_tabela,
+    CAST(i.vlCusto / NULLIF(i.qtEmbalagem, 0) AS decimal(14,4)) AS custo_un
+FROM dbo.tbPedido p
+JOIN dbo.tbPedidoVenda pv  ON pv.cdPedidoVenda = p.cdPedido
+                          AND pv.cdPessoaFilial = p.cdPessoaFilial
+JOIN dbo.tbPedidoItem i    ON i.cdPedido = p.cdPedido
+                          AND i.cdPessoaFilial = p.cdPessoaFilial
+JOIN dbo.tbProduto pr      ON pr.cdProduto = i.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = pr.cdSuperProduto
+JOIN dbo.tbPessoa ps       ON ps.cdPessoa = pv.cdPessoaComercial
+LEFT JOIN dbo.tbPedidoVendedor vd ON vd.cdVendedor = pv.cdVendedor
+WHERE p.inEntrada = 0
+  AND p.dtAtendido >= DATEADD(day, -{janela_pedidos_venda}, CAST(GETDATE() AS date))
+ORDER BY emissao, vendedor, cliente, pedido, i.cdPedidoItem
 """
 
 PEDIDOS = """

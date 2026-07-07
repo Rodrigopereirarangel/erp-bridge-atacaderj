@@ -75,6 +75,18 @@ a auditoria lê um 4º — exatamente os 4 PDFs conferidos acima:
    relatórios — é o preço da filial (concorrência), que é o que o PDV cobra.
    Auditar desconto contra o preço da EMPRESA (como o app faz hoje via
    relatórios) pode gerar falsas divergências nesses itens; a ponte melhora isso.
-4. **Auditoria de desconto continua precisando do relatório de vendas manual**:
-   a `vendas.csv` é agregada por produto/dia, sem pedido/cliente/vendedor.
-   Se quiser automatizar, é uma query nova (tbPedidoVenda*/DAV item a item).
+4. **Auditoria de desconto AUTOMATIZADA (feito em 2026-07-07)**: a 5ª query
+   `PEDIDOS_VENDA` reproduz o rptPedidosVendaEmitidaDAVPorItens item a item —
+   validada contra o PDF de 06/07: **199/199 linhas, 14/14 pedidos**, qtde/
+   valor/custo idênticos (única diferença: o relatório mostra o custo de
+   cadastro na hora da impressão; a query usa `tbPedidoItem.vlCusto`,
+   congelado na emissão — 2 produtos com ±R$ 0,10). Detalhes do schema:
+   - o período do relatório filtra por **`dtAtendido`** (emissão), não `dtPedido`;
+   - `vlPedidoItem`/`vlVendaOriginal`/`vlCusto` são **por volume**
+     (`custo_un = vlCusto/qtEmbalagem`);
+   - cliente = `tbPedidoVenda.cdPessoaComercial → tbPessoa`; vendedor =
+     `cdVendedor → tbPedidoVendedor.nmVendedor`; nº DAV = `NrDAVPDV` (a coluna
+     "Nota" do relatório fica deslocada de −1 vs `NrDAVPDV`; cosmético).
+   Saída: `cotacao/pedidos_venda_dav.csv` (janela `janela_pedidos_venda_dias`,
+   default 7). Rodando as regras do app (piso 10%, teto 3% A / 5%) sobre o dia
+   06/07: 154 itens auditados, 33 divergências, R$ 105,79 de impacto.

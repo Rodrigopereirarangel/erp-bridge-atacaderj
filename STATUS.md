@@ -48,6 +48,9 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   (produtos.json 4.600; vendas.csv 153.947; entradas 8.197; recebimentos 3.505;
   pedidos 2.098) — **vendas batem ao centavo** com o consolidado oficial
   (`DORSAL.tbConsVenda`, 06/07: 82.423,04 = 82.423,04)
+- [x] 5ª query `PEDIDOS_VENDA` (itens dos pedidos de venda/DAV, filtro por
+  `dtAtendido`) → `cotacao/pedidos_venda_dav.csv` — automatiza o insumo da
+  auditoria de desconto do app (validada 199/199 vs relatório manual de 06/07)
 - [ ] Agendar: `scripts/register-tasks.ps1` (catálogo 08/12/15/18h; movimentos 05:00)
 - [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
@@ -89,6 +92,14 @@ python src\inspect_schema.py venda nota pedido produto
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
 - **2026-07-07 (manhã)** — Sessão no PC-ponte (DESKTOP-3BLTBIV): repo clonado,
   Python 3.12.10 instalado, config criado. Login no MySQL 3306 recusado.
+- **2026-07-07 (PEDIDOS VENDA)** — 5ª query `PEDIDOS_VENDA` adicionada
+  (tbPedido inEntrada=0 + tbPedidoItem + tbPedidoVenda/tbPedidoVendedor/
+  tbPessoa; período = `dtAtendido`): reproduz o rptPedidosVendaEmitidaDAV
+  PorItens item a item (199/199 linhas do dia 06/07). Sai em
+  `cotacao/pedidos_venda_dav.csv` (`--only pedidos-venda`, também em
+  `movimentos`/`all`; janela default 7 dias). Auditoria de desconto do app
+  pode ler esse CSV em vez do upload manual do relatório. Ponte completa:
+  9 arquivos em ~8s.
 - **2026-07-07 (AUDITORIA)** — Saída da ponte conferida item a item contra 4
   relatórios manuais do ERP (Cadastro Atacado, Gestão Preço, Curva ABC 01–07/07,
   Pedidos DAV 06/07): **dados batem** — custo/promo/curva/vendas/DAV ~100%.
