@@ -45,13 +45,33 @@ Windows — não existe peça nova para travar.
 ## Mudanças concretas
 
 ### Repo `cotacao-auditoria-atacaderj` (app da cotação)
-- Padronizar o bloco do catálogo embutido com um marcador único e estável:
-  `<script id="catalogo-dados">…</script>`, para o bridge localizar e substituir
-  com segurança. Sem mudança de comportamento ou visual.
+
+Estado real do HTML (conferido em 2026-07-07): `CATALOG` e `CATALOG_TEXT` vivem
+**dentro do mesmo `<script id="app-core">`** que o código; o app já tem fluxo
+manual de atualização (upload de 3 relatórios → mescla → salva em
+`atacaderj_catalogo` no storage) e uma trava `verificarBancoAtualizado()` que
+exige atualização diária. Mudanças necessárias:
+
+1. **Separar os dados** num `<script id="catalogo-dados">` próprio, contendo só
+   `const CATALOG=[...]` + `const CATALOG_GERADO_EM="dd/mm/aaaa hh:mm"`. O
+   `CATALOG_TEXT` deixa de ser embutido: derivar em runtime com
+   `montarTextoCatalogo()` (função que já existe no app).
+2. **Inverter a precedência**: hoje o catálogo do storage vence o embutido.
+   Passar a usar o embutido quando `CATALOG_GERADO_EM` for mais novo que a data
+   do storage (catálogo injetado fresco nunca pode perder para upload antigo).
+3. **Trava de banco desatualizado**: `verificarBancoAtualizado()` passa a
+   aceitar `CATALOG_GERADO_EM` de hoje como "banco atualizado" — sem isso, todo
+   funcionário cairia no modal de autorização do gerente diariamente.
+4. O botão "📦 Catálogo" (upload dos 3 relatórios) **permanece como
+   contingência manual** — deixa de ser a rotina.
 
 ### Repo `erp-bridge-atacaderj` (este)
 - Novo módulo `src/inject_html.py`: lê o template, valida a presença do marcador
-  `catalogo-dados`, injeta o catálogo, grava atômico.
+  `catalogo-dados`, injeta `CATALOG` + `CATALOG_GERADO_EM`, grava atômico.
+- Chaves injetadas por produto: `c, p, q, v, vu, custo, cv` (mesmo contrato do
+  `produtos.json`). **Regra de promoção igual à do upload manual do app**:
+  quando `preco_promocao > 0` e menor que o preço, `v = promoção` (coerente com
+  `mesclarCatalogos` e com a spec "promoção vence = desconto zero").
 - `config.local.json` ganha duas chaves em `saida`:
   - `cotacao_html_template` — caminho do HTML-molde (clone do repo da cotação no ponte;
     atualiza com `git pull` quando o app evoluir);
