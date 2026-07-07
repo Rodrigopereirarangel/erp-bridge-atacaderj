@@ -51,8 +51,19 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [x] 5ª query `PEDIDOS_VENDA` (itens dos pedidos de venda/DAV, filtro por
   `dtAtendido`) → `cotacao/pedidos_venda_dav.csv` — automatiza o insumo da
   auditoria de desconto do app (validada 199/199 vs relatório manual de 06/07)
-- [ ] Agendar: `scripts/register-tasks.ps1` (catálogo 08/12/15/18h; movimentos 05:00)
-- [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local
+- [x] Agendar: `scripts/register-tasks.ps1` — **3 tarefas registradas em
+  2026-07-07**: Catálogo 08/12/15/18h · Movimentos 05:00 · **Auditoria 16:00**
+  (o script resolve o python.exe real; o alias da Store enganava o Get-Command)
+- [x] Auditoria de desconto automatizada: `scripts/auditoria-16h.ps1` →
+  bridge `--only pedidos-venda` + `auditoria-diaria.mjs` (repo do app) →
+  xlsx+resumo em `saida/auditoria/` → WhatsApp (número em
+  `config.local.json > whatsapp.numero_auditoria`)
+- [ ] **WhatsApp: login pendente (1x)** — `cd scripts/whatsapp` e
+  `node enviar.mjs --login`, escanear o QR com o celular do dono. Sem isso o
+  job das 16h gera os arquivos mas falha no envio (loga em auditoria_16h.log)
+- [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local.
+  **Servir a pasta `saida/cotacao/` junto com o app**: o seletor de dias da
+  aba Auditoria do app busca `pedidos_venda_dav.csv` por caminho relativo
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
 - [ ] Loop de feedback (apelidos/correções) → GitHub via serverless (Apps Script)
@@ -77,10 +88,15 @@ python src\inspect_schema.py venda nota pedido produto
 
 ## Próximo passo imediato
 
-1. **Agendar** as 2 tarefas: PowerShell (Admin) → `./scripts/register-tasks.ps1`
-2. **Ligar o HTML da cotação** no `saida/cotacao/produtos.json` (fetch + servir
-   na rede local)
-3. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
+1. **Login do WhatsApp (1x)**: `cd scripts\whatsapp` → `node enviar.mjs --login`
+   → escanear o QR. Depois testar:
+   `powershell -File scripts\auditoria-16h.ps1 -Dia 2026-07-06`
+2. **Ligar o HTML da cotação**: servir `saida/cotacao/` (produtos.json +
+   pedidos_venda_dav.csv) junto com o app na rede local — isso liga também o
+   seletor de dias da aba Auditoria do app
+3. `git push` dos dois repos (precisa de credencial interativa; esta sessão
+   não consegue)
+4. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
    do `config.local.json` para as pastas `data/input` deles
 
 ## Log de progresso
@@ -92,6 +108,26 @@ python src\inspect_schema.py venda nota pedido produto
   abrir na pasta do repo e continua a implantação sozinho, pelo checklist acima.
 - **2026-07-07 (manhã)** — Sessão no PC-ponte (DESKTOP-3BLTBIV): repo clonado,
   Python 3.12.10 instalado, config criado. Login no MySQL 3306 recusado.
+- **2026-07-07 (AUDITORIA AUTOMÁTICA + AGENDAMENTO)** — Pedido do dono:
+  auditoria por dia selecionável, histórico de 7 dias, preço-base = menor
+  (atacado/varejo/promo), e envio diário 16h ao WhatsApp (21970117082) com
+  resumo por vendedor. O QUE MUDOU E POR QUÊ:
+  (a) **App** (repo `cotacao-auditoria-atacaderj`, clonado neste PC em
+  `C:\Users\User\cotacao-auditoria-atacaderj`): aba Auditoria ganhou seletor
+  dos últimos 7 dias lendo `pedidos_venda_dav.csv` da ponte (pedidos FECHADOS
+  no dia = `dtAtendido`); upload manual .xlsx mantido como fallback. Novo
+  `ferramentas/auditoria-diaria.mjs` roda a MESMA regra (importa
+  `auditoria-calc.mjs`) em Node — por isso os números batem com o app — e o
+  catálogo entra com v = MIN(atacado, varejo, promoção) do produtos.json.
+  (b) **Ponte**: `scripts/auditoria-16h.ps1` (gera histórico + auditoria do
+  dia + envia), `scripts/whatsapp/` (Baileys; sessão em auth/ GITIGNORED por
+  ser credencial; login por QR pendente), número do WhatsApp em
+  `config.local.json` (gitignored, não versionar telefone em repo),
+  `register-tasks.ps1` corrigido (python.exe real, não o alias da Store) e
+  **as 3 tarefas registradas no Agendador deste PC**.
+  Teste real (dia 06/07): 154 itens auditados, 33 divergências, R$ 105,92 —
+  Michele 20×R$54,11 · Elizabeth 9×R$30,89 · Fellipe 4×R$20,92.
+  PENDENTE: QR do WhatsApp (1x) e servir saida/cotacao/ com o app.
 - **2026-07-07 (PEDIDOS VENDA)** — 5ª query `PEDIDOS_VENDA` adicionada
   (tbPedido inEntrada=0 + tbPedidoItem + tbPedidoVenda/tbPedidoVendedor/
   tbPessoa; período = `dtAtendido`): reproduz o rptPedidosVendaEmitidaDAV

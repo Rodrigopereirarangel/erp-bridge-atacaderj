@@ -22,6 +22,11 @@
   "janela_entradas_dias": 180,
   "janela_pedidos_venda_dias": 7,
 
+  "whatsapp": {
+    "_comentario": "numero com DDI+DDD que recebe a auditoria diaria das 16h (scripts/auditoria-16h.ps1)",
+    "numero_auditoria": "55XXXXXXXXXXX"
+  },
+
   "saida": {
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/cotacao/produtos.json",
     "detector_salao_dir":   "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-salao",

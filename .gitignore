@@ -5,6 +5,11 @@ config.local.json
 saida/*
 !saida/.gitkeep
 
+# WhatsApp (sessao Baileys = credencial; nunca versionar)
+scripts/whatsapp/auth/
+scripts/whatsapp/node_modules/
+scripts/whatsapp/package-lock.json
+
 # Logs
 *.log
 bridge_erros.log

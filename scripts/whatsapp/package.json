@@ -1,0 +1,11 @@
+{
+  "name": "atacaderj-whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Envio de mensagens/arquivos ao WhatsApp via Baileys (WhatsApp Web multi-device). Login por QR uma unica vez; sessao fica em ./auth (gitignored).",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
