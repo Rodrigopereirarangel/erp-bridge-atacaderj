@@ -48,3 +48,33 @@ manualmente do Solidcon (~11:50–11:56 do mesmo dia), item a item, por script.
 
 6. `tbVendaPDV` é agregada por produto/dia (campo `qtCupons`); DAVs entram
    nela no dia da emissão — nada a corrigir para os detectores.
+
+## Parte 2 — cruzamento com o app de cotação (`cotacao-auditoria-atacaderj`)
+
+O repo do app ficou público na mesma data e foi auditado. O app **não lê
+`produtos.json` hoje**: o catálogo entra por upload manual de 3 relatórios +
+a auditoria lê um 4º — exatamente os 4 PDFs conferidos acima:
+
+| Insumo do app                       | Relatório manual              | Como o app usa |
+|-------------------------------------|-------------------------------|----------------|
+| Planilha ATACADO                    | rptCadastroProdutoAtacado…    | `q`,`v` = Qtde/Preço do box **Atacado 1**; ignora mortos |
+| Planilha VAREJO                     | rptGestaoPreco                | `v` = Venda (promo vence se menor); custo; exige rodapé "total de produtos" e data de HOJE |
+| Planilha CURVA                      | rptCurvaABC50                 | curva A = coluna **\*CR** (recalculada no período!) |
+| Relatório de VENDAS (auditoria)     | rptPedidosVendaEmitidaDAV…    | por pedido/vendedor: Cód, Emb, Qtde, Valor, **Custo Un.** |
+| Preço final `v` do app = **menor** entre varejo, promo e atacado 1; `q` = qtde mínima do atacado quando o atacado é o menor. |||
+
+**Para a ponte substituir os uploads manuais (fetch `produtos.json`):**
+
+1. **`q` deve virar `QUANTIDADE_ATACADO`** (hoje exporta `QUANTIDADE_CAIXA`).
+   Conferido no banco: `QUANTIDADE_ATACADO` da view = box Atacado 1 do
+   relatório em **995/995** produtos. Correção de 1 linha em `queries.py`.
+2. **Curva**: a ponte exporta a \*CF (cadastro/Neogrid); o app usa a \*CR do
+   relatório do período (só 1.453/2.731 coincidem). Decidir qual vale para o
+   teto de desconto (3% A / 5% resto) antes de trocar a fonte.
+3. **Preço**: em 424/4.468 produtos o preço mínimo da ponte é MENOR que o dos
+   relatórios — é o preço da filial (concorrência), que é o que o PDV cobra.
+   Auditar desconto contra o preço da EMPRESA (como o app faz hoje via
+   relatórios) pode gerar falsas divergências nesses itens; a ponte melhora isso.
+4. **Auditoria de desconto continua precisando do relatório de vendas manual**:
+   a `vendas.csv` é agregada por produto/dia, sem pedido/cliente/vendedor.
+   Se quiser automatizar, é uma query nova (tbPedidoVenda*/DAV item a item).
