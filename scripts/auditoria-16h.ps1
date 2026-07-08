@@ -34,7 +34,11 @@ $node = @(
   "$env:LOCALAPPDATA\Programs\nodejs\node.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $node) { $node = 'node' }
-function Log($m) { "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $m" | Tee-Object -FilePath $log -Append }
+function Log($m) {
+  $l = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $m"
+  Write-Host $l
+  Add-Content -Path $log -Value $l -Encoding UTF8   # Tee-Object grava UTF-16 e mistura encodings
+}
 
 try {
   Log "== auditoria-16h dia=$Dia =="
