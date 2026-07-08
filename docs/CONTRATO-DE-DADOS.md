@@ -75,8 +75,11 @@ O HTML oficial usa um catálogo com **chaves compactas**. A projeção escreve:
 | `custo` | `custo_atual`     | custo corrente (piso de margem / limite de desconto) |
 | `cv`    | `curva`           | curva ABC |
 
-> **Dependência conhecida:** falta o `cotacao_ia.html` fazer `fetch("produtos.json")`
-> no início (hoje o catálogo é embutido). É um ajuste de 1 linha — fazemos depois.
+> **Como o app recebe o catálogo (design 2026-07-07):** o app roda como **artifact
+> no claude.ai**; o bridge gera o **`catalogo_bridge.json`** (arquivo único com
+> `gerado_em` + produtos `c,p,q,v,vu,custo,cv`; promo vence: `v = promoção` quando
+> menor) e um **robô agendado** o sobe pelo botão "📦 Catálogo" do app → storage
+> compartilhado. Ver `superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
 
 ---
 

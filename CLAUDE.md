@@ -26,8 +26,12 @@ fatos do schema).
   de venda diária, útil como prova contábil).
 - Login SQL somente-leitura no `config.local.json` (gitignored). Conecta da rede
   sem configuração extra no servidor.
-- **Cenário A**: os usuários da cotação são **locais** → o catálogo (com
-  custo/preço) **NUNCA** vai para o GitHub. Fica na rede da loja.
+- **Cenário A** (mantido, mecanismo revisto em 2026-07-07): o catálogo (com
+  custo/preço) **NUNCA** vai para o GitHub. Mas os usuários da cotação **NÃO
+  acessam a rede da loja** — o app `cotacao-auditoria-atacaderj` roda como
+  **artifact no claude.ai** (cada funcionário loga com a própria conta Claude;
+  storage compartilhado do artifact, não a rede local). O catálogo chega lá
+  por um **robô de upload** no PC-ponte, não por `fetch` — ver seção abaixo.
 
 ## Regras inegociáveis
 
@@ -38,15 +42,32 @@ fatos do schema).
   **Nunca** commite senha, nem custo, nem preço — o repo é público/na nuvem.
   Peça a senha ao usuário quando precisar; não a escreva em arquivo versionado.
 
-## Estado atual (2026-07-07): a ponte FUNCIONA
+## Estado atual (2026-07-07): a ponte FUNCIONA, e o app é artifact do claude.ai
 
-`python src/bridge.py` gera os 8 arquivos do banco real em ~8s, e as vendas
-batem ao centavo com o consolidado oficial. O que falta (ver STATUS.md):
+`python src/bridge.py` gera os 9 arquivos do banco real em ~8s (catálogo,
+vendas, entradas, recebimentos, pedidos de compra, pedidos de venda/DAV), e as
+vendas batem ao centavo com o consolidado oficial. O que falta (ver STATUS.md):
 
 1. **Agendar**: PowerShell (Admin) → `./scripts/register-tasks.ps1`
-   (catálogo 08/12/15/18h; movimentos 05:00 — este PC fica 24h, ok).
-2. **Ligar o HTML da cotação**: `fetch("produtos.json")` + servir na rede local
-   (o arquivo sai em `saida/cotacao/produtos.json`).
+   (catálogo 08/12/15/18h; movimentos 05:00; auditoria 16:00 — este PC fica
+   24h, ok).
+2. **Ligar a cotação — o app roda como artifact no claude.ai, NÃO servido na
+   rede local**: um `fetch()` relativo (como o da aba Auditoria) não funciona
+   na versão publicada, porque o artifact não alcança a rede da loja. O
+   caminho certo: bridge gera **`catalogo_bridge.json`** (arquivo único) e um
+   **robô Playwright agendado** sobe esse arquivo no artifact pelo botão
+   "📦 Catálogo" do app. Planos prontos (skill `superpowers:executing-plans`,
+   roteiro humano em
+   **[docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md](docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md)**):
+   - Repo `cotacao-auditoria-atacaderj` →
+     `docs/superpowers/plans/2026-07-07-aceitar-catalogo-bridge.md`
+     (app aceita o arquivo único — **executar primeiro**, o robô depende dos IDs de lá)
+   - Este repo → `docs/superpowers/plans/2026-07-07-catalogo-bridge-e-robo.md`
+     (projeção `catalogo_bridge.json` + robô Playwright + tarefas agendadas)
+   - Design: `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`
+   - **Pendência descoberta em 2026-07-07**: esses planos ainda só cobrem o
+     catálogo — falta decidir como o `pedidos_venda_dav.csv` (seletor de dia
+     da aba Auditoria) chega ao artifact também.
 3. Quando os repos dos detectores forem clonados neste PC, apontar
    `saida.detector_*_dir` do `config.local.json` para os `data/input` deles.
 

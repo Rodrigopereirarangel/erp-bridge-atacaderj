@@ -61,12 +61,27 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [ ] **WhatsApp: login pendente (1x)** — `cd scripts/whatsapp` e
   `node enviar.mjs --login`, escanear o QR com o celular do dono. Sem isso o
   job das 16h gera os arquivos mas falha no envio (loga em auditoria_16h.log)
-- [ ] Ligar o HTML da cotação: `fetch("produtos.json")` + servir na rede local.
-  **Servir a pasta `saida/cotacao/` junto com o app**: o seletor de dias da
-  aba Auditoria do app busca `pedidos_venda_dav.csv` por caminho relativo
+- [ ] **Ligar a cotação — ARQUITETURA REVISTA EM 2026-07-07**: o app
+  `cotacao-auditoria-atacaderj` **roda como artifact no claude.ai**, não como
+  HTML servido na rede local (fato descoberto pela sessão de desenvolvimento,
+  sem acesso a este PC — ver `docs/superpowers/specs/2026-07-07-estrutura-
+  acesso-cotacao-design.md`). Um artifact do claude.ai **não alcança a rede da
+  loja** (CSP bloqueia fetch para host externo/local) — então **o `fetch()`
+  relativo que a aba Auditoria ganhou hoje (`pedidos_venda_dav.csv`,
+  `produtos.json`) NÃO funciona na versão publicada real**, só ao abrir o
+  HTML localmente num navegador. Caminho planejado (Plano A da spec): bridge
+  gera um **arquivo único `catalogo_bridge.json`** e um **robô Playwright
+  agendado** sobe esse arquivo pelo botão "📦 Catálogo" do próprio app —
+  planos prontos em `docs/superpowers/plans/2026-07-07-aceitar-catalogo-
+  bridge.md` (repo do app) e `docs/superpowers/plans/2026-07-07-catalogo-
+  bridge-e-robo.md` (este repo). **Falta decidir/adaptar**: incluir
+  `pedidos_venda_dav.csv` dentro desse arquivo único (hoje ele só teria o
+  catálogo) para o seletor de dias da Auditoria também funcionar via robô,
+  em vez de fetch.
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
-- [ ] Loop de feedback (apelidos/correções) → GitHub via serverless (Apps Script)
+- [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
+  **descartado** por decisão de 2026-07-07 (ver log); bridge fica só extração
 
 ## Comandos-chave (PC-ponte)
 
@@ -91,12 +106,13 @@ python src\inspect_schema.py venda nota pedido produto
 1. **Login do WhatsApp (1x)**: `cd scripts\whatsapp` → `node enviar.mjs --login`
    → escanear o QR. Depois testar:
    `powershell -File scripts\auditoria-16h.ps1 -Dia 2026-07-06`
-2. **Ligar o HTML da cotação**: servir `saida/cotacao/` (produtos.json +
-   pedidos_venda_dav.csv) junto com o app na rede local — isso liga também o
-   seletor de dias da aba Auditoria do app
-3. `git push` dos dois repos (precisa de credencial interativa; esta sessão
-   não consegue)
-4. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
+2. **Decidir a arquitetura de distribuição do catálogo** (ver item revisto no
+   checklist acima): o app é artifact do claude.ai, então o `fetch()` local
+   não serve em produção. Executar (ou revisar) os planos
+   `docs/superpowers/plans/2026-07-07-aceitar-catalogo-bridge.md` e
+   `2026-07-07-catalogo-bridge-e-robo.md`, incluindo `pedidos_venda_dav.csv`
+   no arquivo único para a Auditoria funcionar pelo robô também
+3. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
    do `config.local.json` para as pastas `data/input` deles
 
 ## Log de progresso
@@ -154,3 +170,37 @@ python src\inspect_schema.py venda nota pedido produto
   (pyodbc), 4 SELECTs preenchidos em T-SQL e **a ponte rodou de ponta a ponta**:
   8 arquivos em ~8s, vendas **batendo ao centavo** com o consolidado oficial
   (DORSAL.tbConsVenda). Falta: agendar tarefas + ligar o HTML da cotação.
+- **2026-07-07 (sessão dev, sem acesso a este PC)** — **Decisão:** loop de
+  feedback (apelidos/correções) **descartado** — removido do escopo e do
+  checklist. O bridge fica só extração → arquivos.
+- **2026-07-07 (sessão dev)** — **Planos de implementação escritos e
+  commitados** (um por repo) + roteiro copiar-e-colar para o PC-ponte em
+  `docs/COMO-IMPLEMENTAR-NO-PC-PONTE.md` (pré-requisitos, prompts prontos para
+  o Claude Code das 2 sessões e os 4 passos manuais da implantação). Ordem: 1º
+  o plano do app (`cotacao-auditoria-atacaderj`), 2º o deste repo (robô
+  depende dos IDs do app).
+- **2026-07-07 (sessão dev)** — **Design aprovado e revisado** (estrutura de
+  acesso): descoberto que o app da cotação roda como **artifact no claude.ai**
+  (IA via sessão + storage compartilhado) — a injeção no HTML foi descartada.
+  Modelo final: bridge gera **arquivo único** (`catalogo_bridge.json`) →
+  **robô Playwright agendado** no PC-ponte sobe no artifact pelo botão do app
+  → storage compartilhado distribui a todos. Falha do robô é visível (trava
+  de data do app); plano B = upload manual do arquivo (30s); plano C = 3
+  relatórios do ERP. Migração documentada (app local + injeção + API paga) se
+  o claude.ai inviabilizar o robô. Spec:
+  `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
+- **2026-07-07 (RECONCILIAÇÃO — merge das duas sessões)** — Esta sessão (PC-
+  ponte, acesso direto ao banco) e a sessão de dev (sem acesso a este PC, só
+  planejamento) trabalharam em paralelo e divergiram no GitHub. Ao dar
+  `git push`, veio à tona que **a "aba Auditoria com seletor de dia" e o
+  `fetch("pedidos_venda_dav.csv")` implementados aqui hoje partiram da
+  premissa errada de que o app é servido localmente** — na real, ele é
+  artifact do claude.ai (fato só documentado no lado da sessão dev) e não
+  alcança a rede da loja. Ou seja: **o seletor de dia funciona só se alguém
+  abrir o HTML localmente num navegador; na versão publicada real (o link que
+  os funcionários usam), ele não vai aparecer** até o robô de upload (ou uma
+  adaptação do `catalogo_bridge.json` para incluir os pedidos de venda) entrar
+  no ar. Nada foi revertido — os dois lados do trabalho foram mantidos no
+  merge — mas fica registrado que **a integração final ainda depende de
+  decidir/executar os planos de `docs/superpowers/plans/`**. Ver item revisto
+  no checklist acima.
