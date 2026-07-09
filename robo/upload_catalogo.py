@@ -255,9 +255,9 @@ def rodar_producao(cfg, arquivo, obj):
             # CRITICO: espera a fila de gravacao do app DRENAR antes de recarregar.
             # Interromper uma escrita em andamento (reload/fechar) CORROMPE a chave
             # no servidor do claude.ai (get passa a dar Internal server error ate
-            # alguem regravar por cima) — medido em 2026-07-09. O evaluate espera a
-            # promise da fila resolver.
-            frame.evaluate("() => _store._fila")
+            # alguem regravar por cima) — medido em 2026-07-09. Teto de 60s para a
+            # espera nao virar um travamento infinito se uma operacao nunca resolver.
+            frame.evaluate("() => Promise.race([_store._fila, new Promise(r => setTimeout(r, 60000))])")
             page.wait_for_timeout(2000)
             # VERIFICACAO REAL DE PERSISTENCIA: recarrega a pagina e le direto da
             # API window.storage (nao da memoria do app) — pega o envelope {key,value}
