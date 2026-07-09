@@ -125,6 +125,24 @@ python src\inspect_schema.py venda nota pedido produto
 
 ## Log de progresso
 
+- **2026-07-09 20:43** — **SISTEMA NO AR DE VERDADE, VERIFICADO** ✅ Artifact
+  DEFINITIVO: `https://claude.ai/public/artifacts/d2e4ed88-38fe-42cc-b889-e829ec6f5418`
+  (os 4 anteriores devem ser despublicados: e0cd803f, e507cf94, 1fe17c79,
+  78fbe300 — este último com chaves PRESAS no servidor, sem conserto).
+  Estado medido ao abrir: 4.606 produtos carregam sozinhos, origem robô
+  18:00, envio manual ESCONDIDO (aviso azul "Catálogo automático"; os campos
+  só aparecem em erro de importação — regra definitiva pedida pelo dono).
+  **5 fatos de produção do window.storage** (todos medidos por sonda, cada
+  um causou uma rodada de correção): (1) get/set devolvem ENVELOPE
+  {key,value,shared}; (2) operações concorrentes corrompem a chave;
+  (3) reload/fechar com escrita em andamento corrompe a chave; (4) escrita
+  GRANDE (~390KB) que falha no meio deixa a chave PRESA sem cura — solução:
+  gravar gz64 (gzip+base64, ~109KB) com retry, valores >64KB; (5) sobras
+  de localStorage de junho ressuscitavam banco de 16/06 — fallback local
+  agora só em file://, localhost e 192.168.x. Robô: fila drenada antes do
+  reload, autocura (reler e regravar até 3x) e verificação de persistência
+  pós-reload. PENDENTE: dono despublicar os 4 artifacts antigos; QR do
+  WhatsApp; teste de cotação com FOTO na conta de um vendedor.
 - **2026-07-09 13:53** — **PIPELINE COMPLETO NO AR** 🎉: artifact publicado
   (`https://claude.ai/public/artifacts/e0cd803f-ac4b-4878-8e4a-f64d2093b851`,
   link colado no `config_robo.json`), login do robô feito, e a primeira
