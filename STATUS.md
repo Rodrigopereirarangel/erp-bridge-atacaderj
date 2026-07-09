@@ -190,6 +190,25 @@ python src\inspect_schema.py venda nota pedido produto
   relatórios do ERP. Migração documentada (app local + injeção + API paga) se
   o claude.ai inviabilizar o robô. Spec:
   `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
+- **2026-07-09 (ARQUITETURA CONFIRMADA COM O DONO)** — Fatos que corrigem a
+  premissa das sessões anteriores: (1) até hoje o app SEMPRE rodou como
+  **arquivo .html local** no PC da loja — nunca foi artifact; por isso o
+  upload manual dos 3 relatórios "sempre funcionou" (file:// não tem CSP);
+  (2) no modo local **a IA nunca respondeu** (sem chave + CORS — documentado
+  no cabeçalho de ferramentas/proxy-teste/servir.mjs do repo do app); o que
+  funcionava era a busca local; (3) o dono confirmou que **os vendedores usam
+  foto/lista manuscrita → IA obrigatória → IA tem que ser a do PLANO Claude
+  (não API paga)** → o app TEM que ser publicado como **artifact no claude.ai**
+  (única forma de usar a sessão/plano de cada vendedor). Decisão: artifact é o
+  caminho para os vendedores; o arquivo publicável enxuto já existe
+  (`npm run publicavel` no repo do app → 365KB, XLSX via cdnjs que é liberado,
+  CATALOG embutido removido — jsdelivr é BLOQUEADO em artifact e foi por isso
+  que a primeira tentativa de publicar "quebrou funções"). Dados entram no
+  artifact SÓ por upload (📦 catalogo_bridge.json — fluxo já implementado em
+  2026-07-08); robô Playwright automatiza isso depois. Pendências do dono:
+  publicar o artifact (anexar o .publicavel.html numa conversa do claude.ai),
+  testar IA/foto + upload + storage compartilhado em 2 contas, distribuir o
+  link; QR do WhatsApp (envio das 16h segue falhando por falta do login).
 - **2026-07-08 (AUDITORIA NO MODELO DO ROBÔ)** — Pedido do dono: "adapte a aba
   Auditoria para funcionar dentro desse modelo de robô". Feito nos dois repos:
   (a) **ponte**: query CATALOGO ganhou `QUANTIDADE_ATACADO` (qtde mínima real
