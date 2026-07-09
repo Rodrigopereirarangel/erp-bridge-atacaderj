@@ -245,8 +245,30 @@ def rodar_producao(cfg, arquivo, obj):
                 raise RuntimeError("storage compartilhado indisponivel no artifact — o perfil do robo "
                                    "esta logado no claude.ai? Rode: python robo/upload_catalogo.py --setup")
             n_cat, n_ped = subir_catalogo(page, frame, arquivo, obj)
-            page.wait_for_timeout(5000)  # folga p/ o storage compartilhado sincronizar
-            log(f"OK  {n_cat} produtos + {n_ped} pedidos ({obj['gerado_em']}) enviados ao artifact")
+            # a fila de gravacao do app manda catalogo (300KB) + pedidos (160KB) +
+            # versao em sequencia — da folga antes de conferir no backend
+            page.wait_for_timeout(12000)
+            # VERIFICACAO REAL DE PERSISTENCIA: recarrega a pagina e le direto da
+            # API window.storage (nao da memoria do app) — pega o envelope {key,value}
+            page.reload(wait_until="domcontentloaded")
+            frame = achar_frame_do_app(page, timeout_s=60)
+            page.wait_for_timeout(3000)
+            persistido = frame.evaluate("""async () => {
+              const val = (r) => (r && typeof r === 'object' && 'value' in r) ? r.value : r;
+              const out = {};
+              try { const c = JSON.parse(val(await window.storage.get('atacaderj_catalogo', true)) || 'null');
+                    out.produtos = c && c.produtos ? c.produtos.length : 0; out.gerado_em = c ? c.gerado_em : null;
+              } catch (e) { out.erro_cat = String(e).slice(0, 100); }
+              try { const p = JSON.parse(val(await window.storage.get('atacaderj_pedidos_venda', true)) || 'null');
+                    out.pedidos = p && p.pedidos ? p.pedidos.length : 0;
+              } catch (e) { out.erro_ped = String(e).slice(0, 100); }
+              return out;
+            }""")
+            if persistido.get("produtos") != obj["total"] or persistido.get("gerado_em") != obj["gerado_em"]:
+                raise RuntimeError(f"upload NAO persistiu no storage compartilhado: {persistido} "
+                                   f"(esperado {obj['total']} produtos de {obj['gerado_em']})")
+            log(f"OK  {n_cat} produtos + {n_ped} pedidos ({obj['gerado_em']}) enviados E PERSISTIDOS "
+                f"no artifact (conferido apos reload: {persistido})")
         except Exception as e:
             log(f"FALHA  {e}")
             try:
