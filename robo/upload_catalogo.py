@@ -113,10 +113,11 @@ def achar_frame_do_app(page, timeout_s=90):
 def subir_catalogo(page, frame, arquivo, obj):
     """Executa o fluxo do botao 📦 e confirma; levanta RuntimeError se algo nao bater."""
     frame.locator("#btnCatalogo").click(timeout=30000)
-    frame.wait_for_selector("#catBridgeArq", timeout=15000)
-    # se a trava anti-sobrescrita estiver ativa (upload do robo < 5h), destrava:
-    # o proprio robo e a automacao, entao pode passar por ela
+    frame.wait_for_selector("#catBridgeArq", state="attached", timeout=15000)
+    # com automacao saudavel a area de envio fica ESCONDIDA (display:none) —
+    # o proprio robo e a automacao, entao revela antes de usar
     frame.evaluate("() => { try { if (typeof _catDestravarManual === 'function') _catDestravarManual(); } catch (e) {} }")
+    frame.wait_for_selector("#catBridgeArq", state="visible", timeout=15000)
     frame.locator("#catBridgeArq").set_input_files(arquivo, timeout=30000)
     # o onchange valida o arquivo e mostra a previa com o botao verde de confirmar
     frame.wait_for_selector("#catConfirmar", timeout=60000)
@@ -196,14 +197,20 @@ def rodar_teste_local(cfg, arquivo, obj, headed=False):
         frame.evaluate("() => document.getElementById('aud-overlay').remove()")
         log(f"teste: auditoria OK — {n_dias} dia(s) no seletor; dia mais recente auditou ({kpi} itens)")
 
-        # a trava anti-sobrescrita deve estar ATIVA agora (upload do robo ha < 5h)
+        # o envio manual deve estar ESCONDIDO agora (upload do robo ha < 5h)
         frame.evaluate("() => abrirAtualizarCatalogo()")
-        frame.wait_for_selector("#catUploadArea", timeout=10000)
-        travado = frame.evaluate(
-            "() => document.getElementById('catUploadArea').style.pointerEvents === 'none'")
-        if not travado:
-            raise RuntimeError("upload manual deveria estar travado apos upload do robo")
-        log("teste: trava anti-sobrescrita do upload manual OK")
+        frame.wait_for_selector("#catUploadArea", state="attached", timeout=10000)
+        escondido = frame.evaluate(
+            "() => document.getElementById('catUploadArea').style.display === 'none'")
+        if not escondido:
+            raise RuntimeError("envio manual deveria estar escondido apos upload do robo")
+        # e o link de escape deve trazer de volta (e o caminho do proprio robo)
+        frame.evaluate("() => _catDestravarManual()")
+        visivel = frame.evaluate(
+            "() => document.getElementById('catUploadArea').style.display !== 'none'")
+        if not visivel:
+            raise RuntimeError("_catDestravarManual nao revelou a area de envio manual")
+        log("teste: envio manual escondido com automacao saudavel + escape OK")
 
         browser.close()
 
@@ -245,9 +252,13 @@ def rodar_producao(cfg, arquivo, obj):
                 raise RuntimeError("storage compartilhado indisponivel no artifact — o perfil do robo "
                                    "esta logado no claude.ai? Rode: python robo/upload_catalogo.py --setup")
             n_cat, n_ped = subir_catalogo(page, frame, arquivo, obj)
-            # a fila de gravacao do app manda catalogo (300KB) + pedidos (160KB) +
-            # versao em sequencia — da folga antes de conferir no backend
-            page.wait_for_timeout(12000)
+            # CRITICO: espera a fila de gravacao do app DRENAR antes de recarregar.
+            # Interromper uma escrita em andamento (reload/fechar) CORROMPE a chave
+            # no servidor do claude.ai (get passa a dar Internal server error ate
+            # alguem regravar por cima) — medido em 2026-07-09. O evaluate espera a
+            # promise da fila resolver.
+            frame.evaluate("() => _store._fila")
+            page.wait_for_timeout(2000)
             # VERIFICACAO REAL DE PERSISTENCIA: recarrega a pagina e le direto da
             # API window.storage (nao da memoria do app) — pega o envelope {key,value}
             page.reload(wait_until="domcontentloaded")
