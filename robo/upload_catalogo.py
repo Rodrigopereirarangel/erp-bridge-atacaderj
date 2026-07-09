@@ -5,20 +5,29 @@ O arquivo unico carrega o catalogo (banco de precos) E o historico de pedidos
 de venda (aba Auditoria) — um upload alimenta as duas coisas para todos os
 usuarios do artifact (storage compartilhado).
 
+COMO O ROBO ABRE O NAVEGADOR (importante): o Chrome lancado pelo Playwright
+vem com marcas de automacao (--no-sandbox etc.) e o Cloudflare do claude.ai
+DETECTA e recusa o desafio "confirme que e humano" mesmo com clique manual
+(confirmado em 2026-07-09). Por isso o robo abre um Chrome NORMAL (sem marca
+nenhuma, mesmo binario do atalho) com --remote-debugging-port e se conecta a
+ele por CDP — para o Cloudflare e um navegador comum com perfil e cookies.
+
 Uso:
-  python robo/upload_catalogo.py --setup        # abre o navegador p/ logar no claude.ai (1x)
+  python robo/upload_catalogo.py --setup        # abre o Chrome do robo p/ logar no claude.ai (1x)
   python robo/upload_catalogo.py --teste        # fluxo completo contra o HTML publicavel LOCAL
   python robo/upload_catalogo.py                # rodada normal (agendada, sobe no artifact)
 
-Requisitos (1x): pip install playwright  (usa o Chrome ja instalado — channel="chrome")
+Requisitos (1x): pip install playwright  (usa o Chrome ja instalado)
 Config: robo/config_robo.json (copie de config_robo.example.json).
 Sai com codigo 0 (sucesso) / 1 (falha). Log: robo/robo_upload.log; em falha
 tambem salva robo/ultima_falha.png.
 """
 import argparse
 import os
+import subprocess
 import sys
 import time
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -26,12 +35,63 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(AQUI))
 from robo import validacao  # noqa: E402
 
+PORTA_CDP = 9777
+
 
 def log(msg):
     linha = f"{datetime.now():%Y-%m-%d %H:%M:%S}  {msg}"
     print(linha)
     with open(os.path.join(AQUI, "robo_upload.log"), "a", encoding="utf-8") as f:
         f.write(linha + "\n")
+
+
+def _achar_chrome():
+    candidatos = [
+        os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"),
+                     "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                     "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""),
+                     "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    for c in candidatos:
+        if os.path.exists(c):
+            return c
+    raise SystemExit("[ERRO] chrome.exe nao encontrado — instale o Google Chrome.")
+
+
+def _cdp_vivo():
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{PORTA_CDP}/json/version", timeout=1)
+        return True
+    except Exception:
+        return False
+
+
+def _lancar_chrome(perfil_dir, url="about:blank"):
+    """Chrome comum (sem marcas de automacao) com porta CDP aberta e perfil do robo."""
+    os.makedirs(perfil_dir, exist_ok=True)
+    subprocess.Popen([
+        _achar_chrome(),
+        f"--remote-debugging-port={PORTA_CDP}",
+        f"--user-data-dir={perfil_dir}",
+        "--no-first-run", "--no-default-browser-check",
+        "--window-size=1280,900",
+        url,
+    ])
+    for _ in range(60):  # ate 18s para a porta abrir
+        if _cdp_vivo():
+            return
+        time.sleep(0.3)
+    raise SystemExit("[ERRO] Chrome abriu mas a porta CDP nao respondeu — feche janelas antigas do robo e tente de novo.")
+
+
+def _fechar_chrome(browser):
+    """Fecha o Chrome inteiro (browser.close() do CDP so desconecta)."""
+    try:
+        browser.new_browser_cdp_session().send("Browser.close")
+    except Exception:
+        pass
 
 
 def achar_frame_do_app(page, timeout_s=90):
@@ -149,20 +209,41 @@ def rodar_teste_local(cfg, arquivo, obj, headed=False):
 
 
 def rodar_producao(cfg, arquivo, obj):
-    """Rodada agendada: abre o artifact no Chrome logado (perfil persistente) e sobe o arquivo."""
+    """Rodada agendada: Chrome comum (CDP) com o perfil logado abre o artifact e sobe o arquivo."""
     from playwright.sync_api import sync_playwright
 
     validacao.exigir_url_real(cfg)
+    _lancar_chrome(cfg["perfil_dir"], cfg["artifact_url"])
     with sync_playwright() as p:
-        ctx = p.chromium.launch_persistent_context(
-            cfg["perfil_dir"], channel="chrome", headless=False,
-            accept_downloads=True, viewport={"width": 1280, "height": 900})
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORTA_CDP}")
+        ctx = browser.contexts[0]
+        # o Chrome pode ja estar aberto com outras abas (ex.: sobrou do --setup):
+        # acha a aba do artifact ou usa/cria uma e navega nela
+        page = None
+        for pg in ctx.pages:
+            if "artifacts" in pg.url:
+                page = pg
+                break
+        if page is None:
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
         try:
             page.goto(cfg["artifact_url"], wait_until="domcontentloaded", timeout=60000)
+            page.bring_to_front()
+            # se cair no desafio do Cloudflare, um navegador comum passa sozinho
+            # em alguns segundos — o achar_frame_do_app espera ate 120s por isso
             if "/login" in page.url:
                 raise RuntimeError("caiu na tela de login — rode: python robo/upload_catalogo.py --setup")
-            frame = achar_frame_do_app(page, timeout_s=90)
+            frame = achar_frame_do_app(page, timeout_s=120)
+            # diagnostico do que esta publicado (o publicavel certo comeca com CATALOG=[])
+            n_antes = frame.evaluate("() => (typeof CATALOG !== 'undefined' && CATALOG.length) || 0")
+            tem_xlsx = frame.evaluate("() => typeof XLSX !== 'undefined'")
+            log(f"artifact aberto — CATALOG embutido: {n_antes} (esperado 0) · XLSX carregado: {tem_xlsx}")
+            # sem o storage compartilhado o upload ficaria so no navegador do robo
+            # (localStorage) e NAO chegaria aos vendedores — melhor falhar claro
+            ws = frame.evaluate("() => (typeof _store !== 'undefined' && _store._ws) || false")
+            if not ws:
+                raise RuntimeError("storage compartilhado indisponivel no artifact — o perfil do robo "
+                                   "esta logado no claude.ai? Rode: python robo/upload_catalogo.py --setup")
             n_cat, n_ped = subir_catalogo(page, frame, arquivo, obj)
             page.wait_for_timeout(5000)  # folga p/ o storage compartilhado sincronizar
             log(f"OK  {n_cat} produtos + {n_ped} pedidos ({obj['gerado_em']}) enviados ao artifact")
@@ -172,9 +253,21 @@ def rodar_producao(cfg, arquivo, obj):
                 page.screenshot(path=os.path.join(AQUI, "ultima_falha.png"), full_page=True)
             except Exception:
                 pass
-            ctx.close()
+            _fechar_chrome(browser)
             sys.exit(1)
-        ctx.close()
+        _fechar_chrome(browser)
+
+
+def rodar_setup(cfg):
+    """Login unico: abre o Chrome do robo (comum, sem marcas) no claude.ai."""
+    _lancar_chrome(cfg["perfil_dir"], "https://claude.ai/")
+    print("Abriu o Chrome do robo (janela SEM a tarja de automacao).")
+    print("1. Logue na conta Claude DONA do artifact (passe o 'confirme que e humano' se aparecer).")
+    print("2. Quando estiver na tela inicial logada, FECHE o navegador.")
+    print("O perfil fica salvo em:", cfg["perfil_dir"])
+    while _cdp_vivo():
+        time.sleep(2)
+    print("Navegador fechado — login salvo.")
 
 
 def main():
@@ -188,19 +281,7 @@ def main():
     cfg = validacao.carregar_config(AQUI)
 
     if args.setup:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            ctx = p.chromium.launch_persistent_context(
-                cfg["perfil_dir"], channel="chrome", headless=False,
-                viewport={"width": 1280, "height": 900})
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto("https://claude.ai/")
-            print("Logue na conta Claude (a DONA do artifact). Quando terminar, FECHE o navegador.")
-            print("O perfil fica salvo em:", cfg["perfil_dir"])
-            try:
-                page.wait_for_event("close", timeout=0)
-            except Exception:
-                pass
+        rodar_setup(cfg)
         return
 
     obj = validacao.validar_arquivo(cfg["arquivo_catalogo"])
