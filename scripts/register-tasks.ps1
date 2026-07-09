@@ -44,4 +44,24 @@ Register-ScheduledTask -TaskName "AtacadeRJ - Auditoria Desconto 16h" -Action $a
   -Trigger $gatAud -RunLevel Limited -Force | Out-Null
 Write-Host "OK: 'AtacadeRJ - Auditoria Desconto 16h' (16:00 -> WhatsApp)"
 
+# --- Tarefa 4: ROBO UPLOAD COTACAO (sobe catalogo_bridge.json no artifact) ---
+# ~5min apos cada rodada que regenera o arquivo (catalogo 08/12/15/18h e a
+# auditoria das 16h). IMPORTANTE: o robo abre um navegador (Chrome logado no
+# claude.ai), entao a tarefa roda "somente quando o usuario estiver conectado"
+# (padrao do Register-ScheduledTask sem -User). O PC-ponte fica logado 24h.
+# Enquanto robo/config_robo.json estiver com o link placeholder, o robo sai
+# com erro claro no robo/robo_upload.log e nada acontece — inofensivo.
+$robo = Join-Path $raiz "robo\upload_catalogo.py"
+$acaoRobo = New-ScheduledTaskAction -Execute $python -Argument "`"$robo`"" -WorkingDirectory $raiz
+$gatRobo = @(
+  New-ScheduledTaskTrigger -Daily -At 08:05
+  New-ScheduledTaskTrigger -Daily -At 12:05
+  New-ScheduledTaskTrigger -Daily -At 15:05
+  New-ScheduledTaskTrigger -Daily -At 16:05
+  New-ScheduledTaskTrigger -Daily -At 18:05
+)
+Register-ScheduledTask -TaskName "AtacadeRJ - Robo Upload Cotacao" -Action $acaoRobo `
+  -Trigger $gatRobo -RunLevel Limited -Force | Out-Null
+Write-Host "OK: 'AtacadeRJ - Robo Upload Cotacao' (08:05/12:05/15:05/16:05/18:05)"
+
 Write-Host "`nPronto. Veja em Agendador de Tarefas. Teste manual: python `"$bridge`" --demo"

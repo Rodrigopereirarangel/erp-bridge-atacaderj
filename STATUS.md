@@ -75,10 +75,17 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   extensão: o histórico `pedidos_venda` é salvo no storage compartilhado e a
   aba 🔍 Auditoria lê **storage → fetch local → .xlsx manual** (nessa ordem).
   Um upload do robô alimenta cotação E auditoria de todos os usuários.
-- [ ] **Robô de upload (Playwright)** — único elo que falta do Plano A: plano
-  pronto em `docs/superpowers/plans/2026-07-07-catalogo-bridge-e-robo.md`
-  (+ passos manuais: publicar o artifact com o app novo, colar o link no
-  config do robô, logar o navegador persistente).
+- [x] **Robô de upload (Playwright) — código pronto e TESTADO (2026-07-09)** —
+  `robo/upload_catalogo.py` (3 modos: `--setup` login 1x · `--teste` fluxo
+  completo contra o HTML publicável local · rodada normal agendada) +
+  `robo/validacao.py` (7 testes pytest). Teste de ponta a ponta com o arquivo
+  REAL de hoje passou: XLSX via cdnjs OK, 📦 upload 4.606 produtos, 285
+  pedidos no storage, auditoria com 7 dias/713 itens no dia mais recente,
+  trava anti-sobrescrita ativa. Tarefa agendada REGISTRADA:
+  "AtacadeRJ - Robo Upload Cotacao" 08:05/12:05/15:05/16:05/18:05.
+  **Falta só (depois de publicar o artifact)**: colar o link em
+  `robo/config_robo.json`, `--setup` p/ logar, e assistir a 1ª rodada —
+  ver `robo/README.md`.
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
@@ -118,6 +125,21 @@ python src\inspect_schema.py venda nota pedido produto
 
 ## Log de progresso
 
+- **2026-07-09 (tarde)** — **ROBÔ DE UPLOAD PRONTO E TESTADO** (`robo/`):
+  Playwright em Python, perfil Chrome persistente, 3 modos (`--setup`/`--teste`/
+  normal). O `--teste` roda o fluxo completo contra o
+  `cotacao-auditoria-atacaderj.publicavel.html` LOCAL com o arquivo real do dia
+  e passou 100%: XLSX-cdnjs, upload 📦 (4.606 produtos), storage da auditoria
+  (285 pedidos), seletor de 7 dias auditando 713 itens, trava anti-sobrescrita.
+  Isso prova que o publicável se comporta como o app original. Tarefa
+  "AtacadeRJ - Robo Upload Cotacao" registrada (08:05/12:05/15:05/16:05/18:05;
+  inofensiva enquanto o config tiver o link placeholder). No app (repo da
+  cotação, commit 8c34762): catálogo agora se atualiza sozinho na aba aberta
+  (polling 3min do marcador `atacaderj_catalogo_versao`; carrinho vazio troca
+  direto, carrinho ocupado ganha aviso "Atualizar agora") e o upload manual
+  trava enquanto o robô está saudável (<5h), destravando sozinho se a
+  automação parar. Falta SÓ: publicar o artifact, colar o link no
+  `robo/config_robo.json`, `--setup` (login) e assistir a 1ª rodada.
 - **2026-07-06** — Topologia confirmada. PC-ponte **DESKTOP-3BLTBIV** (192.168.0.164)
   alcança o MySQL da CONCENTRADOR (192.168.0.245:3306, `TcpTestSucceeded=True`).
   Repo criado no GitHub (privado) com este STATUS. Próximo: viewer host + inspect_schema.

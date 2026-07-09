@@ -34,10 +34,14 @@ if (TEXTO_ARQ) TEXTO = readFileSync(TEXTO_ARQ, 'utf8');
 
 const baileys = await import('@whiskeysockets/baileys');
 const makeWASocket = baileys.default?.makeWASocket || baileys.makeWASocket || baileys.default;
-const { useMultiFileAuthState, DisconnectReason } = baileys;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
 const qrcode = (await import('qrcode-terminal')).default;
 
 const { state, saveCreds } = await useMultiFileAuthState(join(AQUI, 'auth'));
+// a lib vem com uma versao do protocolo "engessada" no pacote; o WhatsApp
+// rejeita handshakes de versoes antigas (erro 405 antes do QR aparecer) —
+// por isso buscamos a versao atual do WhatsApp Web a cada conexao.
+const { version: WA_VERSION } = await fetchLatestBaileysVersion();
 
 const timeout = setTimeout(() => {
   console.error('[whatsapp] TIMEOUT: nao conectou em 120s. Sessao expirada? Rode --login de novo.');
@@ -45,7 +49,7 @@ const timeout = setTimeout(() => {
 }, 120000);
 
 function conectar() {
-  const sock = makeWASocket({ auth: state, printQRInTerminal: false, syncFullHistory: false });
+  const sock = makeWASocket({ auth: state, version: WA_VERSION, printQRInTerminal: false, syncFullHistory: false });
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', async (u) => {
     const { connection, lastDisconnect, qr } = u;

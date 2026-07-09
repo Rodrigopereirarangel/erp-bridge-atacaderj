@@ -10,6 +10,13 @@ scripts/whatsapp/auth/
 scripts/whatsapp/node_modules/
 scripts/whatsapp/package-lock.json
 
+# Robo de upload (perfil do navegador = sessao logada no claude.ai = credencial)
+robo/config_robo.json
+robo/perfil_navegador/
+robo/robo_upload.log
+robo/ultima_falha.png
+robo/backups/
+
 # Logs
 *.log
 bridge_erros.log
