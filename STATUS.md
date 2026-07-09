@@ -61,23 +61,24 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
 - [ ] **WhatsApp: login pendente (1x)** — `cd scripts/whatsapp` e
   `node enviar.mjs --login`, escanear o QR com o celular do dono. Sem isso o
   job das 16h gera os arquivos mas falha no envio (loga em auditoria_16h.log)
-- [ ] **Ligar a cotação — ARQUITETURA REVISTA EM 2026-07-07**: o app
-  `cotacao-auditoria-atacaderj` **roda como artifact no claude.ai**, não como
-  HTML servido na rede local (fato descoberto pela sessão de desenvolvimento,
-  sem acesso a este PC — ver `docs/superpowers/specs/2026-07-07-estrutura-
-  acesso-cotacao-design.md`). Um artifact do claude.ai **não alcança a rede da
-  loja** (CSP bloqueia fetch para host externo/local) — então **o `fetch()`
-  relativo que a aba Auditoria ganhou hoje (`pedidos_venda_dav.csv`,
-  `produtos.json`) NÃO funciona na versão publicada real**, só ao abrir o
-  HTML localmente num navegador. Caminho planejado (Plano A da spec): bridge
-  gera um **arquivo único `catalogo_bridge.json`** e um **robô Playwright
-  agendado** sobe esse arquivo pelo botão "📦 Catálogo" do próprio app —
-  planos prontos em `docs/superpowers/plans/2026-07-07-aceitar-catalogo-
-  bridge.md` (repo do app) e `docs/superpowers/plans/2026-07-07-catalogo-
-  bridge-e-robo.md` (este repo). **Falta decidir/adaptar**: incluir
-  `pedidos_venda_dav.csv` dentro desse arquivo único (hoje ele só teria o
-  catálogo) para o seletor de dias da Auditoria também funcionar via robô,
-  em vez de fetch.
+- [x] **Arquivo único `catalogo_bridge.json` (2026-07-08)** — a ponte gera em
+  `saida/cotacao/catalogo_bridge.json` o arquivo que o robô sobe no artifact:
+  catálogo mesclado (v = MENOR preço varejo/promo/atacado; vu = unitário
+  quando o atacado vence; q = **QUANTIDADE_ATACADO**, a qtde mínima real do
+  atacado — coluna adicionada à query CATALOGO) **+ seção `pedidos_venda`**
+  (itens dos pedidos fechados nos últimos 7 dias, p/ a aba Auditoria).
+  Contrato validado contra a revalidação do app: 4.600/4.600 produtos aceitos,
+  0 rejeições, promoção vencendo em 26/26, mescla conferida nos casos de
+  banco conhecidos. Sai nos alvos `catalogo`, `pedidos-venda` e `movimentos`.
+- [x] **App aceita o arquivo único (2026-07-08)** — plano
+  `2026-07-07-aceitar-catalogo-bridge.md` implementado no repo do app, com
+  extensão: o histórico `pedidos_venda` é salvo no storage compartilhado e a
+  aba 🔍 Auditoria lê **storage → fetch local → .xlsx manual** (nessa ordem).
+  Um upload do robô alimenta cotação E auditoria de todos os usuários.
+- [ ] **Robô de upload (Playwright)** — único elo que falta do Plano A: plano
+  pronto em `docs/superpowers/plans/2026-07-07-catalogo-bridge-e-robo.md`
+  (+ passos manuais: publicar o artifact com o app novo, colar o link no
+  config do robô, logar o navegador persistente).
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
@@ -106,12 +107,12 @@ python src\inspect_schema.py venda nota pedido produto
 1. **Login do WhatsApp (1x)**: `cd scripts\whatsapp` → `node enviar.mjs --login`
    → escanear o QR. Depois testar:
    `powershell -File scripts\auditoria-16h.ps1 -Dia 2026-07-06`
-2. **Decidir a arquitetura de distribuição do catálogo** (ver item revisto no
-   checklist acima): o app é artifact do claude.ai, então o `fetch()` local
-   não serve em produção. Executar (ou revisar) os planos
-   `docs/superpowers/plans/2026-07-07-aceitar-catalogo-bridge.md` e
-   `2026-07-07-catalogo-bridge-e-robo.md`, incluindo `pedidos_venda_dav.csv`
-   no arquivo único para a Auditoria funcionar pelo robô também
+2. **Robô de upload**: executar o plano
+   `docs/superpowers/plans/2026-07-07-catalogo-bridge-e-robo.md` (a parte do
+   app e o arquivo único JÁ estão prontos — repare que a projeção aqui se
+   chama `catalogo_bridge_json` em `src/projections.py` e o arquivo já inclui
+   `pedidos_venda`; ajustar o plano se ele previa gerar isso do zero).
+   Passos manuais: republicar o artifact com o app novo + logar o navegador.
 3. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
    do `config.local.json` para as pastas `data/input` deles
 
@@ -189,6 +190,23 @@ python src\inspect_schema.py venda nota pedido produto
   relatórios do ERP. Migração documentada (app local + injeção + API paga) se
   o claude.ai inviabilizar o robô. Spec:
   `docs/superpowers/specs/2026-07-07-estrutura-acesso-cotacao-design.md`.
+- **2026-07-08 (AUDITORIA NO MODELO DO ROBÔ)** — Pedido do dono: "adapte a aba
+  Auditoria para funcionar dentro desse modelo de robô". Feito nos dois repos:
+  (a) **ponte**: query CATALOGO ganhou `QUANTIDADE_ATACADO` (qtde mínima real
+  do atacado — a correção apontada na auditoria de 07/07, conferida 995/995) e
+  nasceu a projeção `catalogo_bridge_json` (contrato do plano da sessão dev +
+  seção `pedidos_venda` com os pedidos fechados da janela de 7 dias), escrita
+  em `saida/cotacao/catalogo_bridge.json` nos alvos catalogo/pedidos-venda/
+  movimentos; (b) **app**: plano `aceitar-catalogo-bridge` implementado
+  (seção "Arquivo único do bridge" no modal 📦, `processarCatalogoBridge` com
+  as validações do contrato, IDs `#catBridgeArq`/`#catConfirmar` p/ o robô) +
+  `confirmarCatalogoBridge` persiste o histórico no storage compartilhado
+  (`atacaderj_pedidos_venda`, ~158KB) e a aba Auditoria passou a ler
+  storage → fetch local → xlsx manual. Testado de ponta a ponta em Node com o
+  arquivo REAL: auditoria de 06/07 via storage = 199 linhas/154 auditados/33
+  divergências/R$ 105,92, idêntico ao motor validado contra o relatório
+  manual. Falta só o robô Playwright (+ republicar o artifact e logar o
+  navegador) — aí o ciclo fecha sem toque humano.
 - **2026-07-07 (RECONCILIAÇÃO — merge das duas sessões)** — Esta sessão (PC-
   ponte, acesso direto ao banco) e a sessão de dev (sem acesso a este PC, só
   planejamento) trabalharam em paralelo e divergiram no GitHub. Ao dar

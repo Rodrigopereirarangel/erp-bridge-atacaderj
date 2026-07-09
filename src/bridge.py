@@ -10,6 +10,9 @@ via camada de projecao, o formato exato de cada consumidor:
   recebimentos  -> detector-salao/recebimentos.csv  +  detector-estoque/recebimentos.csv
   pedidos       -> detector-estoque/pedidos.csv
   pedidos-venda -> cotacao/pedidos_venda_dav.csv    (auditoria de desconto do app)
+  catalogo e pedidos-venda tambem escrevem cotacao/catalogo_bridge.json —
+  o ARQUIVO UNICO (catalogo mesclado + pedidos de venda) que o robo de upload
+  sobe no artifact do claude.ai pelo botao "Catalogo" do app
 
 Uso:
   python src/bridge.py --demo                # gera tudo com dados falsos (sem banco)
@@ -107,6 +110,13 @@ def escrever(cfg, cat, ven, ent, ped, pv, alvo):
             os.path.dirname(saida["cotacao_produtos_json"]), "pedidos_venda_dav.csv")
         n = projections.pedidos_venda_csv(pv, caminho)
         rel.append(f"cotacao/pedidos_venda_dav.csv: {n}")
+
+    if alvo in ("all", "catalogo", "movimentos", "pedidos-venda"):
+        caminho = saida.get("catalogo_bridge_json") or os.path.join(
+            os.path.dirname(saida["cotacao_produtos_json"]), "catalogo_bridge.json")
+        np, nped = projections.catalogo_bridge_json(
+            cat, pv, caminho, gerado_em, cfg.get("janela_pedidos_venda_dias", 7))
+        rel.append(f"cotacao/catalogo_bridge.json: {np} produtos + {nped} pedidos de venda")
 
     return rel
 

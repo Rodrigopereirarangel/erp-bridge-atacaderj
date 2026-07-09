@@ -34,6 +34,7 @@ SELECT
     p.cdProduto                      AS codigo,
     sp.nmProdutoPai                  AS descricao,
     pr.embalagem,
+    pr.qtde_atacado,
     pr.custo_atual,
     pr.preco_atacado,
     pr.preco_varejo,
@@ -44,6 +45,7 @@ FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
     SELECT SEQPRODUTO, SEQLOJA,
            QUANTIDADE_CAIXA               AS embalagem,
+           QUANTIDADE_ATACADO             AS qtde_atacado,
            CUSTO_ULTIMA_ENTRADA           AS custo_atual,
            NULLIF(PRECO_ATACADO, 0)       AS preco_atacado,
            PRECO_NORMAL                   AS preco_varejo,

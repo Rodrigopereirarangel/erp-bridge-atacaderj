@@ -8,6 +8,7 @@ import csv
 import io
 import json
 import os
+import re
 
 
 def _escrever_atomico(caminho, conteudo_bytes):
@@ -47,6 +48,88 @@ def cotacao_produtos_json(catalogo, caminho, gerado_em):
     data = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
     _escrever_atomico(caminho, data)
     return len(produtos)
+
+
+def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dias=7):
+    """Arquivo UNICO que o robo de upload sobe no artifact do claude.ai pelo
+    botao "📦 Catalogo" do app (design 2026-07-07: o app NAO alcanca a rede da
+    loja, entao nada de fetch — os dados viajam por upload).
+
+    Contrato com o app (plano 2026-07-07-aceitar-catalogo-bridge.md):
+      {"origem":"erp-bridge","gerado_em":"YYYY-MM-DD HH:MM:SS","total":N,
+       "produtos":[{"c","p","q","v","vu"?,"custo"?,"cv"?}]}
+    - v  = MENOR preco (varejo/promocao/atacado — mesma mescla do upload manual)
+    - vu = preco unitario (varejo ou promo) SO quando o atacado venceu
+    - q  = qtde minima do atacado quando ele vence (senao 1)
+    O app revalida cada produto (nome>=4, v>0, sem MORTO) e exige
+    total == len(produtos) — por isso os MESMOS filtros sao aplicados aqui.
+
+    Extensao (auditoria de desconto, 2026-07-08): "pedidos_venda" leva os
+    itens dos pedidos de venda/DAV fechados na janela (7 dias), agrupados por
+    pedido, p/ o seletor de dia da aba Auditoria funcionar no artifact:
+      {"janela_dias":N,"pedidos":[{"dia","ped","dav","cli","vend",
+       "itens":[[codigo,emb,qtde,valor_volume,custo_un],...]}]}
+    """
+    produtos = []
+    for r in catalogo:
+        try:
+            c = int(r["codigo"])
+        except (TypeError, ValueError):
+            continue
+        nome = str(r.get("descricao") or "").upper().strip()
+        # mesmo regex de descarte do app (/MORTO|EXCLUIDO|<<<.*>>>/): qualquer
+        # divergencia aqui muda o "total" e faz o app rejeitar o ARQUIVO inteiro
+        if len(nome) < 4 or re.search(r"MORTO|EXCLUIDO|<<<.*>>>", nome):
+            continue
+        varejo = r.get("preco_varejo")
+        promo = r.get("preco_promocao")
+        atacado = r.get("preco_atacado")
+        v = varejo if (varejo or 0) > 0 else None
+        if (promo or 0) > 0 and (v is None or promo < v):
+            v = promo                      # promocao vence (estrito, como no app)
+        vu = None
+        q = 1
+        if (atacado or 0) > 0 and (v is None or atacado < v):
+            vu = v                         # unitario perdedor vira "vu"
+            v = atacado                    # atacado vence (estrito)
+            qa = r.get("qtde_atacado")
+            q = int(qa) if (qa or 0) >= 1 else 1
+        if v is None:
+            continue
+        v = round(v, 2)          # arredondar ANTES de validar: 0.004 -> 0.0
+        if v <= 0:               # (o app revalida v>0 sobre o valor arredondado)
+            continue
+        item = {"c": c, "p": nome, "q": q, "v": v}
+        if vu is not None:
+            vu = round(vu, 2)
+            if vu > 0 and vu != item["v"]:
+                item["vu"] = vu
+        if (r.get("custo_atual") or 0) > 0:
+            item["custo"] = round(r["custo_atual"], 2)
+        if r.get("curva"):
+            item["cv"] = str(r["curva"]).strip().upper()[:1]
+        produtos.append(item)
+    produtos.sort(key=lambda x: x["p"])
+
+    por_pedido = {}
+    for r in pedidos_venda or []:
+        ped = r["pedido"]
+        if ped not in por_pedido:
+            por_pedido[ped] = {"dia": str(r["emissao"])[:10], "ped": ped,
+                               "dav": r.get("dav"), "cli": r.get("cliente"),
+                               "vend": r.get("vendedor"), "itens": []}
+        por_pedido[ped]["itens"].append([
+            r["codigo"], r.get("emb") or "UN", r.get("qtde"),
+            r.get("valor"), r.get("custo_un")])
+    pedidos = sorted(por_pedido.values(), key=lambda p: (p["dia"], p["ped"]))
+
+    payload = {"origem": "erp-bridge", "gerado_em": gerado_em,
+               "total": len(produtos), "produtos": produtos}
+    if pedidos:
+        payload["pedidos_venda"] = {"janela_dias": janela_dias, "pedidos": pedidos}
+    data = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+    _escrever_atomico(caminho, data)
+    return len(produtos), len(pedidos)
 
 
 # ---------- Consumidores 2 e 3: Detectores (CSV ;) ----------
