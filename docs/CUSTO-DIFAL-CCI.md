@@ -93,6 +93,47 @@ CCI da tela = CustoUnitario + **acréscimo interno calculado pela aplicação**:
   reposição/frete por fornecedor calculado pelo executável. **Perguntar ao
   suporte Solidcon a composição exata do CCI.**
 
+## Como expurgar SÓ o difal do custo/CCI (receita validada)
+
+Como `Custo = Base × (1−e)/(1−e−d)` (e = alíquota de entrada efetiva,
+d = difal), o expurgo é algébrico e usa só o que está na tela:
+
+```
+difal embutido (R$)  = Custo Unit. × d ÷ (100 − e)
+custo sem difal      = Custo Unit. × (100 − e − d) ÷ (100 − e)
+CCI sem difal        = CCI − difal embutido        <- mantém o acréscimo interno
+```
+
+- e = (ICMS% + FCP%) × (1 − Red.BC%). Casos típicos: interestadual normal
+  e = 12, d = 10 → difal embutido = Custo × 10/88 (= 11,36% do custo).
+- Verificação: item local com Red.BC (NF 2352665, prod 102237): custo 14,2492
+  → sem difal 12,63 = o preço da nota, exato.
+- Se preferir tratar o acréscimo interno do CCI como proporcional:
+  `CCI × (100−e−d)/(100−e)` (limite inferior).
+
+SQL pronto (SSMS, somente leitura) — difal embutido de TODAS as entradas:
+
+```sql
+SELECT n.Numero, CAST(n.dtEmissao AS date) AS emissao, i.cdProduto,
+       sp.nmProdutoPai, i.DiferencaAliquota AS difal_pct,
+       i.CustoUnitario AS custo_com_difal,
+       CAST(i.CustoUnitario * i.DiferencaAliquota / (100 - x.ent) AS decimal(12,4)) AS difal_embutido,
+       CAST(i.CustoUnitario * (100 - x.ent - i.DiferencaAliquota) / (100 - x.ent) AS decimal(12,4)) AS custo_sem_difal
+FROM dbo.tbNotaItem i
+JOIN dbo.tbNotaEntrada e ON e.cdNotaEntrada = i.cdNota AND e.cdPessoaFilial = i.cdPessoaFilial
+JOIN dbo.tbNota n        ON n.cdNota = i.cdNota AND n.cdPessoaFilial = i.cdPessoaFilial
+JOIN dbo.tbProduto p     ON p.cdProduto = i.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+CROSS APPLY (SELECT (ISNULL(i.ICMSpICMS,0) + ISNULL(i.ICMSpFCP,0))
+                    * (1 - ISNULL(i.ReducaoBaseICMS,0)/100.0) AS ent) x
+WHERE i.DiferencaAliquota > 0 AND i.CustoUnitario > 0
+  AND n.dtEmissao >= '2026-01-01'
+ORDER BY n.dtEmissao DESC;
+```
+
+Não aplicar em compras de uso/consumo (CFOP x556) nem itens com ICMS
+desonerado (cBenef) — nesses a conta do difal é outra.
+
 ## Resposta prática (NF 128502, a selecionada na tela)
 
 Decomposição por unidade: 21,45 (preço) + 0,6971 (IPI) + 2,8394 (difal)
