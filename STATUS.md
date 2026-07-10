@@ -140,6 +140,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-10 (DIFAL/CCI DECIFRADOS)** — Engenharia reversa do custo de
+  entrada, validada ao centavo no produto 19047: **CustoUnitario da nota =
+  (preço+IPI) × (1−ICMS interestadual) ÷ (1−22%)** — DIFAL "por dentro" base
+  dupla (22% = 20 ICMS + 2 FCP do RJ; coluna Difal = DiferencaAliquota = 10).
+  Difal encarece a compra interestadual em **+12,82%**. Confirmado que
+  `CUSTO_ULTIMA_ENTRADA` (Neogrid → produtos.json) e `tbVendaPDV.vlCusto`
+  (CMV) são esse custo COM difal. O **CCI da tela = custo + acréscimo interno
+  da aplicação** (não é difal — nota local sem difal também tem; varia por
+  fornecedor/época; procs criptografadas; perguntar ao suporte Solidcon).
+  Tudo documentado em **docs/CUSTO-DIFAL-CCI.md**.
 - **2026-07-10 (v2 — HOMOLOGADO CONTRA O RELATÓRIO OFICIAL)** ✅ O dono gerou
   o **rptABCdeVendas** do ERP (01–30/06/2026, Qtde, sem descontar devoluções,
   sem vendas por NF) como gabarito. Resultado: o código já era o definitivo —
