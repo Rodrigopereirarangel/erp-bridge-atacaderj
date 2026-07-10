@@ -27,6 +27,7 @@ Uso:
 import argparse
 import json
 import os
+import shutil
 import sys
 from datetime import datetime
 
@@ -122,6 +123,16 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         np, nped = projections.catalogo_bridge_json(
             cat, pv, caminho, gerado_em, cfg.get("janela_pedidos_venda_dias", 7))
         rel.append(f"cotacao/catalogo_bridge.json: {np} produtos + {nped} pedidos de venda")
+        # copia para a pasta do upload MANUAL (Area de Trabalho, so este arquivo):
+        # o operador acha na hora, e o app confere data + janela de horario
+        pasta_manual = saida.get("upload_manual_dir") or os.path.join(
+            os.path.expanduser("~"), "Desktop", "AtacadeRJ-Banco")
+        try:
+            os.makedirs(pasta_manual, exist_ok=True)
+            shutil.copyfile(caminho, os.path.join(pasta_manual, "catalogo_bridge.json"))
+            rel.append(f"upload manual: {os.path.join(pasta_manual, 'catalogo_bridge.json')}")
+        except OSError as e:
+            rel.append(f"upload manual: FALHOU a copia ({e})")
 
     if alvo in ("all", "movimentos", "vendas-mensal"):
         dash_dir = saida.get("dashboard_dir") or os.path.join(RAIZ, "saida", "dashboard")

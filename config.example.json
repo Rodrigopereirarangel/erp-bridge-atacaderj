@@ -29,6 +29,8 @@
   },
 
   "saida": {
+    "_upload_manual_dir": "pasta com SO o catalogo_bridge.json da janela atual (upload manual de contingencia); padrao: Desktop/AtacadeRJ-Banco",
+    "upload_manual_dir": "C:/Users/COMPUTADOR/Desktop/AtacadeRJ-Banco",
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/cotacao/produtos.json",
     "detector_salao_dir":   "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-salao",
     "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque"
