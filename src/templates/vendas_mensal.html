@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendas por item — mês fechado · AtacadeRJ</title>
+<style>
+  :root {
+    --plano:        #f9f9f7;
+    --superficie:   #fcfcfb;
+    --tinta-1:      #0b0b0b;
+    --tinta-2:      #52514e;
+    --tinta-3:      #898781;
+    --grade:        #e1e0d9;
+    --borda:        rgba(11,11,11,0.10);
+    --barra:        #2a78d6;
+    --barra-trilho: #cde2fb;
+    --delta-bom:    #006300;
+    --delta-ruim:   #d03b3b;
+    --foco:         #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --plano:        #0d0d0d;
+      --superficie:   #1a1a19;
+      --tinta-1:      #ffffff;
+      --tinta-2:      #c3c2b7;
+      --tinta-3:      #898781;
+      --grade:        #2c2c2a;
+      --borda:        rgba(255,255,255,0.10);
+      --barra:        #3987e5;
+      --barra-trilho: #0d366b;
+      --delta-bom:    #0ca30c;
+      --delta-ruim:   #e66767;
+      --foco:         #3987e5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--plano); color: var(--tinta-1);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .pagina { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
+  header h1 { font-size: 20px; font-weight: 650; margin: 0 0 2px; }
+  header p  { margin: 0 0 16px; color: var(--tinta-2); font-size: 13px; }
+
+  .filtros {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px;
+  }
+  .filtros label { display: block; font-size: 12px; color: var(--tinta-2); margin-bottom: 3px; }
+  .filtros select, .filtros input {
+    font: inherit; color: var(--tinta-1); background: var(--superficie);
+    border: 1px solid var(--borda); border-radius: 8px; padding: 7px 10px; min-height: 36px;
+  }
+  .filtros input { width: 260px; }
+  .filtros select:focus-visible, .filtros input:focus-visible,
+  button:focus-visible, th.ordenavel:focus-visible {
+    outline: 2px solid var(--foco); outline-offset: 1px;
+  }
+
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .tile {
+    flex: 1 1 180px; background: var(--superficie); border: 1px solid var(--borda);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .tile .rotulo { font-size: 12px; color: var(--tinta-2); }
+  .tile .valor  { font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .tile .delta  { font-size: 12px; margin-top: 2px; color: var(--tinta-3); }
+  .tile .delta.sobe  { color: var(--delta-bom); }
+  .tile .delta.desce { color: var(--delta-ruim); }
+
+  .cartao {
+    background: var(--superficie); border: 1px solid var(--borda);
+    border-radius: 10px; overflow: hidden;
+  }
+  .rolagem { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  thead th {
+    position: sticky; top: 0; background: var(--superficie);
+    font-size: 12px; font-weight: 600; color: var(--tinta-2); text-align: left;
+    padding: 9px 12px; border-bottom: 1px solid var(--grade); white-space: nowrap;
+  }
+  th.ordenavel { cursor: pointer; user-select: none; }
+  th.ordenavel:hover { color: var(--tinta-1); }
+  th .seta { font-size: 10px; color: var(--tinta-3); }
+  tbody td {
+    padding: 7px 12px; border-bottom: 1px solid var(--grade);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.rank { color: var(--tinta-3); font-variant-numeric: tabular-nums; width: 1%; }
+  td.cod  { color: var(--tinta-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.qtd  { font-weight: 600; white-space: nowrap; }
+  td.pct  { color: var(--tinta-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.graf { width: 22%; min-width: 110px; }
+  .trilho { background: none; height: 8px; border-radius: 4px; position: relative; }
+  .preenchido {
+    background: var(--barra); height: 8px; border-radius: 0 4px 4px 0;
+    min-width: 2px;
+  }
+  .rodape {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    justify-content: space-between; padding: 10px 12px; border-top: 1px solid var(--grade);
+    color: var(--tinta-2); font-size: 12px;
+  }
+  .rodape button {
+    font: inherit; color: var(--tinta-1); background: none;
+    border: 1px solid var(--borda); border-radius: 8px; padding: 6px 14px; cursor: pointer;
+  }
+  .rodape button:hover { border-color: var(--tinta-3); }
+  .vazio { padding: 28px 12px; text-align: center; color: var(--tinta-2); }
+  .nota { margin-top: 12px; color: var(--tinta-3); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <header>
+    <h1>Vendas por item — mês fechado</h1>
+    <p id="subtitulo">Quantidade vendida em <strong>unidades</strong> (não caixas), por produto.</p>
+  </header>
+
+  <div class="filtros" role="group" aria-label="Filtros">
+    <div>
+      <label for="selMes">Mês</label>
+      <select id="selMes"></select>
+    </div>
+    <div>
+      <label for="selOrdem">Ordenar por</label>
+      <select id="selOrdem">
+        <option value="qtd|-1" selected>Mais vendidos</option>
+        <option value="qtd|1">Menos vendidos</option>
+        <option value="desc|1">Descrição A→Z</option>
+        <option value="desc|-1">Descrição Z→A</option>
+        <option value="cod|1">Código crescente</option>
+        <option value="cod|-1">Código decrescente</option>
+      </select>
+    </div>
+    <div style="flex:1 1 220px">
+      <label for="txtBusca">Buscar</label>
+      <input id="txtBusca" type="search" placeholder="Código ou descrição…" autocomplete="off" style="width:100%">
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="rotulo">Unidades vendidas</div>
+      <div class="valor" id="tileUn">—</div>
+      <div class="delta" id="tileUnDelta"></div>
+    </div>
+    <div class="tile">
+      <div class="rotulo">Itens com venda</div>
+      <div class="valor" id="tileItens">—</div>
+      <div class="delta" id="tileItensDelta"></div>
+    </div>
+    <div class="tile">
+      <div class="rotulo">Item mais vendido</div>
+      <div class="valor" id="tileTop" style="font-size:15px; line-height:1.3">—</div>
+      <div class="delta" id="tileTopQtd"></div>
+    </div>
+  </div>
+
+  <div class="cartao">
+    <div class="rolagem">
+      <table id="tabela">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col" class="ordenavel" data-chave="cod" tabindex="0">Código <span class="seta"></span></th>
+            <th scope="col" class="ordenavel" data-chave="desc" tabindex="0">Descrição <span class="seta"></span></th>
+            <th scope="col" class="ordenavel num" data-chave="qtd" tabindex="0">Unidades <span class="seta"></span></th>
+            <th scope="col" class="num">% do mês</th>
+            <th scope="col"><span class="visually-hidden"></span></th>
+          </tr>
+        </thead>
+        <tbody id="corpo"></tbody>
+      </table>
+      <div class="vazio" id="vazio" hidden>Nenhum item encontrado para essa busca.</div>
+    </div>
+    <div class="rodape">
+      <span id="contagem"></span>
+      <button id="btnMais" hidden>Mostrar mais</button>
+    </div>
+  </div>
+
+  <p class="nota" id="notaRodape">
+    Fonte: ERP Solidcon via erp-bridge (tbVendaPDV, venda bruta do PDV).
+    Quantidades com decimais são itens de balança (kg). Somente meses fechados —
+    o mês corrente não aparece.
+  </p>
+</div>
+
+<script>
+"use strict";
+const DADOS = /*__DADOS__*/null;
+
+const LOTE = 400;                       // linhas renderizadas por vez
+const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+const fmtPct = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const NOMES_MES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+const el = id => document.getElementById(id);
+const estado = { mes: null, chave: "qtd", dir: -1, busca: "", limite: LOTE };
+
+function nomeMes(iso) {                  // "2026-06" -> "Junho/2026"
+  const [a, m] = iso.split("-");
+  return NOMES_MES[parseInt(m, 10) - 1] + "/" + a;
+}
+
+function linhasDoMes(mes) {              // -> [{c, p, q}] + rank fixo por qtd
+  const linhas = [];
+  for (const pr of DADOS.produtos) {
+    const q = pr.m[mes];
+    if (q !== undefined) linhas.push({ c: pr.c, p: pr.p, q });
+  }
+  linhas.sort((a, b) => b.q - a.q || a.c - b.c);
+  linhas.forEach((ln, i) => { ln.rank = i + 1; });
+  return linhas;
+}
+
+function aplicarFiltroOrdem(linhas) {
+  let out = linhas;
+  if (estado.busca) {
+    const t = estado.busca.toLowerCase();
+    out = out.filter(ln => String(ln.c).includes(t) || ln.p.toLowerCase().includes(t));
+  }
+  const { chave, dir } = estado;
+  out = out.slice().sort((a, b) => {
+    if (chave === "qtd")  return (a.q - b.q) * dir || a.c - b.c;
+    if (chave === "cod")  return (a.c - b.c) * dir;
+    return a.p.localeCompare(b.p, "pt-BR") * dir || a.c - b.c;
+  });
+  return out;
+}
+
+function deltaHtml(alvo, atual, anterior, sufixo) {
+  const no = el(alvo);
+  if (anterior == null || anterior === 0) { no.textContent = ""; return; }
+  const pct = (atual - anterior) / anterior * 100;
+  const seta = pct >= 0 ? "▲" : "▼";
+  no.className = "delta " + (pct >= 0 ? "sobe" : "desce");
+  no.textContent = seta + " " + fmtPct.format(Math.abs(pct)) + "% vs " + sufixo;
+}
+
+function atualizarTiles(linhas) {
+  const i = DADOS.meses.indexOf(estado.mes);
+  const mesAnt = DADOS.meses[i + 1];                 // meses em ordem decrescente
+  const totalUn = linhas.reduce((s, ln) => s + ln.q, 0);
+  el("tileUn").textContent = fmt.format(totalUn);
+  el("tileItens").textContent = fmt.format(linhas.length);
+  if (linhas.length) {
+    el("tileTop").textContent = linhas[0].p;
+    el("tileTopQtd").textContent = fmt.format(linhas[0].q) + " un · cód. " + linhas[0].c;
+  }
+  if (mesAnt) {
+    const ant = linhasDoMes(mesAnt);
+    deltaHtml("tileUnDelta", totalUn, ant.reduce((s, ln) => s + ln.q, 0), nomeMes(mesAnt));
+    deltaHtml("tileItensDelta", linhas.length, ant.length, nomeMes(mesAnt));
+  } else {
+    el("tileUnDelta").textContent = "";
+    el("tileItensDelta").textContent = "";
+  }
+}
+
+function atualizarSetas() {
+  document.querySelectorAll("th.ordenavel").forEach(th => {
+    const ativa = th.dataset.chave === estado.chave;
+    th.querySelector(".seta").textContent = ativa ? (estado.dir === 1 ? "▲" : "▼") : "";
+    th.setAttribute("aria-sort", ativa ? (estado.dir === 1 ? "ascending" : "descending") : "none");
+  });
+  const sel = el("selOrdem");
+  const v = estado.chave + "|" + estado.dir;
+  if (sel.value !== v) sel.value = v;
+}
+
+function render() {
+  const base = linhasDoMes(estado.mes);
+  const visiveis = aplicarFiltroOrdem(base);
+  const totalUn = base.reduce((s, ln) => s + ln.q, 0);
+  const maxQ = base.length ? base[0].q : 0;          // base ja vem por qtd desc
+
+  atualizarTiles(base);
+  atualizarSetas();
+
+  const fatia = visiveis.slice(0, estado.limite);
+  const corpo = el("corpo");
+  corpo.innerHTML = fatia.map(ln => {
+    const larg = maxQ ? Math.max(1.5, ln.q / maxQ * 100) : 0;
+    const pct = totalUn ? ln.q / totalUn * 100 : 0;
+    return "<tr>" +
+      '<td class="rank">' + ln.rank + "</td>" +
+      '<td class="cod">' + ln.c + "</td>" +
+      "<td>" + escapar(ln.p) + "</td>" +
+      '<td class="num qtd">' + fmt.format(ln.q) + "</td>" +
+      '<td class="num pct">' + fmtPct.format(pct) + "%</td>" +
+      '<td class="graf" aria-hidden="true"><div class="trilho">' +
+        '<div class="preenchido" style="width:' + larg.toFixed(1) + '%"></div>' +
+      "</div></td></tr>";
+  }).join("");
+
+  el("vazio").hidden = visiveis.length > 0;
+  el("btnMais").hidden = visiveis.length <= estado.limite;
+  el("contagem").textContent = visiveis.length > estado.limite
+    ? "Mostrando " + fmt.format(fatia.length) + " de " + fmt.format(visiveis.length) + " itens"
+    : fmt.format(visiveis.length) + (visiveis.length === 1 ? " item" : " itens");
+}
+
+function escapar(s) {
+  return String(s).replace(/[&<>"']/g,
+    ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function iniciar() {
+  if (!DADOS || !DADOS.meses || !DADOS.meses.length) {
+    document.querySelector(".pagina").innerHTML =
+      "<p>Este é o template sem dados. Abra o arquivo gerado pela ponte em " +
+      "<code>saida/dashboard/vendas_mensal.html</code> (gere com " +
+      "<code>python src/bridge.py --only vendas-mensal</code>).</p>";
+    return;
+  }
+  const sel = el("selMes");
+  sel.innerHTML = DADOS.meses.map(m => '<option value="' + m + '">' + nomeMes(m) + "</option>").join("");
+  estado.mes = DADOS.meses[0];
+  el("subtitulo").innerHTML = "Quantidade vendida em <strong>unidades</strong> (não caixas), " +
+    "por produto · dados gerados em " + escapar(DADOS.gerado_em);
+
+  sel.addEventListener("change", () => { estado.mes = sel.value; estado.limite = LOTE; render(); });
+  el("selOrdem").addEventListener("change", e => {
+    const [chave, dir] = e.target.value.split("|");
+    estado.chave = chave; estado.dir = parseInt(dir, 10); estado.limite = LOTE; render();
+  });
+  let timer = null;
+  el("txtBusca").addEventListener("input", e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { estado.busca = e.target.value.trim(); estado.limite = LOTE; render(); }, 150);
+  });
+  document.querySelectorAll("th.ordenavel").forEach(th => {
+    const ativar = () => {
+      const chave = th.dataset.chave;
+      if (estado.chave === chave) estado.dir = -estado.dir;
+      else { estado.chave = chave; estado.dir = chave === "qtd" ? -1 : 1; }
+      estado.limite = LOTE; render();
+    };
+    th.addEventListener("click", ativar);
+    th.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ativar(); } });
+  });
+  el("btnMais").addEventListener("click", () => { estado.limite += LOTE; render(); });
+
+  render();
+}
+iniciar();
+</script>
+</body>
+</html>

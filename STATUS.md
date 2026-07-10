@@ -86,6 +86,15 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   **Falta só (depois de publicar o artifact)**: colar o link em
   `robo/config_robo.json`, `--setup` p/ logar, e assistir a 1ª rodada —
   ver `robo/README.md`.
+- [x] **Dashboard de vendas mensais em UNIDADES (2026-07-10)** — 6ª query
+  `VENDAS_MENSAL` (unidades por produto × mês FECHADO, 6 meses; mês corrente
+  fica fora) + projeção `vendas_mensal_dashboard` → `saida/dashboard/
+  vendas_mensal.json` + `vendas_mensal.html` (auto-contido, dados embutidos,
+  abre com duplo clique): seletor de mês, busca, ordenação por qtd/descrição/
+  código (select + clique no cabeçalho), tiles com Δ vs mês anterior.
+  Validado: totais dos 6 meses batem ao milésimo com SUM(qtVenda) direto no
+  banco; 10/10 testes de interação (Playwright). Sai nos alvos `all`,
+  `movimentos` e `--only vendas-mensal` (refresh diário às 05:00 já cobre).
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
@@ -100,6 +109,10 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only catalogo  # so ca
 
 # explorar o schema (se precisar ajustar uma query)
 python src\inspect_schema.py venda nota pedido produto
+
+# dashboard de vendas mensais (unidades por item, meses fechados)
+python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
+# abrir: C:\Users\User\erp-bridge-atacaderj\saida\dashboard\vendas_mensal.html
 ```
 
 ## Dados de conexão (a senha fica SÓ em `config.local.json`, nunca aqui)
@@ -125,6 +138,28 @@ python src\inspect_schema.py venda nota pedido produto
 
 ## Log de progresso
 
+- **2026-07-10** — **DASHBOARD DE VENDAS MENSAIS (unidades, não caixas)** ✅
+  Pedido do dono: quantidade vendida em UN de cada item por mês fechado
+  (junho/maio/abril...), com escolha de mês e lista ordenável. Antes de
+  codificar, sondado o `tbVendaPDV`: **qtVenda já é em UNIDADES** (caixa de 12
+  vendida no atacado sai como 12/24 un com vlVenda unitário — 17,09 atacado vs
+  19,49 varejo no mesmo produto; qtVenda fracionada = balança/kg). Histórico
+  disponível: ago/2025→hoje. Feito: 6ª query `VENDAS_MENSAL` ({meses_fechados}
+  via config `vendas_mensal_meses`, default 6; mês corrente excluído),
+  projeção `vendas_mensal_dashboard` (JSON + HTML auto-contido com template em
+  `src/templates/vendas_mensal.html`, dados embutidos — funciona em file://
+  sem servidor), alvo `--only vendas-mensal` (incluso em all/movimentos, então
+  a tarefa das 05:00 mantém o dashboard fresco). Saída:
+  `saida/dashboard/vendas_mensal.html` — seletor de mês (6 meses fechados),
+  busca, ordenar por qtd/descrição/código, tiles (total un, itens, top item)
+  com Δ vs mês anterior, barras de magnitude, claro/escuro. VALIDADO: totais
+  dos 6 meses batem ao milésimo com o banco (jun=630.551,997 un; produto-teste
+  17380 = 65 un em junho — atenção: JOIN com VW_NEOGRID duplica linhas por
+  embalagem, a query agrega SEM join de preço); rodada completa real OK (11
+  arquivos, 11s); 10/10 testes de interação Playwright; screenshots claro/
+  escuro conferidos. Detalhe: modo `--demo` completo falha neste PC por causa
+  dos caminhos `C:\Users\COMPUTADOR` do config.example (pré-existente, não
+  relacionado).
 - **2026-07-09 20:43** — **SISTEMA NO AR DE VERDADE, VERIFICADO** ✅ Artifact
   DEFINITIVO: `https://claude.ai/public/artifacts/d2e4ed88-38fe-42cc-b889-e829ec6f5418`
   (os 4 anteriores devem ser despublicados: e0cd803f, e507cf94, 1fe17c79,

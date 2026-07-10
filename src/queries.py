@@ -83,6 +83,29 @@ GROUP BY v.cdProduto, CAST(v.dtVenda AS date)
 ORDER BY codigo, data
 """
 
+# VENDAS_MENSAL: total de UNIDADES vendidas por produto em cada MES FECHADO
+# dos ultimos {meses_fechados} meses (o mes corrente fica de fora de proposito).
+# qtVenda do tbVendaPDV ja e em UNIDADES — validado em 2026-07-10: caixa de 12
+# vendida no atacado aparece como 12/24 unidades com vlVenda UNITARIO (17,09
+# atacado vs 19,49 varejo no mesmo produto); as qtVenda fracionadas (0,264...)
+# sao itens de balanca (kg). Alimenta o dashboard saida/dashboard/vendas_mensal.html.
+VENDAS_MENSAL = """
+SELECT
+    v.cdProduto                                    AS codigo,
+    MAX(sp.nmProdutoPai)                           AS descricao,
+    CONVERT(char(7), v.dtVenda, 126)               AS mes,
+    CAST(SUM(v.qtVenda) AS decimal(14,3))          AS qtd_un
+FROM dbo.tbVendaPDV v
+JOIN dbo.tbProduto p       ON p.cdProduto = v.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+WHERE v.cdProduto IS NOT NULL
+  AND v.dtVenda >= DATEADD(month, -{meses_fechados},
+                           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+  AND v.dtVenda <  DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+GROUP BY v.cdProduto, CONVERT(char(7), v.dtVenda, 126)
+ORDER BY mes, codigo
+"""
+
 # ENTRADAS: uma linha por (produto, dia de chegada) nos ultimos {janela_entradas}
 # dias (~6 meses). E o "proxy de estoque": o saldo do ERP existe mas esta
 # negativo/nao confiavel (implantacao out/2025), entao cruzar giro (vendas) com

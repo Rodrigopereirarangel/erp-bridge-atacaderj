@@ -10,6 +10,8 @@ via camada de projecao, o formato exato de cada consumidor:
   recebimentos  -> detector-salao/recebimentos.csv  +  detector-estoque/recebimentos.csv
   pedidos       -> detector-estoque/pedidos.csv
   pedidos-venda -> cotacao/pedidos_venda_dav.csv    (auditoria de desconto do app)
+  vendas-mensal -> dashboard/vendas_mensal.json + .html (dashboard auto-contido:
+                   unidades vendidas por item nos meses FECHADOS; abre local)
   catalogo e pedidos-venda tambem escrevem cotacao/catalogo_bridge.json —
   o ARQUIVO UNICO (catalogo mesclado + pedidos de venda) que o robo de upload
   sobe no artifact do claude.ai pelo botao "Catalogo" do app
@@ -50,13 +52,15 @@ def carregar_config(caminho):
 
 
 def coletar(cfg, usar_demo):
-    """Devolve as 5 tabelas brutas, do banco ou do demo."""
+    """Devolve as 6 tabelas brutas, do banco ou do demo."""
     janela = cfg.get("janela_dias", 120)
     janela_ent = cfg.get("janela_entradas_dias", 180)
     janela_pv = cfg.get("janela_pedidos_venda_dias", 7)
+    meses_vm = cfg.get("vendas_mensal_meses", 6)
     if usar_demo:
         return (demo_data.catalogo(), demo_data.vendas(janela),
-                demo_data.entradas(janela_ent), demo_data.pedidos(), [])
+                demo_data.entradas(janela_ent), demo_data.pedidos(), [],
+                demo_data.vendas_mensal())
 
     import db
     conn = db.conectar(cfg["db"])
@@ -66,12 +70,13 @@ def coletar(cfg, usar_demo):
         ent = db.consultar(conn, queries.ENTRADAS.format(janela_entradas=int(janela_ent)))
         ped = db.consultar(conn, queries.PEDIDOS)
         pv = db.consultar(conn, queries.PEDIDOS_VENDA.format(janela_pedidos_venda=int(janela_pv)))
+        vm = db.consultar(conn, queries.VENDAS_MENSAL.format(meses_fechados=int(meses_vm)))
     finally:
         conn.close()
-    return cat, ven, ent, ped, pv
+    return cat, ven, ent, ped, pv, vm
 
 
-def escrever(cfg, cat, ven, ent, ped, pv, alvo):
+def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
     saida = cfg["saida"]
     salao = saida["detector_salao_dir"]
     estoque = saida["detector_estoque_dir"]
@@ -118,6 +123,13 @@ def escrever(cfg, cat, ven, ent, ped, pv, alvo):
             cat, pv, caminho, gerado_em, cfg.get("janela_pedidos_venda_dias", 7))
         rel.append(f"cotacao/catalogo_bridge.json: {np} produtos + {nped} pedidos de venda")
 
+    if alvo in ("all", "movimentos", "vendas-mensal"):
+        dash_dir = saida.get("dashboard_dir") or os.path.join(RAIZ, "saida", "dashboard")
+        ni, nm = projections.vendas_mensal_dashboard(
+            vm, os.path.join(dash_dir, "vendas_mensal.json"),
+            os.path.join(dash_dir, "vendas_mensal.html"), gerado_em)
+        rel.append(f"dashboard/vendas_mensal.html: {ni} itens x {nm} meses fechados")
+
     return rel
 
 
@@ -125,7 +137,7 @@ def main():
     ap = argparse.ArgumentParser(description="Ponte ERP -> consumidores AtacadeRJ")
     ap.add_argument("--demo", action="store_true", help="usa dados falsos, sem tocar no banco")
     ap.add_argument("--only", default="all",
-                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda"],
+                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal"],
                     help="qual bloco gerar (default: all)")
     ap.add_argument("--config", default=None, help="caminho do config (default: config.local.json)")
     args = ap.parse_args()
@@ -134,8 +146,8 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, ent, ped, pv = coletar(cfg, args.demo)
-        relatorio = escrever(cfg, cat, ven, ent, ped, pv, args.only)
+        cat, ven, ent, ped, pv, vm = coletar(cfg, args.demo)
+        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, args.only)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")

@@ -21,6 +21,7 @@
   "janela_dias": 120,
   "janela_entradas_dias": 180,
   "janela_pedidos_venda_dias": 7,
+  "vendas_mensal_meses": 6,
 
   "whatsapp": {
     "_comentario": "numero com DDI+DDD que recebe a auditoria diaria das 16h (scripts/auditoria-16h.ps1)",

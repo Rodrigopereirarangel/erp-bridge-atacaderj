@@ -132,6 +132,44 @@ def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dia
     return len(produtos), len(pedidos)
 
 
+# ---------- Consumidor: dashboard de vendas mensais (HTML auto-contido) ----------
+
+def vendas_mensal_dashboard(vendas_mensal, caminho_json, caminho_html, gerado_em):
+    """Escreve o JSON de vendas por produto x mes fechado E o dashboard HTML
+    auto-contido (dados embutidos — abre com duplo clique, sem servidor e sem
+    rede). Template em src/templates/vendas_mensal.html; o placeholder
+    /*__DADOS__*/null e trocado pelo payload.
+
+    Payload: {"gerado_em", "unidade":"un", "meses":[desc], "produtos":[
+      {"c":codigo, "p":descricao, "m":{"YYYY-MM": qtd_un, ...}}]}
+    qtd_un fracionada = item de balanca (kg); o restante e inteiro.
+    """
+    por_produto = {}
+    meses = set()
+    for r in vendas_mensal:
+        mes = str(r["mes"])
+        meses.add(mes)
+        p = por_produto.setdefault(r["codigo"], {"c": r["codigo"],
+                                                 "p": r["descricao"], "m": {}})
+        qtd = float(r["qtd_un"] or 0)
+        p["m"][mes] = int(qtd) if qtd == int(qtd) else round(qtd, 3)
+    produtos = sorted(por_produto.values(), key=lambda x: str(x["p"]))
+    payload = {"gerado_em": gerado_em, "unidade": "un",
+               "meses": sorted(meses, reverse=True), "produtos": produtos}
+    dados = json.dumps(payload, ensure_ascii=False, default=str)
+    _escrever_atomico(caminho_json, dados.encode("utf-8"))
+
+    template = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "templates", "vendas_mensal.html")
+    with open(template, encoding="utf-8") as f:
+        html = f.read()
+    # "</" -> "<\/" (escape valido em JSON): um "</script>" numa descricao de
+    # produto nao pode encerrar o <script> do dashboard
+    html = html.replace("/*__DADOS__*/null", dados.replace("</", "<\\/"))
+    _escrever_atomico(caminho_html, html.encode("utf-8"))
+    return len(produtos), len(payload["meses"])
+
+
 # ---------- Consumidores 2 e 3: Detectores (CSV ;) ----------
 
 def vendas_csv(vendas, caminho, incluir_valor=False, incluir_custo=False):

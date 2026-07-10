@@ -52,6 +52,22 @@ def entradas(janela_dias=180):
     return linhas
 
 
+def vendas_mensal(meses=3):
+    """Unidades por produto x mes FECHADO (mesma forma da query VENDAS_MENSAL)."""
+    hoje = date.today().replace(day=1)
+    linhas = []
+    for k in range(1, meses + 1):
+        m = (hoje.month - k - 1) % 12 + 1
+        a = hoje.year - (1 if hoje.month - k < 1 else 0)
+        mes = f"{a:04d}-{m:02d}"
+        for cod, desc, base in [("2411", "KELLOGGS SUCRILHOS 240G", 180),
+                                ("2795", "MINEIRINHO 250ML", 960),
+                                ("3905", "SAPOLIO RADIUM 450ML", 55)]:
+            linhas.append({"codigo": cod, "descricao": desc, "mes": mes,
+                           "qtd_un": base + k * 7})
+    return linhas
+
+
 def pedidos():
     hoje = date.today()
     return [
