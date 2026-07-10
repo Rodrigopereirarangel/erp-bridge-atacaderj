@@ -58,9 +58,11 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   bridge `--only pedidos-venda` + `auditoria-diaria.mjs` (repo do app) →
   xlsx+resumo em `saida/auditoria/` → WhatsApp (número em
   `config.local.json > whatsapp.numero_auditoria`)
-- [ ] **WhatsApp: login pendente (1x)** — `cd scripts/whatsapp` e
-  `node enviar.mjs --login`, escanear o QR com o celular do dono. Sem isso o
-  job das 16h gera os arquivos mas falha no envio (loga em auditoria_16h.log)
+- [x] **WhatsApp CONECTADO (2026-07-10 11:35)** — QR escaneado com o celular
+  remetente (5521970000786); teste de envio OK ("enviado para 5521970000786").
+  O job das 16h agora envia sozinho o Excel + resumo da auditoria para
+  5521970117082 (config.local.json > whatsapp.numero_auditoria). Se a sessão
+  expirar um dia: `cd scripts/whatsapp` → `node enviar.mjs --login` de novo.
 - [x] **Arquivo único `catalogo_bridge.json` (2026-07-08)** — a ponte gera em
   `saida/cotacao/catalogo_bridge.json` o arquivo que o robô sobe no artifact:
   catálogo mesclado (v = MENOR preço varejo/promo/atacado; vu = unitário
