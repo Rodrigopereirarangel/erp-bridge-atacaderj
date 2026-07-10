@@ -257,38 +257,29 @@ def rodar_producao(cfg, arquivo, obj):
             # no servidor do claude.ai (get passa a dar Internal server error ate
             # alguem regravar por cima) — medido em 2026-07-09. Teto de 120s para a
             # espera nao virar um travamento infinito se uma operacao nunca resolver.
-            frame.evaluate("() => Promise.race([_store._fila, new Promise(r => setTimeout(r, 120000))])")
-            # AUTOCURA: gravacoes grandes falham/corrompem de vez em quando no
-            # backend do claude.ai, mas regravar por cima conserta (fato medido).
-            # Confere chave por chave direto na API (os valores exatos estao no
-            # cache do app) e regrava o que nao bater — ate 3 tentativas.
+            frame.evaluate("() => Promise.race([_store._fila, new Promise(r => setTimeout(r, 300000))])")
+            # VERIFICACAO v2: o app grava um bloco por GERACAO (nome novo a cada
+            # commit — chave envenenada no servidor e simplesmente abandonada) e
+            # o ponteiro por ultimo. Aqui conferimos que o bloco publicado e o
+            # que acabou de subir; se nao for, pedimos um recommit ao proprio app.
             cura = frame.evaluate("""async () => {
-              const val = (r) => (r && typeof r === 'object' && 'value' in r) ? r.value : r;
-              const ungz = async (v) => (typeof v === 'string' && v.startsWith('gz64:') && _store._ungz) ? await _store._ungz(v) : v;
-              const gzIf = async (v) => (typeof v === 'string' && v.length > 65536 && _store._gz && typeof CompressionStream !== 'undefined') ? await _store._gz(v) : v;
-              const chaves = ['atacaderj_catalogo', 'atacaderj_pedidos_venda', 'atacaderj_catalogo_versao'];
-              const out = { tentativas: 0, ok: false, detalhe: {} };
-              for (let t = 1; t <= 3; t++) {
+              const out = { tentativas: 0, ok: false, detalhe: '' };
+              if (typeof _v2Ler !== 'function') { out.ok = true; out.detalhe = 'app legado sem v2 — verificacao pos-reload decide'; return out; }
+              for (let t = 1; t <= 4; t++) {
                 out.tentativas = t;
-                let tudoOk = true;
-                for (const k of chaves) {
-                  const esperado = _store._cache[k];
-                  if (esperado == null) { out.detalhe[k] = 'sem valor no cache'; continue; }
-                  let lido = null, erro = null;
-                  try { lido = await ungz(val(await window.storage.get(k, true))); }
-                  catch (e) { erro = String(e).slice(0, 70); }
-                  if (lido === esperado) { out.detalhe[k] = 'ok'; continue; }
-                  tudoOk = false;
-                  out.detalhe[k] = 'regravou (' + (erro || 'valor diferente') + ')';
-                  try { await window.storage.set(k, await gzIf(esperado), true); }
-                  catch (e) { out.detalhe[k] += ' ERRO no set: ' + String(e).slice(0, 60); }
+                if (_store._pendentes > 0) { out.detalhe = 'fila ainda gravando'; await new Promise(r => setTimeout(r, 15000)); continue; }
+                const v2 = await _v2Ler();
+                const esperado = _store._cache['atacaderj_catalogo_versao'];
+                if (v2 && v2.ver === esperado && v2.cat === _store._cache['atacaderj_catalogo']) {
+                  out.ok = true; out.detalhe = 'bloco + ponteiro conferem'; break;
                 }
-                if (tudoOk) { out.ok = true; break; }
-                await new Promise(r => setTimeout(r, 2000));
+                out.detalhe = 'recommit (' + (v2 ? 'conteudo divergente' : 'sem dados legiveis') + ')';
+                try { await _v2Commit(_store._cache['atacaderj_catalogo'], _store._cache['atacaderj_pedidos_venda'], esperado); }
+                catch (e) { out.detalhe = 'recommit falhou: ' + String(e).slice(0, 90); await new Promise(r => setTimeout(r, 15000)); }
               }
               return out;
             }""")
-            log(f"autocura da gravacao: {cura}")
+            log(f"verificacao v2 da gravacao: {cura}")
             if not cura.get("ok"):
                 raise RuntimeError(f"gravacao nao estabilizou apos {cura.get('tentativas')} tentativas: {cura.get('detalhe')}")
             page.wait_for_timeout(2000)
@@ -301,6 +292,15 @@ def rodar_producao(cfg, arquivo, obj):
               const val = (r) => (r && typeof r === 'object' && 'value' in r) ? r.value : r;
               const ungz = async (v) => (typeof v === 'string' && v.startsWith('gz64:') && _store._ungz) ? await _store._ungz(v) : v;
               const out = {};
+              if (typeof _v2Ler === 'function') {
+                try { const v2 = await _v2Ler();
+                      if (v2) { const c = JSON.parse(v2.cat || 'null'); const p = JSON.parse(v2.pv || 'null'); const v = JSON.parse(v2.ver || 'null');
+                        out.produtos = c && c.produtos ? c.produtos.length : 0; out.gerado_em = v ? v.gerado_em : (c ? c.gerado_em : null);
+                        out.pedidos = p && p.pedidos ? p.pedidos.length : 0; }
+                      else { out.erro_cat = 'v2 sem dados'; }
+                } catch (e) { out.erro_cat = String(e).slice(0, 100); }
+                return out;
+              }
               try { const c = JSON.parse(await ungz(val(await window.storage.get('atacaderj_catalogo', true))) || 'null');
                     out.produtos = c && c.produtos ? c.produtos.length : 0; out.gerado_em = c ? c.gerado_em : null;
               } catch (e) { out.erro_cat = String(e).slice(0, 100); }
