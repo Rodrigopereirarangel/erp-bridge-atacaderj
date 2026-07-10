@@ -95,6 +95,8 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   Validado: totais dos 6 meses batem ao milésimo com SUM(qtVenda) direto no
   banco; 10/10 testes de interação (Playwright). Sai nos alvos `all`,
   `movimentos` e `--only vendas-mensal` (refresh diário às 05:00 já cobre).
+  **v2 (2026-07-10): + valor de venda e Vl. médio, CÓDIGO DEFINITIVO
+  homologado contra o rptABCdeVendas do ERP** — ver log.
 - [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
   clonados neste PC (hoje escrevem em `saida/` do próprio repo)
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
@@ -138,6 +140,26 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-10 (v2 — HOMOLOGADO CONTRA O RELATÓRIO OFICIAL)** ✅ O dono gerou
+  o **rptABCdeVendas** do ERP (01–30/06/2026, Qtde, sem descontar devoluções,
+  sem vendas por NF) como gabarito. Resultado: o código já era o definitivo —
+  **Qtde = SUM(qtVenda)** e **Venda = SUM(qtVenda*vlVenda)** do tbVendaPDV
+  (com cdProduto IS NOT NULL) reproduzem o relatório EXATAMENTE: total geral
+  630.551,997 un / R$ 3.485.305,48 / 3.576 itens, e 7/7 itens-amostra idênticos
+  ao centavo, inclusive balança (cód. 42: 495,922 kg / 22.934,87 / Vl.M 46,25).
+  A pedido do dono, a query VENDAS_MENSAL passou a extrair **qtd + valor**
+  (payload `m: {mes: [qtd_un, valor]}`) e o **preço médio unitário é CALCULADO
+  no dashboard (valor ÷ qtd)**, igual ao Vl. Médio do relatório — conferido
+  também na UI (nº1 por valor = OLEO SOJA SOYA 6.910/48.424,79/7,01; maiores
+  Vl.M 169,00 e 139,90 = MARGARINA SOFITELI e CIG DUNHILL, como no PDF).
+  Dashboard ganhou colunas Valor (R$) e Vl. médio (ordenáveis), tile de
+  faturamento com Δ, e "% do mês" virou participação no VALOR (= Partic. do
+  relatório). 10/10 testes Playwright. Notas técnicas: (1) o valor por item é
+  gravado com 2 casas (como o relatório), então a soma do arquivo difere da
+  soma exata do banco em centavos (±R$0,08 em R$3,7M) — esperado; (2) existem
+  linhas de tbVendaPDV com **cdProduto NULL** em alguns meses (jan/mai ~R$66k)
+  que o relatório do ERP também ignora — o filtro `cdProduto IS NOT NULL` é
+  parte do contrato.
 - **2026-07-10** — **DASHBOARD DE VENDAS MENSAIS (unidades, não caixas)** ✅
   Pedido do dono: quantidade vendida em UN de cada item por mês fechado
   (junho/maio/abril...), com escolha de mês e lista ordenável. Antes de

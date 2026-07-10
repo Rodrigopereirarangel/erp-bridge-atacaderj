@@ -40,7 +40,7 @@
     margin: 0; background: var(--plano); color: var(--tinta-1);
     font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  .pagina { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
+  .pagina { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
   header h1 { font-size: 20px; font-weight: 650; margin: 0 0 2px; }
   header p  { margin: 0 0 16px; color: var(--tinta-2); font-size: 13px; }
 
@@ -60,11 +60,11 @@
 
   .tiles { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
   .tile {
-    flex: 1 1 180px; background: var(--superficie); border: 1px solid var(--borda);
+    flex: 1 1 170px; background: var(--superficie); border: 1px solid var(--borda);
     border-radius: 10px; padding: 12px 14px;
   }
   .tile .rotulo { font-size: 12px; color: var(--tinta-2); }
-  .tile .valor  { font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .tile .valor  { font-size: 24px; font-weight: 600; margin-top: 2px; }
   .tile .delta  { font-size: 12px; margin-top: 2px; color: var(--tinta-3); }
   .tile .delta.sobe  { color: var(--delta-bom); }
   .tile .delta.desce { color: var(--delta-ruim); }
@@ -92,8 +92,10 @@
   td.rank { color: var(--tinta-3); font-variant-numeric: tabular-nums; width: 1%; }
   td.cod  { color: var(--tinta-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
   td.qtd  { font-weight: 600; white-space: nowrap; }
+  td.val  { white-space: nowrap; }
+  td.med  { color: var(--tinta-2); white-space: nowrap; }
   td.pct  { color: var(--tinta-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.graf { width: 22%; min-width: 110px; }
+  td.graf { width: 13%; min-width: 90px; }
   .trilho { background: none; height: 8px; border-radius: 4px; position: relative; }
   .preenchido {
     background: var(--barra); height: 8px; border-radius: 0 4px 4px 0;
@@ -117,7 +119,7 @@
 <div class="pagina">
   <header>
     <h1>Vendas por item — mês fechado</h1>
-    <p id="subtitulo">Quantidade vendida em <strong>unidades</strong> (não caixas), por produto.</p>
+    <p id="subtitulo">Quantidade em <strong>unidades</strong>, valor de venda e preço médio por produto.</p>
   </header>
 
   <div class="filtros" role="group" aria-label="Filtros">
@@ -128,12 +130,12 @@
     <div>
       <label for="selOrdem">Ordenar por</label>
       <select id="selOrdem">
-        <option value="qtd|-1" selected>Mais vendidos</option>
+        <option value="qtd|-1" selected>Mais vendidos (un)</option>
+        <option value="valor|-1">Maior valor (R$)</option>
+        <option value="medio|-1">Maior preço médio</option>
         <option value="qtd|1">Menos vendidos</option>
         <option value="desc|1">Descrição A→Z</option>
-        <option value="desc|-1">Descrição Z→A</option>
         <option value="cod|1">Código crescente</option>
-        <option value="cod|-1">Código decrescente</option>
       </select>
     </div>
     <div style="flex:1 1 220px">
@@ -149,12 +151,17 @@
       <div class="delta" id="tileUnDelta"></div>
     </div>
     <div class="tile">
+      <div class="rotulo">Valor vendido (R$)</div>
+      <div class="valor" id="tileVal">—</div>
+      <div class="delta" id="tileValDelta"></div>
+    </div>
+    <div class="tile">
       <div class="rotulo">Itens com venda</div>
       <div class="valor" id="tileItens">—</div>
       <div class="delta" id="tileItensDelta"></div>
     </div>
     <div class="tile">
-      <div class="rotulo">Item mais vendido</div>
+      <div class="rotulo">Item mais vendido (un)</div>
       <div class="valor" id="tileTop" style="font-size:15px; line-height:1.3">—</div>
       <div class="delta" id="tileTopQtd"></div>
     </div>
@@ -169,8 +176,10 @@
             <th scope="col" class="ordenavel" data-chave="cod" tabindex="0">Código <span class="seta"></span></th>
             <th scope="col" class="ordenavel" data-chave="desc" tabindex="0">Descrição <span class="seta"></span></th>
             <th scope="col" class="ordenavel num" data-chave="qtd" tabindex="0">Unidades <span class="seta"></span></th>
+            <th scope="col" class="ordenavel num" data-chave="valor" tabindex="0">Valor (R$) <span class="seta"></span></th>
+            <th scope="col" class="ordenavel num" data-chave="medio" tabindex="0">Vl. médio <span class="seta"></span></th>
             <th scope="col" class="num">% do mês</th>
-            <th scope="col"><span class="visually-hidden"></span></th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody id="corpo"></tbody>
@@ -184,9 +193,10 @@
   </div>
 
   <p class="nota" id="notaRodape">
-    Fonte: ERP Solidcon via erp-bridge (tbVendaPDV, venda bruta do PDV).
-    Quantidades com decimais são itens de balança (kg). Somente meses fechados —
-    o mês corrente não aparece.
+    Fonte: ERP Solidcon via erp-bridge (tbVendaPDV, venda bruta do PDV, sem descontar
+    devoluções — mesmas opções do rptABCdeVendas). Vl. médio = valor ÷ unidades.
+    "% do mês" = participação no valor vendido (coluna Partic. do relatório).
+    Quantidades com decimais são itens de balança (kg). Somente meses fechados.
   </p>
 </div>
 
@@ -196,26 +206,28 @@ const DADOS = /*__DADOS__*/null;
 
 const LOTE = 400;                       // linhas renderizadas por vez
 const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
-const fmtPct = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const NOMES_MES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
                    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 const el = id => document.getElementById(id);
 const estado = { mes: null, chave: "qtd", dir: -1, busca: "", limite: LOTE };
+const CHAVE_NUM = { qtd: "q", valor: "v", medio: "u" };
 
 function nomeMes(iso) {                  // "2026-06" -> "Junho/2026"
   const [a, m] = iso.split("-");
   return NOMES_MES[parseInt(m, 10) - 1] + "/" + a;
 }
 
-function linhasDoMes(mes) {              // -> [{c, p, q}] + rank fixo por qtd
+function linhasDoMes(mes) {              // -> [{c, p, q, v, u}]
   const linhas = [];
   for (const pr of DADOS.produtos) {
-    const q = pr.m[mes];
-    if (q !== undefined) linhas.push({ c: pr.c, p: pr.p, q });
+    const m = pr.m[mes];
+    if (m !== undefined) {
+      const q = m[0], v = m[1];
+      linhas.push({ c: pr.c, p: pr.p, q, v, u: q ? v / q : 0 });
+    }
   }
-  linhas.sort((a, b) => b.q - a.q || a.c - b.c);
-  linhas.forEach((ln, i) => { ln.rank = i + 1; });
   return linhas;
 }
 
@@ -226,9 +238,10 @@ function aplicarFiltroOrdem(linhas) {
     out = out.filter(ln => String(ln.c).includes(t) || ln.p.toLowerCase().includes(t));
   }
   const { chave, dir } = estado;
+  const k = CHAVE_NUM[chave];
   out = out.slice().sort((a, b) => {
-    if (chave === "qtd")  return (a.q - b.q) * dir || a.c - b.c;
-    if (chave === "cod")  return (a.c - b.c) * dir;
+    if (k) return (a[k] - b[k]) * dir || a.c - b.c;
+    if (chave === "cod") return (a.c - b.c) * dir;
     return a.p.localeCompare(b.p, "pt-BR") * dir || a.c - b.c;
   });
   return out;
@@ -240,25 +253,30 @@ function deltaHtml(alvo, atual, anterior, sufixo) {
   const pct = (atual - anterior) / anterior * 100;
   const seta = pct >= 0 ? "▲" : "▼";
   no.className = "delta " + (pct >= 0 ? "sobe" : "desce");
-  no.textContent = seta + " " + fmtPct.format(Math.abs(pct)) + "% vs " + sufixo;
+  no.textContent = seta + " " + fmt2.format(Math.abs(pct)) + "% vs " + sufixo;
 }
 
 function atualizarTiles(linhas) {
   const i = DADOS.meses.indexOf(estado.mes);
   const mesAnt = DADOS.meses[i + 1];                 // meses em ordem decrescente
   const totalUn = linhas.reduce((s, ln) => s + ln.q, 0);
+  const totalVal = linhas.reduce((s, ln) => s + ln.v, 0);
   el("tileUn").textContent = fmt.format(totalUn);
+  el("tileVal").textContent = fmt2.format(totalVal);
   el("tileItens").textContent = fmt.format(linhas.length);
   if (linhas.length) {
-    el("tileTop").textContent = linhas[0].p;
-    el("tileTopQtd").textContent = fmt.format(linhas[0].q) + " un · cód. " + linhas[0].c;
+    const top = linhas.reduce((a, b) => (b.q > a.q ? b : a));
+    el("tileTop").textContent = top.p;
+    el("tileTopQtd").textContent = fmt.format(top.q) + " un · R$ " + fmt2.format(top.v) + " · cód. " + top.c;
   }
   if (mesAnt) {
     const ant = linhasDoMes(mesAnt);
     deltaHtml("tileUnDelta", totalUn, ant.reduce((s, ln) => s + ln.q, 0), nomeMes(mesAnt));
+    deltaHtml("tileValDelta", totalVal, ant.reduce((s, ln) => s + ln.v, 0), nomeMes(mesAnt));
     deltaHtml("tileItensDelta", linhas.length, ant.length, nomeMes(mesAnt));
   } else {
     el("tileUnDelta").textContent = "";
+    el("tileValDelta").textContent = "";
     el("tileItensDelta").textContent = "";
   }
 }
@@ -271,29 +289,32 @@ function atualizarSetas() {
   });
   const sel = el("selOrdem");
   const v = estado.chave + "|" + estado.dir;
-  if (sel.value !== v) sel.value = v;
+  if (sel.value !== v) sel.value = v;    // se a combinação não existe no select, fica sem seleção
 }
 
 function render() {
   const base = linhasDoMes(estado.mes);
   const visiveis = aplicarFiltroOrdem(base);
-  const totalUn = base.reduce((s, ln) => s + ln.q, 0);
-  const maxQ = base.length ? base[0].q : 0;          // base ja vem por qtd desc
+  const totalVal = base.reduce((s, ln) => s + ln.v, 0);
+  const kBarra = CHAVE_NUM[estado.chave] || "q";     // barra acompanha a coluna ordenada
+  const maxB = base.reduce((m, ln) => Math.max(m, ln[kBarra]), 0);
 
   atualizarTiles(base);
   atualizarSetas();
 
   const fatia = visiveis.slice(0, estado.limite);
   const corpo = el("corpo");
-  corpo.innerHTML = fatia.map(ln => {
-    const larg = maxQ ? Math.max(1.5, ln.q / maxQ * 100) : 0;
-    const pct = totalUn ? ln.q / totalUn * 100 : 0;
+  corpo.innerHTML = fatia.map((ln, i) => {
+    const larg = maxB ? Math.max(1.5, ln[kBarra] / maxB * 100) : 0;
+    const pct = totalVal ? ln.v / totalVal * 100 : 0;
     return "<tr>" +
-      '<td class="rank">' + ln.rank + "</td>" +
+      '<td class="rank">' + (i + 1) + "</td>" +
       '<td class="cod">' + ln.c + "</td>" +
       "<td>" + escapar(ln.p) + "</td>" +
       '<td class="num qtd">' + fmt.format(ln.q) + "</td>" +
-      '<td class="num pct">' + fmtPct.format(pct) + "%</td>" +
+      '<td class="num val">' + fmt2.format(ln.v) + "</td>" +
+      '<td class="num med">' + fmt2.format(ln.u) + "</td>" +
+      '<td class="num pct">' + fmt2.format(pct) + "%</td>" +
       '<td class="graf" aria-hidden="true"><div class="trilho">' +
         '<div class="preenchido" style="width:' + larg.toFixed(1) + '%"></div>' +
       "</div></td></tr>";
@@ -322,11 +343,12 @@ function iniciar() {
   const sel = el("selMes");
   sel.innerHTML = DADOS.meses.map(m => '<option value="' + m + '">' + nomeMes(m) + "</option>").join("");
   estado.mes = DADOS.meses[0];
-  el("subtitulo").innerHTML = "Quantidade vendida em <strong>unidades</strong> (não caixas), " +
-    "por produto · dados gerados em " + escapar(DADOS.gerado_em);
+  el("subtitulo").innerHTML = "Quantidade em <strong>unidades</strong>, valor de venda e " +
+    "preço médio por produto · dados gerados em " + escapar(DADOS.gerado_em);
 
   sel.addEventListener("change", () => { estado.mes = sel.value; estado.limite = LOTE; render(); });
   el("selOrdem").addEventListener("change", e => {
+    if (!e.target.value) return;
     const [chave, dir] = e.target.value.split("|");
     estado.chave = chave; estado.dir = parseInt(dir, 10); estado.limite = LOTE; render();
   });
@@ -339,7 +361,7 @@ function iniciar() {
     const ativar = () => {
       const chave = th.dataset.chave;
       if (estado.chave === chave) estado.dir = -estado.dir;
-      else { estado.chave = chave; estado.dir = chave === "qtd" ? -1 : 1; }
+      else { estado.chave = chave; estado.dir = CHAVE_NUM[chave] ? -1 : 1; }
       estado.limite = LOTE; render();
     };
     th.addEventListener("click", ativar);

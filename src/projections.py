@@ -140,9 +140,12 @@ def vendas_mensal_dashboard(vendas_mensal, caminho_json, caminho_html, gerado_em
     rede). Template em src/templates/vendas_mensal.html; o placeholder
     /*__DADOS__*/null e trocado pelo payload.
 
-    Payload: {"gerado_em", "unidade":"un", "meses":[desc], "produtos":[
-      {"c":codigo, "p":descricao, "m":{"YYYY-MM": qtd_un, ...}}]}
+    Payload: {"gerado_em", "unidade":"un", "campos":["qtd_un","valor"],
+      "meses":[desc], "produtos":[{"c":codigo, "p":descricao,
+      "m":{"YYYY-MM": [qtd_un, valor], ...}}]}
     qtd_un fracionada = item de balanca (kg); o restante e inteiro.
+    O preco medio unitario (Vl. Medio do rptABCdeVendas) NAO e extraido:
+    o dashboard calcula valor/qtd_un, igual ao relatorio do ERP.
     """
     por_produto = {}
     meses = set()
@@ -152,9 +155,11 @@ def vendas_mensal_dashboard(vendas_mensal, caminho_json, caminho_html, gerado_em
         p = por_produto.setdefault(r["codigo"], {"c": r["codigo"],
                                                  "p": r["descricao"], "m": {}})
         qtd = float(r["qtd_un"] or 0)
-        p["m"][mes] = int(qtd) if qtd == int(qtd) else round(qtd, 3)
+        p["m"][mes] = [int(qtd) if qtd == int(qtd) else round(qtd, 3),
+                       round(float(r.get("valor") or 0), 2)]
     produtos = sorted(por_produto.values(), key=lambda x: str(x["p"]))
     payload = {"gerado_em": gerado_em, "unidade": "un",
+               "campos": ["qtd_un", "valor"],
                "meses": sorted(meses, reverse=True), "produtos": produtos}
     dados = json.dumps(payload, ensure_ascii=False, default=str)
     _escrever_atomico(caminho_json, dados.encode("utf-8"))

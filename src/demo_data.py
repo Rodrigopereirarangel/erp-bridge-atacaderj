@@ -60,11 +60,12 @@ def vendas_mensal(meses=3):
         m = (hoje.month - k - 1) % 12 + 1
         a = hoje.year - (1 if hoje.month - k < 1 else 0)
         mes = f"{a:04d}-{m:02d}"
-        for cod, desc, base in [("2411", "KELLOGGS SUCRILHOS 240G", 180),
-                                ("2795", "MINEIRINHO 250ML", 960),
-                                ("3905", "SAPOLIO RADIUM 450ML", 55)]:
+        for cod, desc, base, preco in [("2411", "KELLOGGS SUCRILHOS 240G", 180, 18.9),
+                                       ("2795", "MINEIRINHO 250ML", 960, 1.79),
+                                       ("3905", "SAPOLIO RADIUM 450ML", 55, 3.49)]:
+            qtd = base + k * 7
             linhas.append({"codigo": cod, "descricao": desc, "mes": mes,
-                           "qtd_un": base + k * 7})
+                           "qtd_un": qtd, "valor": round(qtd * preco, 2)})
     return linhas
 
 
