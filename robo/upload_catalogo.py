@@ -189,17 +189,18 @@ def rodar_teste_local(cfg, arquivo, obj, headed=False):
         n_cat, n_ped = subir_catalogo(page, frame, arquivo, obj)
         log(f"teste: upload OK — {n_cat} produtos no CATALOG · {n_ped} pedidos no storage da auditoria")
 
-        # aba Auditoria: dias aparecem a partir do storage e um dia roda de ponta a ponta
+        # aba Auditoria: abre DIRETO no dia anterior e roda sozinha (sem seletor)
         frame.evaluate("() => abrirAuditoria()")
-        frame.wait_for_selector(".aud-dia", timeout=15000)
-        n_dias = frame.locator(".aud-dia").count()
-        frame.locator(".aud-dia").first.click()
         frame.wait_for_selector("#aud-output .kpis, #aud-output .ok-banner", timeout=30000)
         kpi = frame.evaluate(
             "() => { const el = document.querySelector('#aud-output .kpi .v');"
             " return el ? el.textContent : 'ok-banner'; }")
+        manual_oculto = frame.evaluate(
+            "() => { const m = document.getElementById('audManual'); return m && m.style.display === 'none'; }")
+        if not manual_oculto:
+            raise RuntimeError("contingencia manual da auditoria deveria estar escondida com dados ok")
         frame.evaluate("() => document.getElementById('aud-overlay').remove()")
-        log(f"teste: auditoria OK — {n_dias} dia(s) no seletor; dia mais recente auditou ({kpi} itens)")
+        log(f"teste: auditoria abriu DIRETO no dia anterior ({kpi} itens auditados; manual escondido)")
 
         # o envio manual deve estar ESCONDIDO agora (upload do robo ha < 5h)
         frame.evaluate("() => abrirAtualizarCatalogo()")
