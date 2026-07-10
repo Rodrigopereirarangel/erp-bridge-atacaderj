@@ -265,18 +265,24 @@ def rodar_producao(cfg, arquivo, obj):
             cura = frame.evaluate("""async () => {
               const out = { tentativas: 0, ok: false, detalhe: '' };
               if (typeof _v2Ler !== 'function') { out.ok = true; out.detalhe = 'app legado sem v2 — verificacao pos-reload decide'; return out; }
-              for (let t = 1; t <= 4; t++) {
+              const ge = (s) => { try { return JSON.parse(s || 'null').gerado_em || null; } catch (e) { return null; } };
+              for (let t = 1; t <= 8; t++) {
                 out.tentativas = t;
-                if (_store._pendentes > 0) { out.detalhe = 'fila ainda gravando'; await new Promise(r => setTimeout(r, 15000)); continue; }
+                if (_store._pendentes > 0) {
+                  const st = window._v2Status || {};
+                  out.detalhe = 'fila gravando (' + (st.fase || '?') + (st.erro ? ' | ultimo erro: ' + st.erro : '') + ')';
+                  await new Promise(r => setTimeout(r, 20000)); continue;
+                }
                 const v2 = await _v2Ler();
                 const esperado = _store._cache['atacaderj_catalogo_versao'];
-                if (v2 && v2.ver === esperado && v2.cat === _store._cache['atacaderj_catalogo']) {
-                  out.ok = true; out.detalhe = 'bloco + ponteiro conferem'; break;
+                if (v2 && v2.cat === _store._cache['atacaderj_catalogo'] && ge(v2.ver) === ge(esperado)) {
+                  out.ok = true; out.detalhe = 'banco + ponteiro conferem'; break;
                 }
                 out.detalhe = 'recommit (' + (v2 ? 'conteudo divergente' : 'sem dados legiveis') + ')';
-                try { await _v2Commit(_store._cache['atacaderj_catalogo'], _store._cache['atacaderj_pedidos_venda'], esperado); }
+                try { await _v2CommitDoCache(); }
                 catch (e) { out.detalhe = 'recommit falhou: ' + String(e).slice(0, 90); await new Promise(r => setTimeout(r, 15000)); }
               }
+              if (!out.ok) { const st = window._v2Status || {}; out.detalhe += ' | status: ' + (st.fase || '?') + (st.erro ? ' | ' + st.erro : ''); }
               return out;
             }""")
             log(f"verificacao v2 da gravacao: {cura}")
