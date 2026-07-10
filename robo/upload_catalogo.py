@@ -174,12 +174,16 @@ def rodar_teste_local(cfg, arquivo, obj, headed=False):
         page = browser.new_page(viewport={"width": 1280, "height": 900}, accept_downloads=True)
         page.goto(Path(html).resolve().as_uri())
 
-        # pre-checagens do publicavel: XLSX via cdnjs carregou; CATALOG embutido esta vazio
+        # pre-checagens do publicavel: XLSX via cdnjs carregou; bootstrap presente?
         page.wait_for_function("typeof XLSX !== 'undefined'", timeout=30000)
+        page.wait_for_timeout(1500)  # boot assincrono (seed do bootstrap)
         n0 = page.evaluate("() => CATALOG.length")
-        if n0 != 0:
-            raise RuntimeError(f"publicavel deveria comecar com CATALOG vazio, tem {n0}")
-        log("teste: XLSX (cdnjs) OK · CATALOG embutido vazio OK")
+        tem_boot = page.evaluate("() => typeof BOOTSTRAP_V2 !== 'undefined' && !!BOOTSTRAP_V2")
+        if tem_boot and n0 <= 50:
+            raise RuntimeError(f"bootstrap presente mas CATALOG nao carregou ({n0})")
+        if not tem_boot and n0 != 0:
+            raise RuntimeError(f"sem bootstrap, CATALOG deveria comecar vazio, tem {n0}")
+        log(f"teste: XLSX (cdnjs) OK · bootstrap {'presente — nasce com ' + str(n0) + ' produtos' if tem_boot else 'ausente — nasce vazio'}")
 
         frame = achar_frame_do_app(page, timeout_s=15)
         n_cat, n_ped = subir_catalogo(page, frame, arquivo, obj)
@@ -241,10 +245,11 @@ def rodar_producao(cfg, arquivo, obj):
             if "/login" in page.url:
                 raise RuntimeError("caiu na tela de login — rode: python robo/upload_catalogo.py --setup")
             frame = achar_frame_do_app(page, timeout_s=120)
-            # diagnostico do que esta publicado (o publicavel certo comeca com CATALOG=[])
+            # diagnostico do que esta publicado
             n_antes = frame.evaluate("() => (typeof CATALOG !== 'undefined' && CATALOG.length) || 0")
             tem_xlsx = frame.evaluate("() => typeof XLSX !== 'undefined'")
-            log(f"artifact aberto — CATALOG embutido: {n_antes} (esperado 0) · XLSX carregado: {tem_xlsx}")
+            tem_boot = frame.evaluate("() => typeof BOOTSTRAP_V2 !== 'undefined' && !!BOOTSTRAP_V2")
+            log(f"artifact aberto — CATALOG em uso: {n_antes} · bootstrap: {tem_boot} · XLSX: {tem_xlsx}")
             # sem o storage compartilhado o upload ficaria so no navegador do robo
             # (localStorage) e NAO chegaria aos vendedores — melhor falhar claro
             ws = frame.evaluate("() => (typeof _store !== 'undefined' && _store._ws) || false")
