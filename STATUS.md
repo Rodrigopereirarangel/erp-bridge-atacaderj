@@ -151,7 +151,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
   (CMV) são esse custo COM difal. O **CCI da tela = custo + acréscimo interno
   da aplicação** (não é difal — nota local sem difal também tem; varia por
   fornecedor/época; procs criptografadas; perguntar ao suporte Solidcon).
-  Tudo documentado em **docs/CUSTO-DIFAL-CCI.md**.
+  Tudo documentado em **docs/CUSTO-DIFAL-CCI.md**. **Parte 2 (mesma data)**:
+  fórmula GERAL do Custo Unit. fechada e validada em 45/48 itens de 7 grupos
+  (verba, desconto, IPI, difal, redução de BC, ICMS-ST+FCP-ST, frete/seguro/
+  outros) — cada coluna da tela NF Recebida mapeada no doc, com 3 exceções
+  identificadas (uso/consumo, PIS/COFINS reduzido, ICMS desonerado cBenef).
 - **2026-07-10 (v2 — HOMOLOGADO CONTRA O RELATÓRIO OFICIAL)** ✅ O dono gerou
   o **rptABCdeVendas** do ERP (01–30/06/2026, Qtde, sem descontar devoluções,
   sem vendas por NF) como gabarito. Resultado: o código já era o definitivo —

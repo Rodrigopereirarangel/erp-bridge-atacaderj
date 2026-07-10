@@ -36,6 +36,38 @@ Consequências para a ponte:
 - `tbVendaPDV.vlCusto` (CMV diário) = CustoUnitario da última entrada vigente
   no dia (vlCustoLogistico e vlQuebra = 0 nesta base).
 
+## Fórmula GERAL do Custo Unit. (validada em 45/48 itens de 7 grupos, 2026-07-10)
+
+Testada em amostras com verba, desconto, IPI, difal, redução de BC, ICMS-ST,
+FCP-ST, frete/seguro/outros — tudo ao centavo:
+
+```
+liq        = vlItemNota × (1 − Desconto%)                    [por embalagem]
+extras     = (IPIvIPI + vFrete + vSeg + vOutro
+              + ICMSvICMSST + ICMSvFCPST) / qtItemNota       [por embalagem]
+entrada%   = (ICMSpICMS + ICMSpFCP) × (1 − ReducaoBaseICMS%)
+fator      = (1 − entrada%) / (1 − entrada% − DiferencaAliquota%)
+CustoUnit  = (liq + extras − vlVerbaComercial) × fator ÷ qtEmbalagem
+```
+
+Efeito de cada coluna da tela *NF Recebida* no custo (e portanto no CCI):
+
+| Coluna | Campo | Efeito |
+|---|---|---|
+| Preço Emb./Unit. | vlItemNota | base de tudo |
+| Desc. | Desconto | reduz a base ANTES do difal (o difal sobre o desconto some junto) |
+| IPI | IPIvIPI/IPIvUnid | soma na base e TAMBÉM é inflado pelo difal |
+| Difal | DiferencaAliquota | multiplica a base por (1−ent)/(1−ent−difal); 12→22 = +12,82% |
+| Red. BC | ReducaoBaseICMS | reduz a alíquota efetiva de entrada → difal maior. Ex.: compra LOCAL com red. 45,45% sobre 22% → efetiva 12% → mesmo fator 1,1282 da compra interestadual. Sem difal, red. BC não muda o custo (só o crédito) |
+| ST$ / FCP-ST | ICMSvICMSST/ICMSvFCPST | somam direto (ST retido é custo, não credita); itens com ST não têm difal (cadeia encerrada) |
+| STR / Calc.STR | prSTaRecolher/CalcSTvSTR | antecipação ST com MVA (memo em CalcSTMemo): BaseST = produto×(1+MVA); STR = BaseST×alíq.interna − crédito da NF |
+| Verba | vlVerbaComercial | SUBTRAI da base (reduz custo e o difal junto) |
+| (frete/seguro/outros) | vFrete/vSeg/vOutro | somam na base e sofrem o gross-up do difal |
+
+Exceções encontradas (3/48): compra de uso/consumo (CFOP 2556), fornecedor
+com PIS/COFINS reduzido (0,65+3%) + verba, e item com ICMS desonerado por
+benefício fiscal (cBenef RJ820449, ICMSvICMSDeson) — nesses a conta muda.
+
 ## CCI — o que se sabe (e o que não)
 
 CCI da tela = CustoUnitario + **acréscimo interno calculado pela aplicação**:
