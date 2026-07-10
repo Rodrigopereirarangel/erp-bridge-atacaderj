@@ -29,7 +29,7 @@ import json
 import os
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import projections  # noqa: E402
@@ -133,6 +133,24 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
             rel.append(f"upload manual: {os.path.join(pasta_manual, 'catalogo_bridge.json')}")
         except OSError as e:
             rel.append(f"upload manual: FALHOU a copia ({e})")
+        # idem para a AUDITORIA: pasta dedicada com UM arquivo (so os pedidos
+        # fechados ONTEM), sobrescrito a cada janela — contingencia da aba 🔍
+        try:
+            with open(caminho, encoding="utf-8") as f:
+                _cb = json.load(f)
+            _ontem = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            _peds = [p for p in _cb.get("pedidos_venda", {}).get("pedidos", [])
+                     if str(p.get("dia"))[:10] == _ontem]
+            pasta_aud = saida.get("upload_manual_auditoria_dir") or os.path.join(
+                os.path.expanduser("~"), "Desktop", "AtacadeRJ-Auditoria")
+            os.makedirs(pasta_aud, exist_ok=True)
+            _arq_aud = os.path.join(pasta_aud, "auditoria_bridge.json")
+            with open(_arq_aud, "w", encoding="utf-8") as f:
+                json.dump({"origem": "erp-bridge-auditoria", "gerado_em": gerado_em,
+                           "janela_dias": 1, "pedidos": _peds}, f, ensure_ascii=False)
+            rel.append(f"upload manual auditoria: {_arq_aud} ({len(_peds)} pedidos de ontem)")
+        except (OSError, ValueError) as e:
+            rel.append(f"upload manual auditoria: FALHOU ({e})")
 
     if alvo in ("all", "movimentos", "vendas-mensal"):
         dash_dir = saida.get("dashboard_dir") or os.path.join(RAIZ, "saida", "dashboard")
