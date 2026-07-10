@@ -138,7 +138,11 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         try:
             with open(caminho, encoding="utf-8") as f:
                 _cb = json.load(f)
-            _ontem = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            # loja nao abre domingo: na segunda, o "dia anterior" e o SABADO
+            _d = datetime.now() - timedelta(days=1)
+            if _d.weekday() == 6:  # domingo
+                _d -= timedelta(days=1)
+            _ontem = _d.strftime("%Y-%m-%d")
             _peds = [p for p in _cb.get("pedidos_venda", {}).get("pedidos", [])
                      if str(p.get("dia"))[:10] == _ontem]
             pasta_aud = saida.get("upload_manual_auditoria_dir") or os.path.join(

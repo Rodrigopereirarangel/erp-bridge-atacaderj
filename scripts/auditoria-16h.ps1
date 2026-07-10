@@ -13,10 +13,16 @@
 # Teste manual:  powershell -File scripts\auditoria-16h.ps1 [-Dia 2026-07-06] [-SemWhatsApp]
 # =============================================================================
 param(
-  [string]$Dia = (Get-Date -Format 'yyyy-MM-dd'),
+  [string]$Dia = '',
   [switch]$SemWhatsApp
 )
 $ErrorActionPreference = 'Stop'
+# loja NAO abre domingo: rodada sem -Dia explicito sai em silencio no domingo
+# (a tarefa agendada ja e seg-sab; isto cobre execucao manual acidental)
+if (-not $Dia) {
+  if ((Get-Date).DayOfWeek -eq 'Sunday') { Write-Host 'domingo - loja fechada, sem relatorio.'; exit 0 }
+  $Dia = Get-Date -Format 'yyyy-MM-dd'
+}
 $raiz    = Split-Path -Parent $PSScriptRoot
 $appRepo = 'C:\Users\User\cotacao-auditoria-atacaderj'
 $log     = Join-Path $raiz 'auditoria_16h.log'

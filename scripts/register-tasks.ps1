@@ -40,7 +40,8 @@ Write-Host "OK: 'AtacadeRJ - Bridge Movimentos' (05:00)"
 $aud16   = Join-Path $PSScriptRoot "auditoria-16h.ps1"
 $acaoAud = New-ScheduledTaskAction -Execute "powershell.exe" `
   -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$aud16`""
-$gatAud  = New-ScheduledTaskTrigger -Daily -At 16:00
+# loja NAO abre domingo — relatorio so de segunda a sabado
+$gatAud  = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday,Saturday -At 16:00
 Register-ScheduledTask -TaskName "AtacadeRJ - Auditoria Desconto 16h" -Action $acaoAud `
   -Trigger $gatAud -RunLevel Limited -Force | Out-Null
 Write-Host "OK: 'AtacadeRJ - Auditoria Desconto 16h' (16:00 -> WhatsApp)"
