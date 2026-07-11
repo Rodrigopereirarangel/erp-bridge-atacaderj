@@ -128,6 +128,10 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Próximo passo imediato
 
+0. **Detector de salão neste PC (roteiro pronto)**: seguir
+   `docs/IMPLANTAR-DETECTOR-SALAO-NO-PONTE.md` (clonar o detector, apontar
+   `detector_salao_dir`, dry-run, tarefa 05:30). Design:
+   `docs/superpowers/specs/2026-07-11-detector-salao-dados-reais-design.md`.
 1. **Login do WhatsApp (1x)**: `cd scripts\whatsapp` → `node enviar.mjs --login`
    → escanear o QR. Depois testar:
    `powershell -File scripts\auditoria-16h.ps1 -Dia 2026-07-06`
