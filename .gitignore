@@ -1,5 +1,6 @@
 # Segredos e config real (NUNCA versionar — contém a senha do viewer)
 config.local.json
+config.local.json.bak*
 
 # Saída gerada (arquivos que alimentam os consumidores)
 saida/*

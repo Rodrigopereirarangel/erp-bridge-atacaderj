@@ -99,8 +99,11 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   `movimentos` e `--only vendas-mensal` (refresh diário às 05:00 já cobre).
   **v2 (2026-07-10): + valor de venda e Vl. médio, CÓDIGO DEFINITIVO
   homologado contra o rptABCdeVendas do ERP** — ver log.
-- [ ] Apontar os caminhos de `saida` para os detectores quando eles forem
-  clonados neste PC (hoje escrevem em `saida/` do próprio repo)
+- [x] Apontar os caminhos de `saida` para os detectores — **salão FEITO
+  (2026-07-11)**: detector clonado em `C:\Users\User\detector-ruptura-atacaderj`,
+  `detector_salao_dir` apontado p/ o `data\input` dele, dados reais fluindo,
+  tarefa **DetectorRuptura-Diario 05:30 seg–sáb** registrada e testada
+  (dry-run). **Estoque ainda pendente** (segue em `saida/` do próprio repo).
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
   **descartado** por decisão de 2026-07-07 (ver log); bridge fica só extração
 
@@ -128,10 +131,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Próximo passo imediato
 
-0. **Detector de salão neste PC (roteiro pronto)**: seguir
-   `docs/IMPLANTAR-DETECTOR-SALAO-NO-PONTE.md` (clonar o detector, apontar
-   `detector_salao_dir`, dry-run, tarefa 05:30). Design:
-   `docs/superpowers/specs/2026-07-11-detector-salao-dados-reais-design.md`.
+0. **Detector de salão: NO AR em dry-run (2026-07-11)** — validar a qualidade
+   dos alertas por alguns dias (1ª rodada real: 1.845 suspeitos — limiares
+   provavelmente precisam de calibragem via revisão semanal). Go-live
+   (WhatsApp/Apps Script) e relatório HTML chegam nas próximas rodadas.
+   Design: `docs/superpowers/specs/2026-07-11-detector-salao-dados-reais-design.md`.
 1. **Login do WhatsApp (1x)**: `cd scripts\whatsapp` → `node enviar.mjs --login`
    → escanear o QR. Depois testar:
    `powershell -File scripts\auditoria-16h.ps1 -Dia 2026-07-06`
@@ -146,6 +150,30 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-11 (DETECTOR DE SALÃO NO AR — dry-run, executado por SSH da dev)** ✅
+  A sessão da máquina de dev implantou o detector NESTE PC de ponta a ponta,
+  por **SSH sobre Tailscale** (OpenSSH Server instalado hoje aqui pelo dono;
+  chave da dev autorizada — acesso `ssh User@100.99.176.6` fica permanente
+  para as próximas rodadas). Passos: (1) detector clonado via **git bundle +
+  scp** (o token deste PC não alcança o repo privado `detector-ruptura-atacaderj`
+  — origin já aponta p/ o GitHub, autenticar quando precisar de pull direto);
+  (2) `npm install` + **90/90 testes verdes** (obs: postinstall do puppeteer
+  bloqueado por allow-scripts — Chromium não baixou; irrelevante em dry-run,
+  resolver no go-live OU delegar envio ao Baileys daqui); (3) config do
+  detector = example (dry-run, placeholders de WhatsApp/Apps Script — doctor
+  acusa os 3, esperado); (4) `detector_salao_dir` do config vivo apontado p/
+  `C:/Users/User/detector-ruptura-atacaderj/data/input` (backup
+  `config.local.json.bak-2026-07-11`, agora coberto pelo .gitignore);
+  (5) `--only vendas` + `--only recebimentos` = **153.928 vendas + 3.531
+  recebimentos reais** no data\input (headers conferidos com o contrato;
+  achado: 1 linha de recebimento com **código vazio** vinda do ERP — o
+  detector descarta sozinho, mas vale filtrar na query como já se faz com
+  `cdProduto IS NOT NULL`); (6) 1ª rodada real dry-run: **1.845 suspeitos**
+  (159 crítico / 398 alto / 1.288 médio) — volume alto, calibrar limiares na
+  validação; (7) tarefa **DetectorRuptura-Diario** (node src/daily.js, 05:30
+  seg–sáb, StartWhenAvailable) registrada e TESTADA via `schtasks /Run`
+  (LastTaskResult 0, rodada regravada). Próximo: dono valida alertas alguns
+  dias; relatório HTML (código na dev → git pull aqui); go-live depois.
 - **2026-07-10 (DIFAL/CCI DECIFRADOS)** — Engenharia reversa do custo de
   entrada, validada ao centavo no produto 19047: **CustoUnitario da nota =
   (preço+IPI) × (1−ICMS interestadual) ÷ (1−22%)** — DIFAL "por dentro" base
