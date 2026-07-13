@@ -28,6 +28,11 @@
     "numero_auditoria": "55XXXXXXXXXXX"
   },
 
+  "marcas": {
+    "feedbackDir": "C:/Users/User/detector-ruptura-atacaderj/data/feedback",
+    "remetentes": ["5521970117082"]
+  },
+
   "saida": {
     "_upload_manual_dir": "pastas com UM arquivo cada (upload manual de contingencia), sobrescritos a cada janela; padrao: Desktop/AtacadeRJ-Banco e Desktop/AtacadeRJ-Auditoria",
     "upload_manual_dir": "C:/Users/COMPUTADOR/Desktop/AtacadeRJ-Banco",
