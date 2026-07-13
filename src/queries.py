@@ -36,8 +36,15 @@ SELECT
     pr.embalagem,
     pr.qtde_atacado,
     pr.custo_atual,
-    pr.preco_atacado,
-    pr.preco_varejo,
+    -- precos VIGENTES = tabela do CAIXA (DORSAL.tbSuperProduto), onde toda
+    -- promocao (tbPromocao, relampago, etc.) ja chega materializada —
+    -- validado 13/07: 90% das vendas do dia batem ao centavo; a view e
+    -- so o fallback p/ item fora do PDV
+    CAST(COALESCE(CASE WHEN pdv.AtacadoQtde > 0 AND pdv.AtacadoPreco > 0
+                       THEN pdv.AtacadoPreco END,
+                  pr.preco_atacado) AS decimal(14,2)) AS preco_atacado,
+    CAST(COALESCE(NULLIF(pdv.vlVenda, 0),
+                  pr.preco_varejo) AS decimal(14,2))  AS preco_varejo,
     -- promocao efetiva = menor positivo entre a da view e a VIGENTE hoje em
     -- tbPromocao (a view NAO enxerga essas promos — caso acucar Guarani 2,79
     -- com vp NULL enquanto a loja vendia em promo; descoberto 2026-07-13)
@@ -69,6 +76,9 @@ JOIN (
 ) e ON e.SEQPRODUTO = pr.SEQPRODUTO AND e.SEQLOJA = pr.SEQLOJA
 JOIN dbo.tbProduto p       ON p.cdProduto = pr.SEQPRODUTO
 JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+LEFT JOIN DORSAL.dbo.tbSuperProduto pdv
+       ON pdv.cdSuperProduto = p.cdProduto
+      AND pdv.cdFilial = 1 AND pdv.inAtivo = 1
 LEFT JOIN (
     SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
     FROM dbo.tbPromocaoItem pi
