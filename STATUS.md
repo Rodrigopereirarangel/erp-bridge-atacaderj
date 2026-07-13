@@ -131,6 +131,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Próximo passo imediato
 
+-1. **CICLO DE MARCAÇÃO (roteiro pronto, 14/07)**: seguir
+    — gh auth (dono, 2 min) → pull dos 2
+   repos → configs → gabarito → tarefa de colheita → teste ponta a ponta.
+   Código pronto e pushado (detector c42189d, bridge a6dfbca).
+
 0. **Detector de salão: NO AR em dry-run (2026-07-11)** — validar a qualidade
    dos alertas por alguns dias (1ª rodada real: 1.845 suspeitos — limiares
    provavelmente precisam de calibragem via revisão semanal). Go-live
