@@ -150,6 +150,20 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-13 (MOTOR v2 + MODELO v3 NO AR — dry-run, deploy por SSH da dev)** ✅
+  Detector de salão atualizado para a **detecção v2 por intervalo próprio**
+  (spec/plano no repo do detector; 16 tasks TDD, review por task + review
+  final, suíte 114/114): scoreRuptura = (diasParado ÷ intervalo típico EWMA) ×
+  confiança, teto 30d, feriado auto-detectado, seções **REPOR (topo) ×
+  COMPRAR (só curva A)** com % do **GLM calibrado** (treinado aqui:
+  150.308 amostras, base-rate 0,163 → `data/modelo/repor_comprar.json`) e
+  fallback de heurística. Bridge ganhou `entradas.csv` + `curva_abc.csv` p/ o
+  salão (commits 25536cb/1842107; WIP local do ULTIMO_CUSTO preservado via
+  stash/pop, segue não commitado). 1ª rodada real v2 (ref 11/07): **479 fora
+  do padrão → 30 REPOR + 13 COMPRAR-A (de 45); 13 recém-abastecidos fora**;
+  HTML em `data\reports\`. Tarefas: DetectorRuptura-Diario 05:30 (rodou
+  sozinha às 05:00/05:30 de hoje) + **DetectorRuptura-TreinoModelo dom 06:00
+  (nova)**. Pendências: go-live (QR/Apps Script) e calibragem com marcações.
 - **2026-07-11 (DETECTOR DE SALÃO NO AR — dry-run, executado por SSH da dev)** ✅
   A sessão da máquina de dev implantou o detector NESTE PC de ponta a ponta,
   por **SSH sobre Tailscale** (OpenSSH Server instalado hoje aqui pelo dono;
