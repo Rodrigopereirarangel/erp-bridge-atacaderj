@@ -1,28 +1,30 @@
 #!/usr/bin/env node
 // Colhe mensagens "MARCAS <round>: cod=TOK ..." recebidas no WhatsApp do ponte
 // e grava/mescla no data/feedback do detector. NUNCA lanca: qualquer problema
-// -> log e exit 0 (a proxima colheita tenta de novo).
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
+// (lock, config, baileys, auth/ corrompida, node_modules quebrado) -> log e
+// exit 0 (a proxima colheita horaria tenta de novo).
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseMarcas, mesclarFeedback } from "./marcas-parser.mjs";
+import { adquirirLock, soltarLock } from "./sessao-lock.mjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..", "..");
-const LOCK = join(AQUI, ".colher.lock");
+const LOCK = join(AQUI, ".sessao.lock");
 
 function log(msg) { console.log(`[colher-marcas] ${msg}`); }
 
-// lock por PID (nao brigar com enviar.mjs / colheita anterior)
-try {
-  if (existsSync(LOCK)) {
-    const pid = Number(readFileSync(LOCK, "utf8"));
-    try { process.kill(pid, 0); log(`sessao em uso (pid ${pid}) — saindo`); process.exit(0); }
-    catch { /* stale */ }
-  }
-  writeFileSync(LOCK, String(process.pid));
-} catch { process.exit(0); }
-const solta = () => { try { unlinkSync(LOCK); } catch {} };
+// solta/fim definidos ANTES de qualquer await: qualquer falha dali em diante
+// ja consegue liberar o lock e sair limpo.
+const solta = () => soltarLock(LOCK);
+const fim = (code) => { solta(); process.exit(code); };
+
+// lock de sessao compartilhado com enviar.mjs (a sessao Baileys e uma so).
+// Ocupado -> sai na hora: a proxima colheita pega.
+let temLock = false;
+try { temLock = await adquirirLock(LOCK); } catch { /* fs indisponivel */ }
+if (!temLock) { log("sessao em uso — saindo"); process.exit(0); }
 
 let cfg = {};
 try { cfg = JSON.parse(readFileSync(join(RAIZ, "config.local.json"), "utf8")); } catch {}
@@ -30,17 +32,19 @@ const M = cfg.marcas || {};
 const FEEDBACK_DIR = M.feedbackDir || "C:/Users/User/detector-ruptura-atacaderj/data/feedback";
 const REMETENTES = (M.remetentes || []).map((n) => String(n).replace(/\D/g, ""));
 
-const baileys = await import("@whiskeysockets/baileys");
-const makeWASocket = baileys.default?.makeWASocket || baileys.makeWASocket || baileys.default;
-const { useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
-const { state, saveCreds } = await useMultiFileAuthState(join(AQUI, "auth"));
-const { version } = await fetchLatestBaileysVersion();
-
 let colhidas = 0;
-const fim = (code) => { solta(); process.exit(code); };
+// janela fixa de colheita — vale mesmo se o setup abaixo travar (rede lenta etc.)
 setTimeout(() => { log(`fim da janela — ${colhidas} mensagem(ns) de marcas`); fim(0); }, 25000);
 
+// TODO o setup pos-lock guardado: import do baileys, leitura da auth/, busca
+// de versao e socket. Qualquer excecao vira log + fim(0).
 try {
+  const baileys = await import("@whiskeysockets/baileys");
+  const makeWASocket = baileys.default?.makeWASocket || baileys.makeWASocket || baileys.default;
+  const { useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
+  const { state, saveCreds } = await useMultiFileAuthState(join(AQUI, "auth"));
+  const { version } = await fetchLatestBaileysVersion();
+
   const sock = makeWASocket({ auth: state, version, printQRInTerminal: false, syncFullHistory: false });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", (u) => {

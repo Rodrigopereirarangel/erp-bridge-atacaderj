@@ -10,6 +10,7 @@ saida/*
 scripts/whatsapp/auth/
 scripts/whatsapp/node_modules/
 scripts/whatsapp/package-lock.json
+scripts/whatsapp/.sessao.lock
 
 # Robo de upload (perfil do navegador = sessao logada no claude.ai = credencial)
 robo/config_robo.json

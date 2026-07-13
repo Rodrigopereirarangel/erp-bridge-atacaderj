@@ -6,7 +6,8 @@ $det = "C:\Users\User\detector-ruptura-atacaderj"
 $a1 = New-ScheduledTaskAction -Execute $node -Argument "colher-marcas.mjs" -WorkingDirectory $wa
 $a2 = New-ScheduledTaskAction -Execute $node -Argument "src/dashboard.js" -WorkingDirectory $det
 $t1 = New-ScheduledTaskTrigger -Daily -At 5:20am
-$t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+# gatilho horario em HH:40 — deslocado para nao colidir com 16:00 (auditoria) nem 05:30 (envio diario)
+$t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(40) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $s = New-ScheduledTaskSettingsSet -StartWhenAvailable
 Register-ScheduledTask -TaskName "AtacadeRJ - Colher Marcas" -Action @($a1, $a2) -Trigger @($t1, $t2) -Settings $s -Description "Colhe marcacoes A/RA/RC do WhatsApp e regenera o dashboard" -Force
-Write-Host "Tarefa de colheita registrada (05:20 + a cada 60 min)."
+Write-Host "Tarefa de colheita registrada (05:20 + a cada 60 min em HH:40)."

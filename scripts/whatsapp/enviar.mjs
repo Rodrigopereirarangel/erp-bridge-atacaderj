@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { adquirirLock, soltarLock } from './sessao-lock.mjs';
 
 // mimetype correto por extensao — sem isso o WhatsApp entrega "arquivo
 // generico" (octet-stream) e o celular nao sabe abrir (ex.: relatorio .html)
@@ -41,6 +42,18 @@ if (!LOGIN && !PARA) {
   process.exit(2);
 }
 if (TEXTO_ARQ) TEXTO = readFileSync(TEXTO_ARQ, 'utf8');
+
+// lock de sessao compartilhado com colher-marcas.mjs (a sessao Baileys em
+// ./auth e uma so — dois sockets simultaneos derrubam um ao outro). Envio e
+// importante: espera ate 60s pela vez; se continuar ocupado, erro (padrao atual).
+const LOCK = join(AQUI, '.sessao.lock');
+if (!(await adquirirLock(LOCK, { esperarMs: 60000 }))) {
+  console.error('[whatsapp] sessao em uso ha mais de 60s (colheita presa?) — abortando.');
+  process.exit(1);
+}
+// solta em TODAS as saidas (sucesso, erro, timeout) — os process.exit abaixo
+// disparam este handler; soltarLock so remove o lock se o PID for o nosso.
+process.on('exit', () => soltarLock(LOCK));
 
 const baileys = await import('@whiskeysockets/baileys');
 const makeWASocket = baileys.default?.makeWASocket || baileys.makeWASocket || baileys.default;
