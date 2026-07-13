@@ -38,7 +38,14 @@ SELECT
     pr.custo_atual,
     pr.preco_atacado,
     pr.preco_varejo,
-    pr.preco_promocao,
+    -- promocao efetiva = menor positivo entre a da view e a VIGENTE hoje em
+    -- tbPromocao (a view NAO enxerga essas promos — caso acucar Guarani 2,79
+    -- com vp NULL enquanto a loja vendia em promo; descoberto 2026-07-13)
+    CAST(CASE WHEN pr.preco_promocao > 0
+               AND (promo.promo_vigente IS NULL
+                    OR pr.preco_promocao <= promo.promo_vigente)
+              THEN pr.preco_promocao
+              ELSE promo.promo_vigente END AS decimal(14,2)) AS preco_promocao,
     e.CURVA_ABC                      AS curva,
     1                                AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
@@ -62,6 +69,17 @@ JOIN (
 ) e ON e.SEQPRODUTO = pr.SEQPRODUTO AND e.SEQLOJA = pr.SEQLOJA
 JOIN dbo.tbProduto p       ON p.cdProduto = pr.SEQPRODUTO
 JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+LEFT JOIN (
+    SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
+    FROM dbo.tbPromocaoItem pi
+    JOIN dbo.tbPromocao pm  ON pm.cdPromocao = pi.cdPromocao
+    JOIN dbo.tbProduto pr2  ON pr2.cdSuperProduto = pi.cdSuperProduto
+    WHERE pi.vlPromocao > 0
+      AND pm.inAtiva = 1
+      AND CAST(GETDATE() AS date) BETWEEN CAST(pm.dtInicio AS date)
+                                      AND CAST(pm.dtFim AS date)
+    GROUP BY pr2.cdProduto
+) promo ON promo.cdProduto = p.cdProduto
 WHERE pr.rn = 1
 ORDER BY sp.nmProdutoPai
 """
