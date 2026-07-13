@@ -7,7 +7,7 @@ via camada de projecao, o formato exato de cada consumidor:
   catalogo      -> cotacao/produtos.json  +  detector-estoque/curva_abc.csv  +  detector-salao/curva_abc.csv
   vendas        -> detector-salao/vendas.csv        (sem valor)
                    detector-estoque/vendas.csv       (com valor R$)
-  entradas      -> detector-salao/entradas.csv  +  detector-estoque/entradas.csv
+  entradas      -> detector-estoque/entradas.csv  +  detector-salao/entradas.csv
   recebimentos  -> detector-salao/recebimentos.csv  +  detector-estoque/recebimentos.csv
   pedidos       -> detector-estoque/pedidos.csv
   pedidos-venda -> cotacao/pedidos_venda_dav.csv    (auditoria de desconto do app)
@@ -101,7 +101,7 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         rel.append(f"detector-estoque/vendas.csv: {n}")
 
     if alvo in ("all", "movimentos", "entradas", "recebimentos"):
-        # entradas.csv (todas as entregas, ~6 meses) -> so o detector de estoque (espectro)
+        # entradas.csv (todas as entregas, ~6 meses) -> os dois detectores
         n = projections.entradas_csv(ent, os.path.join(estoque, "entradas.csv"))
         rel.append(f"detector-estoque/entradas.csv: {n}")
         n = projections.entradas_csv(ent, os.path.join(salao, "entradas.csv"))
