@@ -4,9 +4,10 @@
 Extrai (SELECT, usuario viewer) catalogo/vendas/recebimentos/pedidos e escreve,
 via camada de projecao, o formato exato de cada consumidor:
 
-  catalogo      -> cotacao/produtos.json  +  detector-estoque/curva_abc.csv
+  catalogo      -> cotacao/produtos.json  +  detector-estoque/curva_abc.csv  +  detector-salao/curva_abc.csv
   vendas        -> detector-salao/vendas.csv        (sem valor)
                    detector-estoque/vendas.csv       (com valor R$)
+  entradas      -> detector-salao/entradas.csv  +  detector-estoque/entradas.csv
   recebimentos  -> detector-salao/recebimentos.csv  +  detector-estoque/recebimentos.csv
   pedidos       -> detector-estoque/pedidos.csv
   pedidos-venda -> cotacao/pedidos_venda_dav.csv    (auditoria de desconto do app)
@@ -89,6 +90,8 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         rel.append(f"cotacao/produtos.json: {n}")
         n = projections.curva_abc_csv(cat, os.path.join(estoque, "curva_abc.csv"))
         rel.append(f"detector-estoque/curva_abc.csv: {n}")
+        n = projections.curva_abc_csv(cat, os.path.join(salao, "curva_abc.csv"))
+        rel.append(f"detector-salao/curva_abc.csv: {n}")
 
     if alvo in ("all", "movimentos", "vendas"):
         n = projections.vendas_csv(ven, os.path.join(salao, "vendas.csv"))
@@ -101,6 +104,8 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         # entradas.csv (todas as entregas, ~6 meses) -> so o detector de estoque (espectro)
         n = projections.entradas_csv(ent, os.path.join(estoque, "entradas.csv"))
         rel.append(f"detector-estoque/entradas.csv: {n}")
+        n = projections.entradas_csv(ent, os.path.join(salao, "entradas.csv"))
+        rel.append(f"detector-salao/entradas.csv: {n}")
         # recebimentos.csv (ultima entrega por item, derivada) -> os dois detectores
         n = projections.recebimentos_csv(ent, os.path.join(salao, "recebimentos.csv"))
         rel.append(f"detector-salao/recebimentos.csv: {n}")

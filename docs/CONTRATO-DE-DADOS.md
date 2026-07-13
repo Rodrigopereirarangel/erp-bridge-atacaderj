@@ -95,6 +95,14 @@ codigo;descricao;data;qtd_vendida
 ```
 codigo;data_ultimo_recebimento;qtd_recebida
 ```
+`entradas.csv`  (**todas** as entregas dos últimos ~6 meses — proxy de estoque)
+```
+codigo;data;qtd
+```
+`curva_abc.csv`  (deriva do catálogo)
+```
+codigo;curva
+```
 
 ---
 
