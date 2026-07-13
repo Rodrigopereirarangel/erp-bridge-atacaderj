@@ -14,8 +14,18 @@
 //   node enviar.mjs --para 5521970117082 --texto-arquivo resumo.txt --arquivo plan.xlsx
 // =============================================================================
 import { readFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// mimetype correto por extensao — sem isso o WhatsApp entrega "arquivo
+// generico" (octet-stream) e o celular nao sabe abrir (ex.: relatorio .html)
+const MIMES = {
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.html': 'text/html',
+  '.pdf': 'application/pdf',
+  '.csv': 'text/csv',
+  '.txt': 'text/plain',
+};
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -73,9 +83,7 @@ function conectar() {
             await sock.sendMessage(jid, {
               document: readFileSync(ARQUIVO),
               fileName: basename(ARQUIVO),
-              mimetype: ARQUIVO.endsWith('.xlsx')
-                ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                : 'application/octet-stream',
+              mimetype: MIMES[extname(ARQUIVO).toLowerCase()] || 'application/octet-stream',
             });
           }
           console.log('[whatsapp] enviado para ' + PARA + (ARQUIVO ? ' (texto + ' + basename(ARQUIVO) + ')' : ' (texto)'));
