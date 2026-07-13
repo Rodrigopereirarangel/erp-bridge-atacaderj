@@ -78,17 +78,27 @@ JOIN dbo.tbProduto p       ON p.cdProduto = pr.SEQPRODUTO
 JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
 LEFT JOIN DORSAL.dbo.tbSuperProduto pdv
        ON pdv.cdSuperProduto = p.cdProduto
-      AND pdv.cdFilial = 1 AND pdv.inAtivo = 1
+      AND pdv.cdFilial = 1
+      AND (pdv.inAtivo = 1 OR pdv.inAtivo IS NULL)  -- relampago deixa NULL
 LEFT JOIN (
-    SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
-    FROM dbo.tbPromocaoItem pi
-    JOIN dbo.tbPromocao pm  ON pm.cdPromocao = pi.cdPromocao
-    JOIN dbo.tbProduto pr2  ON pr2.cdSuperProduto = pi.cdSuperProduto
-    WHERE pi.vlPromocao > 0
-      AND pm.inAtiva = 1
-      AND CAST(GETDATE() AS date) BETWEEN CAST(pm.dtInicio AS date)
-                                      AND CAST(pm.dtFim AS date)
-    GROUP BY pr2.cdProduto
+    SELECT cdProduto, MIN(promo_vigente) AS promo_vigente FROM (
+        SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
+        FROM dbo.tbPromocaoItem pi
+        JOIN dbo.tbPromocao pm  ON pm.cdPromocao = pi.cdPromocao
+        JOIN dbo.tbProduto pr2  ON pr2.cdSuperProduto = pi.cdSuperProduto
+        WHERE pi.vlPromocao > 0
+          AND pm.inAtiva = 1
+          AND CAST(GETDATE() AS date) BETWEEN CAST(pm.dtInicio AS date)
+                                          AND CAST(pm.dtFim AS date)
+        GROUP BY pr2.cdProduto
+        UNION ALL
+        SELECT rel.cdProduto, MIN(rel.vlVenda)   -- relampago: PDV aplica por cima
+        FROM dbo.tbPromocaoRelampago rel
+        WHERE rel.vlVenda > 0
+          AND CAST(GETDATE() AS date) BETWEEN CAST(rel.dtInicio AS date)
+                                          AND CAST(rel.dtFim AS date)
+        GROUP BY rel.cdProduto
+    ) uniao GROUP BY cdProduto
 ) promo ON promo.cdProduto = p.cdProduto
 WHERE pr.rn = 1
 ORDER BY sp.nmProdutoPai
