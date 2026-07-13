@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { parseMarcas, mesclarFeedback } from "./marcas-parser.mjs";
+import { parseMarcas, mesclarFeedback, remetentePermitido } from "./marcas-parser.mjs";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +15,13 @@ test("parseMarcas: token invalido e pulado; sem par valido -> null; texto qualqu
   assert.deepStrictEqual(parseMarcas("MARCAS 2026-07-14: 1=XX 2=A").marcas, { "2": "falso" });
   assert.strictEqual(parseMarcas("MARCAS 2026-07-14: 1=XX"), null);
   assert.strictEqual(parseMarcas("bom dia"), null);
+});
+
+test("remetentePermitido: tolera JID brasileiro sem o 9o digito; estranho -> false", () => {
+  const lista = ["5521970117082"];
+  assert.strictEqual(remetentePermitido("5521970117082", lista), true); // com 9o digito
+  assert.strictEqual(remetentePermitido("552170117082", lista), true); // sem 9o digito (quirk do WhatsApp)
+  assert.strictEqual(remetentePermitido("5511999998888", lista), false); // numero estranho
 });
 
 test("mesclarFeedback: cria, mescla e ultima marcacao vence", () => {

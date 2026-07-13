@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseMarcas, mesclarFeedback } from "./marcas-parser.mjs";
+import { parseMarcas, mesclarFeedback, remetentePermitido } from "./marcas-parser.mjs";
 import { adquirirLock, soltarLock } from "./sessao-lock.mjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +30,7 @@ let cfg = {};
 try { cfg = JSON.parse(readFileSync(join(RAIZ, "config.local.json"), "utf8")); } catch {}
 const M = cfg.marcas || {};
 const FEEDBACK_DIR = M.feedbackDir || "C:/Users/User/detector-ruptura-atacaderj/data/feedback";
-const REMETENTES = (M.remetentes || []).map((n) => String(n).replace(/\D/g, ""));
+const REMETENTES = M.remetentes || []; // normalizados dentro de remetentePermitido()
 
 let colhidas = 0;
 // janela fixa de colheita — vale mesmo se o setup abaixo travar (rede lenta etc.)
@@ -54,8 +54,11 @@ try {
   sock.ev.on("messages.upsert", ({ messages }) => {
     for (const msg of messages || []) {
       try {
+        // allowlist tolerante ao quirk do 9o digito do JID brasileiro
+        // (5521970117082 pode chegar como 552170117082) — match pelos
+        // ultimos 8 digitos, feito em remetentePermitido() (puro, testado).
         const de = String(msg.key?.remoteJid || "").replace(/\D/g, "");
-        if (REMETENTES.length && !REMETENTES.some((r) => de.includes(r))) continue;
+        if (!remetentePermitido(de, REMETENTES)) continue;
         const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
         const r = parseMarcas(texto);
         if (!r) continue;

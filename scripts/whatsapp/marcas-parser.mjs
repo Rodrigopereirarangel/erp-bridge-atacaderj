@@ -15,6 +15,17 @@ export function parseMarcas(texto) {
   return Object.keys(marcas).length ? { roundId: m[1], marcas } : null;
 }
 
+// O WhatsApp as vezes entrega o remoteJid brasileiro SEM o 9o digito
+// (5521970117082 -> 552170117082). Comparar o numero inteiro descartaria o
+// feedback silenciosamente; por isso o match usa so os ULTIMOS 8 digitos de
+// cada remetente configurado (a parte do numero que nunca muda).
+export function remetentePermitido(jidDigits, remetentes) {
+  const lista = (remetentes || []).map((n) => String(n).replace(/\D/g, "")).filter(Boolean);
+  if (!lista.length) return true; // sem allowlist -> aceita qualquer remetente
+  const de = String(jidDigits || "").replace(/\D/g, "");
+  return lista.some((r) => de.includes(r.slice(-8)));
+}
+
 export function mesclarFeedback(dir, roundId, marcas, agoraIso) {
   mkdirSync(dir, { recursive: true });
   const arq = join(dir, `${roundId}.json`);
