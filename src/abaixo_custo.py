@@ -169,6 +169,10 @@ def _resolver_node():
 
 
 def main():
+    # console do Windows e cp1252 por padrao: sem isto, imprimir a mensagem
+    # (que tem ⚠/✅) quebra no dry-run e no log do Agendador
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(
         description="Relatorio diario 'abaixo do custo' (markup <= margemMax) via WhatsApp")
     ap.add_argument("--dia", default=None, help="YYYY-MM-DD (default: dia anterior util)")
