@@ -106,6 +106,12 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   (dry-run). **Estoque ainda pendente** (segue em `saida/` do próprio repo).
 - [x] ~~Loop de feedback (apelidos/correções) → GitHub via serverless~~ —
   **descartado** por decisão de 2026-07-07 (ver log); bridge fica só extração
+- [x] **Ciclo de marcação do operador implantado no ponte (2026-07-14)** —
+  colheita agendada ("AtacadeRJ - Colher Marcas" 05:20 + HH:40), gabarito do
+  teste de campo semeado, treino manual provou o histórico versionado com push
+  automático, daily dry-run com botões A/RA/RC + Concluído. **Falta só o dono
+  fechar o E2E** (marcar no HTML enviado ao celular dele e tocar Concluído —
+  a colheita agendada grava sozinha). dryRun segue true.
 
 ## Comandos-chave (PC-ponte)
 
@@ -131,10 +137,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Próximo passo imediato
 
--1. **CICLO DE MARCAÇÃO (roteiro pronto, 14/07)**: seguir
-    — gh auth (dono, 2 min) → pull dos 2
-   repos → configs → gabarito → tarefa de colheita → teste ponta a ponta.
-   Código pronto e pushado (detector c42189d, bridge a6dfbca).
+-1. **FECHAR O E2E DA MARCAÇÃO (só falta o dono)**: o relatório
+    `2026-07-13.html` foi enviado ao celular do dono em 14/07 ~13:26. Ele abre
+    o arquivo, marca 1–2 itens e toca **Concluído** (envia a mensagem que o
+    WhatsApp abrir). A colheita agendada (HH:40) grava sozinha em
+    `data/feedback/2026-07-13.json` do detector — ou rode
+    `node scripts/whatsapp/colher-marcas.mjs`. Conferir o arquivo e regenerar
+    o dashboard (`node src/dashboard.js` no detector). Se a mensagem chegar
+    mas for filtrada, investigar o remoteJid no log antes de mexer na allowlist.
 
 0. **Detector de salão: NO AR em dry-run (2026-07-11)** — validar a qualidade
    dos alertas por alguns dias (1ª rodada real: 1.845 suspeitos — limiares
@@ -155,6 +165,33 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-14 (CICLO DE MARCAÇÃO NO PONTE — roteiro `docs/IMPLANTAR-MARCACAO-NO-PONTE.md`)** ✅
+  Sessão no próprio ponte executou o roteiro: (0) gh auth válido — repo privado
+  do detector alcançável e push funcionando. (1) Repos atualizados (detector
+  chegou em c42189d e, durante a sessão, 38aebe2 — quarentena do Abastecido
+  vinda da dev); suíte do detector **144/144**, testes do bridge (parser+lock)
+  **7/7**. Achado/consertado: o teste do `runDemo` quebrava SÓ neste PC porque
+  a demo carregava o modelo GLM real de `data/modelo/` via CWD — demo agora é
+  hermética (detector `a8eda9a`). (2) Configs: `numeroPonte` adicionado ao
+  config do detector; checagem obrigatória ok (`appsScriptUrl` segue
+  placeholder); `dryRun` segue `true`; a seção `marcas` do bridge já estava
+  pronta. **Limpeza importante**: o bloco `detection` do config local do
+  detector era snapshot da config v1 (11/07) e sobrescrevia o piso
+  `minDiasParado` do motor v2 de 5 para 1 — removido, o example v2 volta a
+  valer (backup `.bak-2026-07-14`, agora gitignored no detector). (3) Gabarito
+  do teste de campo semeado em `data/feedback/2026-07-11.json` (3
+  reabastecimento + 13 falso). (4) Treino manual: `historico/precisao.csv`
+  ganhou `2026-07-11;30;10;7;3;0;0.3;proxy;3` e o commit do histórico foi
+  criado e **pushado sozinho** (identidade git repo-local configurada nos 2
+  repos — não havia global e o treino commita). (5) Daily dry-run: rodada
+  2026-07-13 com **42 itens REPOR**, 42 botões `data-tok` + rodapé Concluído
+  apontando ao ponte, `Enviado=false`. (6) Tarefa **"AtacadeRJ - Colher
+  Marcas"** registrada e Pronto (05:20 diário + a cada 60 min em HH:40;
+  registrou sem precisar de janela admin). (7) E2E: relatório enviado ao
+  celular do dono (envio manual único autorizado, ~13:26); 3 colheitas manuais
+  em ~30 min = 0 mensagens — o dono ainda não marcou; **pendente só a resposta
+  dele**, a colheita agendada fecha o ciclo sozinha. Dashboard regenerado
+  refletindo o gabarito.
 - **2026-07-13 (MOTOR v2 + MODELO v3 NO AR — dry-run, deploy por SSH da dev)** ✅
   Detector de salão atualizado para a **detecção v2 por intervalo próprio**
   (spec/plano no repo do detector; 16 tasks TDD, review por task + review
