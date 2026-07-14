@@ -7,7 +7,7 @@
 
 Toda manhã, mensagem de WhatsApp para **5521970296224** com os itens vendidos
 no **dia anterior útil** (segunda reporta sábado; domingo fechado) com
-**markup ≤ 3%** (abaixo do custo + zona de perigo até +3% acima), no formato
+**markup ≤ −3%** (prejuízo de 3% ou mais — corrigido pelo dono em 14/07 após a 1ª mensagem real; a versão inicial ≤+3% trouxe ruído de itens acima do custo), no formato
 minimalista aprovado:
 
 ```
@@ -42,7 +42,7 @@ venda 10,20 · custo 10,00 · +2,0%
   o implementador DEVE verificar em queries.py a semântica unitário×total e
   ponderar corretamente; validar num item conhecido contra o ERP).
 - `markup = venda_media/custo − 1` (custo > 0). Filtro: `markup ≤ margemMax`
-  (config, default 0.03).
+  (config, default **−0.03**).
 
 ## Entrega e agendamento (atraso de sync do ERP tratado)
 
@@ -61,7 +61,7 @@ venda 10,20 · custo 10,00 · +2,0%
   padrão dos scripts do repo): gatilho diário 06:00 com repetição a cada
   30 min por 6h (até 12:00), StartWhenAvailable.
 - Config (`config.local.json`, gitignored):
-  `"abaixo_custo": { "numero": "5521970296224", "margemMax": 0.03 }`
+  `"abaixo_custo": { "numero": "5521970296224", "margemMax": -0.03 }`
   (example com numero vazio → script sai com aviso se não configurado).
 
 ## Testes
