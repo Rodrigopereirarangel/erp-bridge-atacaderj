@@ -25,15 +25,18 @@ def _linha(descricao, qtd, venda_un, custo_un, codigo=1):
 
 
 def test_filtro_limites():
+    # Regra do dono (14/07, apos a 1a mensagem real): entra APENAS quem vendeu
+    # com markup <= -3% (prejuizo de 3% ou mais).
     linhas = [
-        _linha("A", 1, 9.50, 10.00),   # -5,0%  -> entra
-        _linha("B", 1, 10.20, 10.00),  # +2,0%  -> entra
-        _linha("C", 1, 10.30, 10.00),  # +3,0%  -> entra (limite)
-        _linha("D", 1, 10.31, 10.00),  # +3,1%  -> fora
+        _linha("A", 1, 6.51, 10.00),   # -34,9% -> entra
+        _linha("B", 1, 9.70, 10.00),   # -3,0%  -> entra (limite exato)
+        _linha("C", 1, 9.71, 10.00),   # -2,9%  -> FORA
+        _linha("D", 1, 10.00, 10.00),  # 0,0%   -> FORA
+        _linha("E", 1, 10.20, 10.00),  # +2,0%  -> FORA
     ]
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     nomes = {i["descricao"] for i in itens}
-    assert nomes == {"A", "B", "C"}, f"esperado A,B,C; veio {nomes}"
+    assert nomes == {"A", "B"}, f"esperado A,B; veio {nomes}"
     assert sem_custo == 0
 
 
@@ -43,7 +46,7 @@ def test_custo_zero_vira_sem_custo():
         {"codigo": 2, "descricao": "SEM_CUSTO_1", "qtd": 5, "valor": 50.0, "custo": 0},
         {"codigo": 3, "descricao": "SEM_CUSTO_2", "qtd": 2, "valor": 20.0, "custo": None},
     ]
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     nomes = {i["descricao"] for i in itens}
     assert nomes == {"A"}
     assert sem_custo == 2
@@ -51,33 +54,38 @@ def test_custo_zero_vira_sem_custo():
 
 def test_ordenacao_pior_para_melhor():
     linhas = [
-        _linha("MENOS_RUIM", 1, 9.90, 10.00),   # -1,0%
+        _linha("MENOS_RUIM", 1, 9.65, 10.00),   # -3,5%
         _linha("PIOR", 1, 9.00, 10.00),         # -10,0%
         _linha("MEIO", 1, 9.50, 10.00),         # -5,0%
     ]
-    itens, _ = ac.filtrar_itens(linhas, 0.03)
+    itens, _ = ac.filtrar_itens(linhas, -0.03)
     ordem = [i["descricao"] for i in itens]
     assert ordem == ["PIOR", "MEIO", "MENOS_RUIM"], ordem
 
 
 def test_titulo_e_linhas_exatas():
-    # Reproduz o exemplo CANONICO do design doc ao pe da letra.
-    linhas = [
-        _linha("QJ MUSSARELA CRIOULO", 274.8, 9.50, 10.00),
-        _linha("OLEO SOJA SOYA 900ML", 30, 10.20, 10.00),
+    # Exemplo canonico ATUALIZADO para o corte novo (markup <= -3%): 2 itens
+    # abaixo do custo, rodape derivado dos proprios numeros do fixture.
+    fixture = [
+        # (descricao, qtd, venda_un, custo_un)
+        ("PAO DE QUEIJO", 12, 6.50, 10.00),   # -35,0%
+        ("MINI PIZZA", 30, 9.70, 10.00),      # -3,0% (limite exato)
     ]
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    linhas = [_linha(n, q, v, c) for (n, q, v, c) in fixture]
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     msg = ac.montar_mensagem("13/07", itens, sem_custo)
+    prejuizo = sum(max(0.0, (c - v) * q) for (_, q, v, c) in fixture)
+    rodape_valor = f"{prejuizo:.2f}".replace(".", ",")  # 42,00 + 9,00 = 51,00
     esperado = (
         ">Produtos vendidos abaixo do custo dia 13/07<\n"
         "\n"
-        "QJ MUSSARELA CRIOULO\n"
-        "venda 9,50 · custo 10,00 · -5,0%\n"
+        "PAO DE QUEIJO\n"
+        "venda 6,50 · custo 10,00 · -35,0%\n"
         "\n"
-        "OLEO SOJA SOYA 900ML\n"
-        "venda 10,20 · custo 10,00 · +2,0%\n"
+        "MINI PIZZA\n"
+        "venda 9,70 · custo 10,00 · -3,0%\n"
         "\n"
-        "2 itens · prejuízo potencial R$ 137,40"
+        f"2 itens · prejuízo potencial R$ {rodape_valor}"
     )
     assert msg == esperado, f"\n--- obtido ---\n{msg}\n--- esperado ---\n{esperado}"
 
@@ -90,10 +98,11 @@ def test_zero_itens():
 def test_corte_60_itens():
     linhas = []
     for i in range(65):
-        markup = -0.001 * (i + 1)  # i=0 -> -0,1% (menos ruim) ... i=64 -> -6,5% (pior)
+        # i=0 -> -3,1% (menos ruim) ... i=64 -> -9,5% (pior); todos <= -3%
+        markup = -0.03 - 0.001 * (i + 1)
         venda_un = 10.0 * (1 + markup)
         linhas.append(_linha(f"ITEM {i:02d}", 1, venda_un, 10.00, codigo=i))
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     assert len(itens) == 65
     assert itens[0]["descricao"] == "ITEM 64"   # pior primeiro
     assert itens[-1]["descricao"] == "ITEM 00"  # melhor por ultimo
@@ -101,19 +110,24 @@ def test_corte_60_itens():
     msg = ac.montar_mensagem("15/07", itens, sem_custo)
     assert msg.count("ITEM ") == 60, "deveria exibir so os 60 piores"
     assert "… e mais 5 itens" in msg
-    # prejuizo = soma de TODOS os 65 (nao so os 60 exibidos): 0,01*(1+..+65) = 21,45
-    assert msg.strip().endswith("65 itens · prejuízo potencial R$ 21,45"), msg
+    # prejuizo = soma de TODOS os 65 (nao so os 60 exibidos):
+    # 65*0,30 + 0,01*(1+..+65) = 19,50 + 21,45 = 40,95
+    assert msg.strip().endswith("65 itens · prejuízo potencial R$ 40,95"), msg
 
 
 def test_prejuizo_so_dos_abaixo_do_custo():
+    # Com o corte novo todo item listado esta abaixo do custo; o teste vira:
+    # prejuizo = soma (custo-venda)*qtd dos listados, e quem tem markup
+    # positivo fica FORA da lista e da conta.
     linhas = [
-        _linha("ACIMA_1", 5, 10.10, 10.00),   # +1,0% -> entra, sem prejuizo
-        _linha("ACIMA_2", 3, 10.30, 10.00),   # +3,0% -> entra (limite), sem prejuizo
+        _linha("ABAIXO_1", 5, 9.50, 10.00),   # -5,0%  -> prejuizo 0,50*5 = 2,50
+        _linha("ABAIXO_2", 3, 9.00, 10.00),   # -10,0% -> prejuizo 1,00*3 = 3,00
+        _linha("ACIMA", 100, 10.20, 10.00),   # +2,0%  -> FORA (lista e conta)
     ]
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     assert len(itens) == 2
     msg = ac.montar_mensagem("16/07", itens, sem_custo)
-    assert "R$ 0,00" in msg, msg
+    assert "R$ 5,50" in msg, msg
 
 
 def test_rodape_com_sem_custo():
@@ -121,7 +135,7 @@ def test_rodape_com_sem_custo():
         _linha("A", 1, 9.50, 10.00),
         {"codigo": 9, "descricao": "SEM_CUSTO", "qtd": 1, "valor": 10.0, "custo": 0},
     ]
-    itens, sem_custo = ac.filtrar_itens(linhas, 0.03)
+    itens, sem_custo = ac.filtrar_itens(linhas, -0.03)
     msg = ac.montar_mensagem("17/07", itens, sem_custo)
     assert msg.endswith(
         "1 itens · prejuízo potencial R$ 0,50\n"

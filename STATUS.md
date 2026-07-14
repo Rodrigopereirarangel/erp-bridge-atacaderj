@@ -172,6 +172,21 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- **2026-07-14 (RELATÓRIO "ABAIXO DO CUSTO" 06:00 — spec
+  `docs/superpowers/specs/2026-07-14-abaixo-custo-6h-design.md`)** ✅
+  Implementado `src/abaixo_custo.py` (CLI `--dia/--config/--dry-run`; funções
+  puras separadas do I/O; guardas: carimbo → exit 0, dia sem vendas → exit 0
+  silencioso, número não configurado → aviso + exit 1; envio via
+  `enviar.mjs`; carimbo `saida/abaixo-custo/enviado-<dia>.txt` com a mensagem
+  dentro) + `tests_abaixo_custo.py` (10/10) + `scripts/registrar-abaixo-custo.ps1`
+  (tarefa 06:00, retry 30 min por 6h, StartWhenAvailable) + bloco
+  `abaixo_custo` no config.example. **Correção do dono após a 1ª mensagem
+  real**: o corte virou `markup <= -3%` (só prejuízo de 3% ou mais;
+  `margemMax: -0.03`) — os de markup positivo/zero/levemente negativo saem.
+  Pendências no ponte: rodar `registrar-abaixo-custo.ps1` (Admin), preencher
+  `abaixo_custo.numero` no config.local.json e validar a semântica
+  valor/custo contra 1 item conhecido do ERP antes do 1º envio.
+
 - **2026-07-14 (CICLO DE MARCAÇÃO NO PONTE — roteiro `docs/IMPLANTAR-MARCACAO-NO-PONTE.md`)** ✅
   Sessão no próprio ponte executou o roteiro: (0) gh auth válido — repo privado
   do detector alcançável e push funcionando. (1) Repos atualizados (detector

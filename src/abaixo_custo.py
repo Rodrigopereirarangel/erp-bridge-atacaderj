@@ -198,7 +198,7 @@ def main():
     cfg = carregar_config(args.config)
     cfg_ac = cfg.get("abaixo_custo") or {}
     numero = cfg_ac.get("numero")
-    margem_max = cfg_ac.get("margemMax", 0.03)
+    margem_max = cfg_ac.get("margemMax", -0.03)  # corte: so markup <= -3% (decisao do dono, 14/07)
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import db  # noqa: E402 — so precisa de pyodbc/pymysql quando de fato consulta o banco

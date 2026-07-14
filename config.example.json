@@ -29,9 +29,9 @@
   },
 
   "abaixo_custo": {
-    "_comentario": "numero com DDI+DDD que recebe o relatorio diario 06h de itens vendidos abaixo do custo (src/abaixo_custo.py); vazio = script sai com aviso e exit 1",
+    "_comentario": "numero com DDI+DDD que recebe o relatorio diario 06h de itens vendidos abaixo do custo (src/abaixo_custo.py); vazio = script sai com aviso e exit 1. Corte: entra APENAS quem vendeu com markup <= margemMax (-0.03 = prejuizo de 3% ou mais; decisao do dono apos a 1a mensagem real de 14/07)",
     "numero": "",
-    "margemMax": 0.03
+    "margemMax": -0.03
   },
 
   "marcas": {
