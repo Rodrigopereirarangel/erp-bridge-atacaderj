@@ -113,6 +113,13 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   fechar o E2E** (marcar no HTML enviado ao celular dele e tocar Concluído —
   a colheita agendada grava sozinha). dryRun segue true.
 
+- [x] **Relatório "abaixo do custo" 06:00 (2026-07-14)** — `src/abaixo_custo.py`
+  (markup ≤3%, dia anterior útil, consulta direta ao ERP) → WhatsApp
+  5521970296224 via enviar.mjs. Tarefa **"AtacadeRJ - Abaixo do Custo"**
+  (06:00 + retry 30min até 12:00 — cobre o atraso de sync do PDV). Semântica
+  validada no ERP cru (PAO DE QUEIJO 41622: 5un, venda 9,29, custo 14,27) e
+  1º envio real OK (30 itens de 13/07). Config: `abaixo_custo` no config.local.
+
 ## Comandos-chave (PC-ponte)
 
 ```powershell
