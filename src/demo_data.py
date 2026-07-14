@@ -69,6 +69,17 @@ def vendas_mensal(meses=3):
     return linhas
 
 
+def ultimo_custo():
+    """Custo da ultima entrada por produto (com/sem difal), forma da ULTIMO_CUSTO."""
+    hoje = date.today()
+    return [
+        {"codigo": "2411", "custo_com_difal": 16.02, "custo_sem_difal": 14.20,
+         "data_entrada": (hoje - timedelta(days=9)).isoformat()},
+        {"codigo": "2795", "custo_com_difal": 1.05, "custo_sem_difal": 1.05,
+         "data_entrada": (hoje - timedelta(days=2)).isoformat()},
+    ]
+
+
 def pedidos():
     hoje = date.today()
     return [

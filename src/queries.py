@@ -150,6 +150,45 @@ GROUP BY v.cdProduto, CONVERT(char(7), v.dtVenda, 126)
 ORDER BY mes, codigo
 """
 
+# ULTIMO_CUSTO: custo unitario da ULTIMA entrada de cada produto, em 2 versoes:
+# com difal (o que o ERP usa em relatorios/PDV) e SEM difal (expurgado pela
+# formula validada em docs/CUSTO-DIFAL-CCI.md: custo x (100-e-d)/(100-e), com
+# e = (ICMS+FCP)x(1-RedBC) e d = DiferencaAliquota). Exclui devolucoes de
+# venda e uso/consumo/ativo (custo daqueles nao e custo de reposicao).
+#
+# NAO ESTA LIGADA no bridge.py (13/07/2026) — de proposito. A analise de markup
+# com/sem DIFAL saiu melhor no repo `analise-venda-difal`, que casa CADA DIA de
+# venda com a nota de entrada VIGENTE naquele dia, em vez de usar so a ultima
+# entrada do produto. A query fica aqui porque a formula e a mesma, ja validada
+# ao centavo, e serve de referencia (e de ponto de partida, se um dia o
+# dashboard de vendas mensais quiser as colunas de custo).
+ULTIMO_CUSTO = """
+SELECT codigo, custo_com_difal, custo_sem_difal, data_entrada
+FROM (
+    SELECT i.cdProduto AS codigo,
+           CAST(i.CustoUnitario AS decimal(14,4)) AS custo_com_difal,
+           CAST(i.CustoUnitario * (100 - x.ent - COALESCE(i.DiferencaAliquota, 0))
+                / NULLIF(100 - x.ent, 0) AS decimal(14,4)) AS custo_sem_difal,
+           CAST(e.dtChegada AS date) AS data_entrada,
+           ROW_NUMBER() OVER (PARTITION BY i.cdProduto
+                              ORDER BY e.dtChegada DESC, n.dtEmissao DESC,
+                                       i.cdNotaItem DESC) AS rn
+    FROM dbo.tbNotaItem i
+    JOIN dbo.tbNotaEntrada e
+      ON e.cdNotaEntrada = i.cdNota AND e.cdPessoaFilial = i.cdPessoaFilial
+    JOIN dbo.tbNota n
+      ON n.cdNota = i.cdNota AND n.cdPessoaFilial = i.cdPessoaFilial
+    CROSS APPLY (SELECT (COALESCE(i.ICMSpICMS, 0) + COALESCE(i.ICMSpFCP, 0))
+                        * (1 - COALESCE(i.ReducaoBaseICMS, 0) / 100.0) AS ent) x
+    WHERE i.CustoUnitario > 0
+      AND i.cdProduto IS NOT NULL
+      AND CAST(i.CFOP AS varchar(10)) NOT LIKE '_55_'   -- uso/consumo e ativo
+      AND CAST(i.CFOP AS varchar(10)) NOT IN
+          ('1201','1202','2201','2202','1410','1411','2410','2411')  -- devolucao de venda
+) t
+WHERE rn = 1
+"""
+
 # ENTRADAS: uma linha por (produto, dia de chegada) nos ultimos {janela_entradas}
 # dias (~6 meses). E o "proxy de estoque": o saldo do ERP existe mas esta
 # negativo/nao confiavel (implantacao out/2025), entao cruzar giro (vendas) com
