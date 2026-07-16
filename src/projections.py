@@ -243,3 +243,13 @@ def curva_abc_csv(catalogo, caminho):
     linhas = [[r["codigo"], r.get("curva")] for r in catalogo if r.get("curva") is not None]
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
+
+
+def prateleira_csv(catalogo, caminho):
+    """Endereco fisico do item no salao (classificacao mercadologica do ERP,
+    ex. "PRATELEIRA 33") — coluna Prateleira do relatorio de ruptura."""
+    cab = ["codigo", "prateleira"]
+    linhas = [[r["codigo"], str(r["prateleira"]).strip()]
+              for r in catalogo if str(r.get("prateleira") or "").strip()]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)

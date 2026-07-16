@@ -92,6 +92,8 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, alvo):
         rel.append(f"detector-estoque/curva_abc.csv: {n}")
         n = projections.curva_abc_csv(cat, os.path.join(salao, "curva_abc.csv"))
         rel.append(f"detector-salao/curva_abc.csv: {n}")
+        n = projections.prateleira_csv(cat, os.path.join(salao, "prateleira.csv"))
+        rel.append(f"detector-salao/prateleira.csv: {n}")
 
     if alvo in ("all", "movimentos", "vendas"):
         n = projections.vendas_csv(ven, os.path.join(salao, "vendas.csv"))

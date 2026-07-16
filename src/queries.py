@@ -54,6 +54,9 @@ SELECT
               THEN pr.preco_promocao
               ELSE promo.promo_vigente END AS decimal(14,2)) AS preco_promocao,
     e.CURVA_ABC                      AS curva,
+    -- classificacao mercadologica = endereco fisico na loja ("PRATELEIRA 33")
+    -- -> coluna Prateleira do relatorio de ruptura do salao (pedido do dono, 16/07)
+    cl.nmClassificacaoProduto        AS prateleira,
     1                                AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
@@ -80,6 +83,9 @@ LEFT JOIN DORSAL.dbo.tbSuperProduto pdv
        ON pdv.cdSuperProduto = p.cdProduto
       AND pdv.cdFilial = 1
       AND (pdv.inAtivo = 1 OR pdv.inAtivo IS NULL)  -- relampago deixa NULL
+LEFT JOIN dbo.tbClassificacaoProduto cl
+       ON cl.cdClassificacaoProduto = sp.cdClassificacaoProduto
+      AND cl.cdEmpresa = sp.cdEmpresa   -- PK composta: sem cdEmpresa duplicaria linhas
 LEFT JOIN (
     SELECT cdProduto, MIN(promo_vigente) AS promo_vigente FROM (
         SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
