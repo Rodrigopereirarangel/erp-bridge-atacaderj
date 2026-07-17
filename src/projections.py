@@ -50,7 +50,8 @@ def cotacao_produtos_json(catalogo, caminho, gerado_em):
     return len(produtos)
 
 
-def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dias=7):
+def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dias=7,
+                         validades=None):
     """Arquivo UNICO que o robo de upload sobe no artifact do claude.ai pelo
     botao "📦 Catalogo" do app (design 2026-07-07: o app NAO alcanca a rede da
     loja, entao nada de fetch — os dados viajam por upload).
@@ -70,6 +71,24 @@ def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dia
       {"janela_dias":N,"pedidos":[{"dia","ped","dav","cli","vend",
        "itens":[[codigo,emb,qtde,valor_volume,custo_un],...]}]}
     """
+    # codigo -> ["YYYY-MM-DD", ...] (no maximo 2, MENOR primeiro: a menor e a
+    # data mais provavel da mercadoria, e e ela que o app destaca)
+    _vd = {}
+    for r in (validades or []):
+        try:
+            cod = int(r["codigo"])
+        except (TypeError, ValueError):
+            continue
+        val = r.get("validade")
+        if not val:
+            continue
+        iso = val.isoformat()[:10] if hasattr(val, "isoformat") else str(val)[:10]
+        _vd.setdefault(cod, [])
+        if iso not in _vd[cod]:
+            _vd[cod].append(iso)
+    for cod in _vd:
+        _vd[cod] = sorted(_vd[cod])[:2]
+
     produtos = []
     for r in catalogo:
         try:
@@ -108,6 +127,12 @@ def catalogo_bridge_json(catalogo, pedidos_venda, caminho, gerado_em, janela_dia
             item["custo"] = round(r["custo_atual"], 2)
         if r.get("curva"):
             item["cv"] = str(r["curva"]).strip().upper()[:1]
+        # vd = as 2 validades das ultimas notas de entrada (menor primeiro).
+        # Ausente quando o produto nao tem validade registrada — o app so
+        # exibe/imprime a linha de validade quando este campo existe.
+        vd = _vd.get(c)
+        if vd:
+            item["vd"] = vd
         produtos.append(item)
     produtos.sort(key=lambda x: x["p"])
 

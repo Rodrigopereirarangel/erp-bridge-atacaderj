@@ -72,6 +72,23 @@ def entradas(janela_dias=180):
     return linhas
 
 
+def validades(janela_dias=180):
+    """Validade das 2 ultimas notas por produto (forma da query VALIDADES).
+    2411: uma vence em 19 dias (ALERTA <45) e outra em 73 dias (ok).
+    2795: uma so validade. 3905: nenhuma (fica sem validade na cotacao)."""
+    hoje = date.today()
+    plano = [
+        ("2411", [19, 73]),
+        ("2795", [140]),
+    ]
+    linhas = []
+    for cod, dias in plano:
+        for d in dias:
+            linhas.append({"codigo": cod,
+                           "validade": (hoje + timedelta(days=d)).isoformat()})
+    return linhas
+
+
 def vendas_mensal(meses=3):
     """Unidades por produto x mes FECHADO (mesma forma da query VENDAS_MENSAL)."""
     hoje = date.today().replace(day=1)

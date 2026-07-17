@@ -224,6 +224,50 @@ GROUP BY i.cdProduto, CAST(ne.dtChegada AS date)
 ORDER BY codigo, data
 """
 
+# VALIDADES: as 2 validades mais recentes de cada produto, para a cotacao (o app
+# mostra as 2 datas por produto e marca com ⚠ a que vence em <45 dias; sem
+# validade nao mostra nada; com uma so, mostra uma).
+#
+# FONTE (schema confirmado 2026-07-17 via inspect_schema): a validade NAO existe
+# na nota de entrada (tbNotaItem nao tem dtValidade). Ela vive no modulo WMS.
+# `dbo.tbWmsMovimento` e a tabela certa — uma linha por movimento de estoque com
+# TUDO junto: cdProduto, dtValidade, dtEntrada/dtMovimento (recencia), cdNota
+# (recebimento), qtMovimento e inExecutado.
+#
+# Desenho: por produto, as 2 validades DISTINTAS mais recentes (por data de
+# entrada). rn<=2 no nivel de (produto, validade) evita repetir a mesma data.
+#
+# KNOBS (se a cobertura vier baixa/alta demais ao rodar no ponte, ajuste aqui):
+#   - inExecutado = 1  -> so movimento efetivado (estoque real). Se cortar demais,
+#                         remova esta linha.
+#   - AND m.cdNota IS NOT NULL -> restringe a movimentos de NOTA (recebimento
+#                         puro, sem transferencia interna). Adicione se quiser so
+#                         "nota de recebimento" estrito.
+VALIDADES = """
+SELECT codigo, validade FROM (
+    SELECT
+        cdProduto AS codigo,
+        validade,
+        ROW_NUMBER() OVER (PARTITION BY cdProduto
+                           ORDER BY ult_entrada DESC, validade DESC) AS rn
+    FROM (
+        SELECT
+            m.cdProduto,
+            CAST(m.dtValidade AS date)                       AS validade,
+            MAX(COALESCE(m.dtEntrada, m.dtMovimento))        AS ult_entrada
+        FROM dbo.tbWmsMovimento m
+        WHERE m.dtValidade IS NOT NULL
+          AND m.cdProduto IS NOT NULL
+          AND m.inExecutado = 1
+          AND COALESCE(m.dtEntrada, m.dtMovimento)
+                >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+        GROUP BY m.cdProduto, CAST(m.dtValidade AS date)
+    ) g
+) t
+WHERE rn <= 2
+ORDER BY codigo, validade
+"""
+
 # PEDIDOS_VENDA: itens dos pedidos de venda/DAV emitidos (dtAtendido) nos
 # ultimos {janela_pedidos_venda} dias — replica o rptPedidosVendaEmitidaDAV
 # PorItens e alimenta a AUDITORIA DE DESCONTO do app de cotacao (que hoje

@@ -84,16 +84,17 @@ def coletar(cfg, usar_demo, alvo="all"):
         if leve:
             hc = demo_data.historico_cliente() if quer_hc else []
             cat = demo_data.catalogo() if quer_exp else []
-            return cat, [], [], [], [], [], hc, vc
+            return cat, [], [], [], [], [], hc, vc, []
         return (demo_data.catalogo(), demo_data.vendas(janela),
                 demo_data.entradas(janela_ent), demo_data.pedidos(), [],
                 demo_data.vendas_mensal(),
-                demo_data.historico_cliente() if quer_hc else [], vc)
+                demo_data.historico_cliente() if quer_hc else [], vc,
+                demo_data.validades() if hasattr(demo_data, "validades") else [])
 
     import db
     conn = db.conectar(cfg["db"])
     try:
-        cat = ven = ent = ped = pv = vm = []
+        cat = ven = ent = ped = pv = vm = val = []
         # a exposicao precisa do catalogo (caixa-mae/prateleira), mas nao das
         # queries de movimento
         if so_exp:
@@ -105,6 +106,20 @@ def coletar(cfg, usar_demo, alvo="all"):
             ped = db.consultar(conn, queries.PEDIDOS)
             pv = db.consultar(conn, queries.PEDIDOS_VENDA.format(janela_pedidos_venda=int(janela_pv)))
             vm = db.consultar(conn, queries.VENDAS_MENSAL.format(meses_fechados=int(meses_vm)))
+            # VALIDADES e a UNICA query com nome de coluna ainda nao confirmado
+            # (dtValidade — ver o comentario em queries.py). Se o ERP usar outro
+            # nome, ela falha SOZINHA e o resto da ponte segue normal: o catalogo
+            # so sai sem validade, e o app simplesmente nao mostra a linha.
+            # NUNCA deixe esta query derrubar a coleta inteira.
+            try:
+                val = db.consultar(conn, queries.VALIDADES.format(janela_entradas=int(janela_ent)))
+            except Exception as e:
+                val = []
+                print("AVISO: a query VALIDADES falhou — o catalogo sai SEM validade.\n"
+                      f"       Motivo: {e}\n"
+                      "       Descubra o nome certo da coluna com:\n"
+                      "         python src/inspect_schema.py validade vencimento lote\n"
+                      "       e corrija `i.dtValidade` em src/queries.py (VALIDADES).")
         hc = (db.consultar(conn, queries.HISTORICO_CLIENTE.format(historico_meses=int(meses_hc)))
               if quer_hc else [])
         vc = (db.consultar(conn, queries.VENDAS_CANAL.format(
@@ -113,10 +128,10 @@ def coletar(cfg, usar_demo, alvo="all"):
               if quer_exp else [])
     finally:
         conn.close()
-    return cat, ven, ent, ped, pv, vm, hc, vc
+    return cat, ven, ent, ped, pv, vm, hc, vc, val
 
 
-def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo):
+def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo, val=None):
     saida = cfg["saida"]
     salao = saida["detector_salao_dir"]
     estoque = saida["detector_estoque_dir"]
@@ -166,8 +181,11 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo):
         caminho = saida.get("catalogo_bridge_json") or os.path.join(
             os.path.dirname(saida["cotacao_produtos_json"]), "catalogo_bridge.json")
         np, nped = projections.catalogo_bridge_json(
-            cat, pv, caminho, gerado_em, cfg.get("janela_pedidos_venda_dias", 7))
-        rel.append(f"cotacao/catalogo_bridge.json: {np} produtos + {nped} pedidos de venda")
+            cat, pv, caminho, gerado_em, cfg.get("janela_pedidos_venda_dias", 7),
+            validades=val)
+        _nvd = len({int(r["codigo"]) for r in (val or []) if r.get("validade")})
+        rel.append(f"cotacao/catalogo_bridge.json: {np} produtos + {nped} pedidos de venda"
+                   + (f" + validade em {_nvd} produtos" if _nvd else " (sem validade)"))
         # copia para a pasta do upload MANUAL (Area de Trabalho, so este arquivo):
         # o operador acha na hora, e o app confere data + janela de horario
         pasta_manual = saida.get("upload_manual_dir") or os.path.join(
@@ -239,8 +257,8 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, ent, ped, pv, vm, hc, vc = coletar(cfg, args.demo, args.only)
-        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only)
+        cat, ven, ent, ped, pv, vm, hc, vc, val = coletar(cfg, args.demo, args.only)
+        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")
