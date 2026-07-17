@@ -18,12 +18,21 @@ estão na amostra).
 |---|---|---|---|
 | Segunda | 05:30×2 · 06:00×1 · 09:30×1c · 10:30×2c | 6 | ~4 |
 | Terça | 05:30×2 · 06:00×1 · 06:30×1 · 09:30×2 | 6 | ~4 |
-| Quarta | 05:30×2 · 06:00×1 · 06:30×1 · 09:30×1 · 10:00×2 | 7 | ~3 |
-| Quinta | 05:30×3 · 06:30×1 · 07:30×1 · 09:30×1 · 10:00×2 | 8 | ~2 |
-| Sexta | 05:30×2 · 06:00×1 · 07:30×2 · 09:30×1 · 10:30×2 | 8 | ~2 |
+| Quarta | 05:30×2 · 06:00×1 · 06:30×1 · 09:00×1 · 10:00×1 | 6 | ~4 |
+| Quinta | 05:30×3 · 06:30×1 · 08:00×1 · 09:30×2c | 7 | ~3 |
+| Sexta | 05:30×2 · 06:00×1 · 06:30×1 · 08:00×1 · 09:30×2c | 7 | ~3 |
 | **Sábado** | 05:30×3L · 06:00×1L · 06:30×1 · 07:30×1 · 09:30×2c | 8 | ~2 |
 
 `L` = dia longo (gera crédito no banco) · `c` = dia curto (compensação/débito).
+
+**Grades VALIDADAS POR SIMULAÇÃO contra os dias históricos (17/07)** — % de
+dias que batem 95%<5min: seg-6 88% · ter-6 96% · qua-6 96% (com 7 dava os
+MESMOS 96%: a 7ª era redundante) · qui-7 88% · sex-7 92% · sáb-8 88%.
+Enxugar mais degrada: seg-5 79%, ter-5 65%, sáb-7 com almoço legal 79%.
+**O 8º do sábado é o almoço**: sáb-7 sem almoço dá os mesmos 88% do sáb-8 —
+ou seja, tirar o 8º = voltar a suprimir o intervalo (ilegal, prática antiga).
+A 1ª versão da grade de sexta (8 pessoas) tinha um buraco às 06:30 que a
+simulação pegou — grade à mão sem simular não vale.
 
 ## Sábado em detalhe (o dia que dita tudo)
 
@@ -54,8 +63,8 @@ Cobre a curva inteira: 3 caixas às 5:30 → 7 no pico (10:00–11:30) → 6 à 
 
 - Sábado consome ~57,5 horas-caixa; esta grade entrega ~58 — desperdício ~0
   (a grade antiga de turnos fixos entregava 84h: 31% de sobra).
-- Semana: 43 postos-dia de caixa ÷ ~10 ativas = 4,3 dias de caixa por pessoa;
-  o resto (~17 pessoa-dias/semana) vai para reposição/salão — a polivalência
+- Semana: 40 postos-dia de caixa ÷ ~10 ativas = 4 dias de caixa por pessoa;
+  o resto (~20 pessoa-dias/semana) vai para reposição/salão — a polivalência
   (sem limpeza pesada; função registrada em contrato).
 - Abertura corrigida: 2–3 caixas às 05:30–06:30 (hoje abrem 5–6; sobravam
   até +3).
