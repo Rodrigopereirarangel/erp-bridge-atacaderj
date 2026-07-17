@@ -58,6 +58,49 @@ def test_cobertura_e_realmente_suficiente():
     assert total == sum(inicios.values())
 
 
+# === REGRESSION TESTS FOR EPSILON SIGN (FINDING 1) ===
+def test_curva_percentil_exact_integer_two():
+    # P85 of [2, 2, 2] is exactly 2.0 (all same value).
+    # Must stay 2, not become 3. Flipping epsilon to +1e-9 would yield 3 (BUGGY).
+    curvas = {"d1": {5: 2}, "d2": {5: 2}, "d3": {5: 2}}
+    p85 = esc.curva_percentil(curvas, p=0.85)
+    assert p85[5] == 2, f"Expected exact 2, got {p85[5]}"
+
+
+def test_curva_percentil_exact_integer_four():
+    # P85 of [4, 4, 4, 4] is exactly 4.0. Must stay 4, not become 5.
+    # Catches sign flip in epsilon: ceil(4.0 + 1e-9) would be 5 (BUGGY).
+    curvas = {"d1": {7: 4}, "d2": {7: 4}, "d3": {7: 4}, "d4": {7: 4}}
+    p85 = esc.curva_percentil(curvas, p=0.85)
+    assert p85[7] == 4, f"Expected exact 4, got {p85[7]}"
+
+
+# === REGRESSION TEST FOR NON-CONTIGUOUS CURVE (FINDING 2) ===
+def test_cobertura_minima_com_gap_no_meio():
+    # Demand at slot 10 (2 lanes) and slot 20 (1 lane), with a 10-slot gap.
+    # Gap = 20 - 10 = 10 < slots_produtivos (12), so one shift from 10
+    # reaches slot 20. Greedy should schedule shifts starting at 10.
+    # Shifts from slot 10: cover slots 10..21 (10 + 12 - 1).
+    # Slot 10 needs 2, slot 20 needs 1 → expect 2 shifts from 10 → covers all.
+    curva = {10: 2, 20: 1}
+    total, inicios = esc.cobertura_minima(curva, slots_turno=13, slots_produtivos=12)
+
+    # Derive coverage and verify sufficiency per slot.
+    cobertura = esc.cobertura_de(inicios, slots_turno=13, slots_produtivos=12)
+
+    # Hand-check: all shifts must be at slot 10 (greedy left-to-right).
+    assert inicios == {10: 2}, f"Expected {{10: 2}}, got {inicios}"
+
+    # Verify coverage is sufficient for both demanded slots.
+    for s, exigido in curva.items():
+        cobertura_slot = cobertura.get(s, 0)
+        assert cobertura_slot >= exigido, \
+            f"Slot {s}: exigido {exigido}, cobertura {cobertura_slot}"
+
+    # Verify total count matches.
+    assert total == 2
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))
