@@ -239,10 +239,14 @@ ORDER BY codigo, data
 # auditoria) NAO entra por aqui — nao gera linha de rastro. Se for preciso cobrir
 # as manuais, achar/uni-la a fonte manual e fazer UNION (pendente de decisao).
 #
-# Desenho: por produto, as 2 validades DISTINTAS mais recentes, unindo DUAS fontes
-# (medido 2026-07-17: rastro=241, gestao=1281, uniao=1441 produtos):
-#   1) rastro da NF-e (r.dVal) — recencia = chegada da nota;
-#   2) modulo Gestao Validade (gv.dtValidade, digitada) — recencia = dtInclusao.
+# Desenho: por produto, as 2 validades DISTINTAS mais recentes, unindo TRES fontes
+# (medido 2026-07-17 — uniao = 3807 produtos, ~82% do catalogo):
+#   1) tbWmsCargaItem.dtValidade — CONFERENCIA do recebimento (a mais completa,
+#      3594 produtos; recencia = dtItemConferido, 100% preenchido). ATENCAO: o WMS
+#      "Movimento"/"Inventario" esta VAZIO, mas as tabelas "Carga" NAO — e aqui que
+#      a validade digitada no recebimento fica (cobre ex. o produto 19047).
+#   2) tbGestaoValidade.dtValidade — modulo Gestao Validade (1281; rec = dtInclusao);
+#   3) tbNotaFiscalItemRastro.dVal — rastro da NF-e do fornecedor (241; rec = chegada).
 # Deduplica por (produto, validade) pela maior recencia; rn<=2 pega as 2 mais
 # recentes por produto. A projecao (projections.vd) reordena p/ MENOR primeiro.
 VALIDADES = """
@@ -253,6 +257,18 @@ SELECT codigo, validade FROM (
     FROM (
         SELECT codigo, validade, MAX(recencia) AS recencia
         FROM (
+            SELECT ci.cdProduto AS codigo, CAST(ci.dtValidade AS date) AS validade,
+                   ci.dtItemConferido AS recencia
+            FROM dbo.tbWmsCargaItem ci
+            WHERE ci.dtValidade IS NOT NULL AND ci.cdProduto IS NOT NULL
+              AND ci.dtItemConferido >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+            UNION ALL
+            SELECT gv.cdProduto AS codigo, CAST(gv.dtValidade AS date) AS validade,
+                   gv.dtInclusao AS recencia
+            FROM dbo.tbGestaoValidade gv
+            WHERE gv.dtValidade IS NOT NULL AND gv.cdProduto IS NOT NULL
+              AND gv.dtInclusao >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+            UNION ALL
             SELECT i.cdProduto AS codigo, CAST(r.dVal AS date) AS validade,
                    ne.dtChegada AS recencia
             FROM dbo.tbNotaFiscalItemRastro r
@@ -263,12 +279,6 @@ SELECT codigo, validade FROM (
               ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
             WHERE r.dVal IS NOT NULL AND i.cdProduto IS NOT NULL
               AND ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-            UNION ALL
-            SELECT gv.cdProduto AS codigo, CAST(gv.dtValidade AS date) AS validade,
-                   gv.dtInclusao AS recencia
-            FROM dbo.tbGestaoValidade gv
-            WHERE gv.dtValidade IS NOT NULL AND gv.cdProduto IS NOT NULL
-              AND gv.dtInclusao >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
         ) u
         GROUP BY codigo, validade
     ) g
