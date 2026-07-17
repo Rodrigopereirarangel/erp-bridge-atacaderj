@@ -18,7 +18,7 @@ via camada de projecao, o formato exato de cada consumidor:
   sobe no artifact do claude.ai pelo botao "Catalogo" do app
   historico-cliente -> historico_cliente.csv do app recuperacao-itens
                    (Recuperar+Ampliar; compras por cliente, ~24 meses de DAV)
-  vendas-canal  -> exposicao/vendas_canal.csv + exposicao/catalogo_exposicao.csv
+  exposicao     -> exposicao/vendas_canal.csv + exposicao/catalogo_exposicao.csv
                    (venda por item/dia/canal em unidades + caixa-mae/prateleira;
                     base do calculo de MIN/MAX de exposicao — janela longa,
                     agenda MENSAL propria, como o historico-cliente)
