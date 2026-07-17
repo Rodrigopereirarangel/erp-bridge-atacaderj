@@ -28,7 +28,11 @@ import dim_servico  # noqa: E402
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIAS = {2: "segunda", 3: "terca", 4: "quarta", 5: "quinta", 6: "sexta", 7: "sabado"}
-META_PCT, META_SEG = 0.95, 180.0
+# Meta de servico: 95% dos clientes esperando menos de META_SEG segundos.
+# 300s (5min) = decisao do dono em 2026-07-17, apos analise de sensibilidade
+# (era 180s/3min; o sabado exige 12 turnos com qualquer das duas metas — so os
+# dias de semana aliviam). Ajustavel por --meta-seg / --meta-pct.
+META_PCT, META_SEG = 0.95, 300.0
 
 
 def _hora(slot):
@@ -141,6 +145,12 @@ def construir_parser():
     ap = argparse.ArgumentParser(description="Dimensionamento de caixas por dia da semana")
     ap.add_argument("--desde", default="2026-01-22", help="data inicial YYYY-MM-DD")
     ap.add_argument("--p", type=float, default=0.85, help="percentil do dia (a margem)")
+    ap.add_argument("--meta-seg", type=float, default=META_SEG,
+                    help="espera maxima na fila em segundos (default 300 = 5min, "
+                         "decisao do dono 17/07)")
+    ap.add_argument("--meta-pct", type=float, default=META_PCT,
+                    help="fracao dos clientes que deve ficar abaixo da espera maxima "
+                         "(default 0.95)")
     ap.add_argument("--stress", type=float, default=0.10, help="sensibilidade +-X na demanda")
     ap.add_argument("--corte-handover", type=float, default=120.0)
     # 9 = PDV 1-9 (varejo, o unico grupo dimensionado aqui). PDV 10 nao
@@ -236,13 +246,14 @@ def main():
     for (dia, dow), lista in por_dia.items():
         chegadas, servicos = chegadas_servicos(lista, handover)
         curva, teto = dim_dimensionador.dimensionar_dia(
-            chegadas, servicos, META_PCT, META_SEG, args.c_max)
+            chegadas, servicos, args.meta_pct, args.meta_seg, args.c_max)
         curvas.setdefault(dow, {})[dia] = curva
         teto_total |= {(dia, s) for s in teto}
 
     # 5) agregar no percentil e montar a escala
     floor_total = saturados | teto_total
-    print("\n== Caixas necessarios (P%d dos dias, 95%% < 3min) ==" % int(args.p * 100))
+    print("\n== Caixas necessarios (P%d dos dias, %d%% < %dmin) =="
+          % (int(args.p * 100), int(args.meta_pct * 100), int(args.meta_seg // 60)))
     teve_piso = False
     for dow in sorted(curvas):
         p_curva = dim_escala.curva_percentil(curvas[dow], args.p)
@@ -302,7 +313,7 @@ def main():
                     lista = rng.sample(lista, int(len(lista) * fator))
                 chegadas, servicos = chegadas_servicos(lista, handover)
                 nc, _ = dim_dimensionador.dimensionar_dia(
-                    chegadas, servicos, META_PCT, META_SEG, args.c_max)
+                    chegadas, servicos, args.meta_pct, args.meta_seg, args.c_max)
                 novas[dia] = nc
             pc = dim_escala.curva_percentil(novas, args.p)
             ativos = {s: c for s, c in pc.items() if c > 0}

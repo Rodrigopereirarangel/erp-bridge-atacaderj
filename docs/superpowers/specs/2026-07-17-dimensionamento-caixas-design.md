@@ -16,6 +16,11 @@ a pergunta quer evitar.
 
 Decisões do dono no brainstorming:
 - Meta de serviço: **95% dos clientes com espera < 3 min** (não 5).
+  **REVISADA em 17/07 (mesmo dia, após análise de sensibilidade): 5 min / 95%,
+  todos os dias.** Motivo: o sábado — que dita o quadro — exige 12 turnos com
+  qualquer das duas metas; a meta de 3 min só encarecia os dias de semana
+  (61→58 turnos/semana em 6h20; 60→55 em 44h). Default do CLI agora é 300s,
+  ajustável por `--meta-seg`/`--meta-pct`.
 - Margem de segurança: escala dimensionada para o **dia P85** de cada dia da
   semana, com **stress de ±10%** na demanda reportado junto.
 - Jornada: **CLT 6h** (6h20 diárias com 20 min de intervalo).

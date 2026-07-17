@@ -199,6 +199,22 @@ def test_c_max_default_e_9_pdv_1_a_9():
     assert args.c_max == 9
 
 
+def test_meta_default_e_5min_95pct():
+    # Decisao do dono (17/07, apos analise de sensibilidade): espera maxima
+    # 300s (5min) para 95% dos clientes, TODOS os dias. Era 180s (3min);
+    # o sabado pede 12 turnos com qualquer das duas metas.
+    args = dc.construir_parser().parse_args([])
+    assert args.meta_seg == 300.0
+    assert args.meta_pct == 0.95
+
+
+def test_meta_e_ajustavel_por_argumento():
+    # a meta antiga (3min) continua acessivel sem mexer no codigo
+    args = dc.construir_parser().parse_args(["--meta-seg", "180", "--meta-pct", "0.90"])
+    assert args.meta_seg == 180.0
+    assert args.meta_pct == 0.90
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))
