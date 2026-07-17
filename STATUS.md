@@ -119,6 +119,17 @@ custo/preço) **NÃO** vai para o GitHub — fica na rede da loja. O GitHub guar
   (06:00 + retry 30min até 12:00 — cobre o atraso de sync do PDV). Semântica
   validada no ERP cru (PAO DE QUEIJO 41622: 5un, venda 9,29, custo 14,27) e
   1º envio real OK (30 itens de 13/07). Config: `abaixo_custo` no config.local.
+- [x] **7ª query `HISTORICO_CLIENTE` (2026-07-17)** — compras por cliente
+  (itens de DAV, janela `historico_cliente_meses` = 24) → CSV de 11 colunas
+  p/ o app `recuperacao-itens-atacaderj` (`--only historico-cliente`, job
+  01:00 registrado pelo repo do app). Descobertas do schema: **grupo
+  mercadológico = `VW_MGN_PRODUTO.Departamento`** (raiz da árvore de
+  classificação; não há cdGrupo em tbSuperProduto e tbDicionarioProduto está
+  vazia); **cliente ativo = `COALESCE(tbPessoa.inMorto,0)=0`** (único flag;
+  NULL na maioria); itens com `qtPedidoItem = 0` (26%!) são pedido zerado,
+  não compra → filtrados. DAV só existe desde 2026-01-15 (módulo novo) — o
+  histórico engorda sozinho. 1ª extração real: 95.644 linhas / 354 clientes
+  em 9,3s. Testes: `tests_historico_cliente.py` (6).
 
 ## Comandos-chave (PC-ponte)
 

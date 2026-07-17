@@ -25,6 +25,17 @@ Fatos do schema que estas queries dependem (conferidos em producao):
   tbPedidoItem: vlPedidoItem/vlVendaOriginal/vlCusto sao POR VOLUME
   (custo unitario = vlCusto / qtEmbalagem). Validado item a item contra o
   relatorio manual de 06/07: 199/199 linhas, 14/14 pedidos (2026-07-07).
+- GRUPO MERCADOLOGICO (familia: DOCES, BISCOITOS, BEBIDAS...) NAO existe como
+  FK em tbSuperProduto (nao ha cdGrupo/cdSecao/cdDepartamento; tbDicionarioProduto
+  existe mas esta VAZIA). A familia e a RAIZ da arvore tbClassificacaoProduto,
+  ja achatada pelo ERP em VW_MGN_PRODUTO (join CodigoProduto = cdProduto):
+  Departamento = familia, Secao = corredor, Grupo = prateleira (folha fisica,
+  descartada de proposito pelo dono), SubGrupo = sempre NULL. Nomes vem com
+  espaco a direita -> RTRIM. Cobertura conferida 2026-07-17: 100% dos itens
+  de DAV de 24 meses tem Departamento.
+- Cliente ATIVO: o unico flag em tbPessoa e inMorto (bit), NULL na maioria
+  (5798 de 6228 em 2026-07-17) -> predicado e COALESCE(inMorto, 0) = 0
+  (exclui so os 15 marcados como mortos). Nao ha inAtivo/situacao/dtInativacao.
 
 `{janela}` / `{janela_entradas}` sao substituidos em runtime (config).
 """
@@ -248,6 +259,43 @@ LEFT JOIN dbo.tbPedidoVendedor vd ON vd.cdVendedor = pv.cdVendedor
 WHERE p.inEntrada = 0
   AND p.dtAtendido >= DATEADD(day, -{janela_pedidos_venda}, CAST(GETDATE() AS date))
 ORDER BY emissao, vendedor, cliente, pedido, i.cdPedidoItem
+"""
+
+# HISTORICO_CLIENTE: itens dos pedidos de venda/DAV por CLIENTE nos ultimos
+# {historico_meses} meses — insumo do app recuperacao-itens (Recuperar+Ampliar).
+# Mesmas convencoes do PEDIDOS_VENDA (emissao = dtAtendido; vlPedidoItem/vlCusto
+# POR VOLUME -> totais da linha = x qtPedidoItem; unidades = x qtEmbalagem).
+# grupo = familia mercadologica = VW_MGN_PRODUTO.Departamento (ver cabecalho).
+HISTORICO_CLIENTE = """
+SELECT
+    ps.nmPessoa                                AS cliente,
+    i.cdProduto                                AS codigo,
+    sp.nmProdutoPai                            AS produto,
+    CAST(p.dtAtendido AS date)                 AS data,
+    RTRIM(i.cdEmbalagem)
+      + CASE WHEN i.qtEmbalagem > 1
+             THEN '-' + CAST(CAST(i.qtEmbalagem AS int) AS varchar(10))
+             ELSE '' END                       AS emb,
+    CAST(i.qtEmbalagem AS int)                 AS unidades_por_emb,
+    CAST(i.qtPedidoItem AS decimal(14,3))      AS qtde_emb,
+    CAST(i.qtPedidoItem * i.qtEmbalagem AS decimal(14,3))  AS unidades,
+    CAST(i.qtPedidoItem * i.vlPedidoItem AS decimal(14,2)) AS valor,
+    CAST(i.qtPedidoItem * i.vlCusto AS decimal(14,2))      AS custo,
+    RTRIM(COALESCE(mg.Departamento, ''))       AS grupo
+FROM dbo.tbPedido p
+JOIN dbo.tbPedidoVenda pv  ON pv.cdPedidoVenda = p.cdPedido
+                          AND pv.cdPessoaFilial = p.cdPessoaFilial
+JOIN dbo.tbPedidoItem i    ON i.cdPedido = p.cdPedido
+                          AND i.cdPessoaFilial = p.cdPessoaFilial
+JOIN dbo.tbProduto pr      ON pr.cdProduto = i.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = pr.cdSuperProduto
+JOIN dbo.tbPessoa ps       ON ps.cdPessoa = pv.cdPessoaComercial
+LEFT JOIN dbo.VW_MGN_PRODUTO mg ON mg.CodigoProduto = i.cdProduto
+WHERE p.inEntrada = 0
+  AND COALESCE(ps.inMorto, 0) = 0
+  AND i.qtPedidoItem > 0  -- item zerado no pedido nao e compra (26% das linhas em 07/2026)
+  AND p.dtAtendido >= DATEADD(month, -{historico_meses}, CAST(GETDATE() AS date))
+ORDER BY cliente, codigo, data
 """
 
 PEDIDOS = """

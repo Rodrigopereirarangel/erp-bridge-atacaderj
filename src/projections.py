@@ -238,6 +238,32 @@ def pedidos_venda_csv(itens, caminho):
     return len(linhas)
 
 
+# ---------- Consumidor: app recuperacao-itens (Recuperar + Ampliar) ----------
+
+# Valor de Departamento que e STATUS DE MIX, nao familia mercadologica: vira
+# grupo vazio no CSV (o app trata como "SEM GRUPO" e nao gera par de cross-sell).
+GRUPO_FORA_DO_MIX = "INATIVOS OU FORA DO MIX"
+
+
+def historico_cliente_csv(itens, caminho):
+    """Historico de compras por cliente (itens de pedido de venda/DAV, ~24
+    meses) — insumo do app recuperacao-itens. Contrato: 11 colunas, `;` como
+    separador, terminando em `grupo` (familia mercadologica; vazio = SEM GRUPO).
+    valor/custo sao TOTAIS da linha; unidades = qtde_emb x unidades_por_emb."""
+    cab = ["cliente", "codigo", "produto", "data", "emb", "unidades_por_emb",
+           "qtde_emb", "unidades", "valor", "custo", "grupo"]
+    linhas = []
+    for r in itens:
+        grupo = str(r.get("grupo") or "").strip()
+        if grupo.upper() == GRUPO_FORA_DO_MIX:
+            grupo = ""
+        linhas.append([r["cliente"], r["codigo"], r["produto"], r["data"],
+                       r["emb"], r["unidades_por_emb"], r["qtde_emb"],
+                       r["unidades"], r["valor"], r["custo"], grupo])
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
 def curva_abc_csv(catalogo, caminho):
     cab = ["codigo", "curva"]
     linhas = [[r["codigo"], r.get("curva")] for r in catalogo if r.get("curva") is not None]

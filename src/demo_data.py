@@ -80,6 +80,37 @@ def ultimo_custo():
     ]
 
 
+def historico_cliente(meses=24):
+    """Compras por cliente (forma da HISTORICO_CLIENTE): itens de pedido de
+    venda/DAV com valor/custo TOTAIS da linha. Cobre os casos do consumidor:
+    item regular, item que parou, grupo "INATIVOS OU FORA DO MIX" (deve virar
+    vazio no CSV) e grupo ja vazio."""
+    hoje = date.today()
+
+    def linha(cli, cod, nome, dias_atras, emb, upe, qtde_emb, vu, cu, grupo):
+        un = qtde_emb * upe
+        return {"cliente": cli, "codigo": cod, "produto": nome,
+                "data": (hoje - timedelta(days=dias_atras)).isoformat(),
+                "emb": emb, "unidades_por_emb": upe, "qtde_emb": qtde_emb,
+                "unidades": un, "valor": round(un * vu, 2),
+                "custo": round(un * cu, 2), "grupo": grupo}
+
+    linhas = []
+    # MERCADO DEMO: sucrilhos regular (~10 em 10 dias) + refri que PAROU (60d+)
+    for k in (5, 15, 25, 35):
+        linhas.append(linha("MERCADO DEMO LTDA", 2411, "KELLOGGS SUCRILHOS 240G",
+                            k, "CX-12", 12, 2, 18.90, 14.20, "MATINAIS"))
+    for k in (60, 75, 90, 105):
+        linhas.append(linha("MERCADO DEMO LTDA", 2795, "MINEIRINHO 250ML",
+                            k, "CX-24", 24, 3, 1.79, 1.05, "BEBIDAS"))
+    # BAR DEMO: item fora do mix (grupo deve sair vazio) + item sem familia
+    linhas.append(linha("BAR DEMO ME", 3905, "SAPOLIO RADIUM 450ML",
+                        10, "CX-12", 12, 1, 3.49, 2.30, "INATIVOS OU FORA DO MIX"))
+    linhas.append(linha("BAR DEMO ME", 4001, "ITEM SEM FAMILIA 1UN",
+                        20, "UN", 1, 5, 2.00, 1.50, ""))
+    return linhas
+
+
 def pedidos():
     hoje = date.today()
     return [

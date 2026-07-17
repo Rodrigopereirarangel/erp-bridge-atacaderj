@@ -4,7 +4,8 @@
   "_saida_real_sugerida": {
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/Downloads/produtos.json",
     "detector_salao_dir":   "C:/Users/COMPUTADOR/detector-ruptura-atacaderj/data/input",
-    "detector_estoque_dir": "C:/Users/COMPUTADOR/detector-ruptura-estoque-atacaderj/data/input"
+    "detector_estoque_dir": "C:/Users/COMPUTADOR/detector-ruptura-estoque-atacaderj/data/input",
+    "historico_cliente_csv": "C:/Users/COMPUTADOR/recuperacao-itens-atacaderj/data/input/historico_cliente.csv"
   },
 
   "db": {
@@ -22,6 +23,7 @@
   "janela_entradas_dias": 180,
   "janela_pedidos_venda_dias": 7,
   "vendas_mensal_meses": 6,
+  "historico_cliente_meses": 24,
 
   "whatsapp": {
     "_comentario": "numero com DDI+DDD que recebe a auditoria diaria das 16h (scripts/auditoria-16h.ps1)",
@@ -45,6 +47,8 @@
     "upload_manual_auditoria_dir": "C:/Users/COMPUTADOR/Desktop/AtacadeRJ-Auditoria",
     "cotacao_produtos_json": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/cotacao/produtos.json",
     "detector_salao_dir":   "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-salao",
-    "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque"
+    "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque",
+    "_historico_cliente_csv": "relativo ao CWD de proposito (o --demo roda em qualquer maquina); no config.local.json use o caminho ABSOLUTO do data/input do app recuperacao-itens",
+    "historico_cliente_csv": "saida/recuperacao-itens/historico_cliente.csv"
   }
 }
