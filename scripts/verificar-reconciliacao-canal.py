@@ -64,9 +64,17 @@ def main():
     # falhou nunca disparava)
     dias = sorted(set(por_dia_canal) | set(por_dia_oficial))
 
+    # DORSAL so tem historico a partir do primeiro dia que aparece no canal
+    # (comecou em 2026-01-22; tbVendaPDV vai a 2023). Com --dias grande, todo
+    # dia oficial ANTERIOR a esse inicio cai como "SO NO OFICIAL" -- mas isso
+    # nao e um buraco do canal, e so o DORSAL nao existir ainda naquela data.
+    # Nao pode virar reprovacao por dia nem encher a tabela: vira 1 linha-resumo.
+    min_canal = min(por_dia_canal) if por_dia_canal else None
+
     print(f"{'dia':<12} {'VENDAS_CANAL':>14} {'tbVendaPDV':>14} {'dif':>10}")
     falhou = False
     dias_ok = set()
+    pre_dorsal = 0
     for dia in dias:
         em_canal = dia in por_dia_canal
         em_oficial = dia in por_dia_oficial
@@ -90,10 +98,24 @@ def main():
                 print(f"{dia:<12} {a:>14.3f} {'-':>14} {'-':>10}  "
                       f"<<< SO NO DORSAL (faltou consolidado oficial)")
         else:  # em_oficial apenas
+            if min_canal is not None and dia < min_canal:
+                # fora do periodo do DORSAL: nao e falha, e nem entra na tabela
+                pre_dorsal += 1
+                continue
             b = por_dia_oficial[dia]
             falhou = True
             print(f"{dia:<12} {'-':>14} {b:>14.3f} {'-':>10}  "
                   f"<<< SO NO OFICIAL (canal perdeu o dia)")
+
+    if pre_dorsal:
+        print(f"\n({pre_dorsal} dias oficiais anteriores ao inicio do DORSAL — "
+              f"fora da comparacao)")
+
+    # vazio nao e prova: se nenhum dia teve veredito OK, a reconciliacao nao
+    # provou NADA -- nunca pode sair [OK] por vacuidade (o exit code e o
+    # contrato que libera a Fase 2).
+    if not dias_ok:
+        falhou = True
 
     # o motivo de tudo isto existir: quanto o atacado distorceria o giro --
     # so sobre dias com veredito OK (exclui o dia corrente parcial e
