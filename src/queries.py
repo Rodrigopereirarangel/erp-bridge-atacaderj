@@ -220,6 +220,9 @@ FROM dbo.tbNotaItem i
 JOIN dbo.tbNotaEntrada ne
   ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
 WHERE ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+  -- nota com cdProduto NULL existe na base real (achada em 17/07 pelo dry-run
+  -- da exposicao: virava linha com codigo vazio no CSV e derrubava o consumidor)
+  AND i.cdProduto IS NOT NULL
 GROUP BY i.cdProduto, CAST(ne.dtChegada AS date)
 ORDER BY codigo, data
 """
