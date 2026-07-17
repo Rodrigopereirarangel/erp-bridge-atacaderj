@@ -239,30 +239,38 @@ ORDER BY codigo, data
 # auditoria) NAO entra por aqui — nao gera linha de rastro. Se for preciso cobrir
 # as manuais, achar/uni-la a fonte manual e fazer UNION (pendente de decisao).
 #
-# Desenho: por produto, as 2 validades DISTINTAS mais recentes (por chegada da
-# nota). rn<=2 no nivel de (produto, validade) evita repetir a mesma data.
+# Desenho: por produto, as 2 validades DISTINTAS mais recentes, unindo DUAS fontes
+# (medido 2026-07-17: rastro=241, gestao=1281, uniao=1441 produtos):
+#   1) rastro da NF-e (r.dVal) — recencia = chegada da nota;
+#   2) modulo Gestao Validade (gv.dtValidade, digitada) — recencia = dtInclusao.
+# Deduplica por (produto, validade) pela maior recencia; rn<=2 pega as 2 mais
+# recentes por produto. A projecao (projections.vd) reordena p/ MENOR primeiro.
 VALIDADES = """
 SELECT codigo, validade FROM (
-    SELECT
-        cdProduto AS codigo,
-        validade,
-        ROW_NUMBER() OVER (PARTITION BY cdProduto
-                           ORDER BY ult_chegada DESC, validade DESC) AS rn
+    SELECT codigo, validade,
+           ROW_NUMBER() OVER (PARTITION BY codigo
+                              ORDER BY recencia DESC, validade DESC) AS rn
     FROM (
-        SELECT
-            i.cdProduto,
-            CAST(r.dVal AS date)      AS validade,
-            MAX(ne.dtChegada)         AS ult_chegada
-        FROM dbo.tbNotaFiscalItemRastro r
-        JOIN dbo.tbNotaItem i
-          ON i.cdNota = r.cdNota AND i.cdNotaItem = r.nItem
-         AND i.cdPessoaFilial = r.cdPessoaFilial
-        JOIN dbo.tbNotaEntrada ne
-          ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
-        WHERE r.dVal IS NOT NULL
-          AND i.cdProduto IS NOT NULL
-          AND ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-        GROUP BY i.cdProduto, CAST(r.dVal AS date)
+        SELECT codigo, validade, MAX(recencia) AS recencia
+        FROM (
+            SELECT i.cdProduto AS codigo, CAST(r.dVal AS date) AS validade,
+                   ne.dtChegada AS recencia
+            FROM dbo.tbNotaFiscalItemRastro r
+            JOIN dbo.tbNotaItem i
+              ON i.cdNota = r.cdNota AND i.cdNotaItem = r.nItem
+             AND i.cdPessoaFilial = r.cdPessoaFilial
+            JOIN dbo.tbNotaEntrada ne
+              ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
+            WHERE r.dVal IS NOT NULL AND i.cdProduto IS NOT NULL
+              AND ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+            UNION ALL
+            SELECT gv.cdProduto AS codigo, CAST(gv.dtValidade AS date) AS validade,
+                   gv.dtInclusao AS recencia
+            FROM dbo.tbGestaoValidade gv
+            WHERE gv.dtValidade IS NOT NULL AND gv.cdProduto IS NOT NULL
+              AND gv.dtInclusao >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+        ) u
+        GROUP BY codigo, validade
     ) g
 ) t
 WHERE rn <= 2
