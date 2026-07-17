@@ -45,31 +45,71 @@ def main():
             GROUP BY CAST(v.dtVenda AS date)
             ORDER BY data
         """)
+        # relogio do BANCO, nao o local -- e o que decide se um dia "so no
+        # canal" e o dia corrente (ainda sem consolidado) ou um buraco real
+        hoje = str(db.consultar(conn, "SELECT CAST(GETDATE() AS date) AS hoje")[0]["hoje"])
     finally:
         conn.close()
 
-    por_dia = {}
+    por_dia_canal = {}
     for r in canal:
-        por_dia[str(r["data"])] = por_dia.get(str(r["data"]), 0.0) + float(r["unidades"])
+        dia = str(r["data"])
+        por_dia_canal[dia] = por_dia_canal.get(dia, 0.0) + float(r["unidades"])
+
+    por_dia_oficial = {str(r["data"]): float(r["unidades"]) for r in oficial}
+
+    # UNIAO das datas dos dois lados: um dia so em um dos lados nao pode
+    # simplesmente sumir da tabela (era o bug -- a data corrente do DORSAL,
+    # ou qualquer dia historico ausente do oficial, ficava de fora e o
+    # falhou nunca disparava)
+    dias = sorted(set(por_dia_canal) | set(por_dia_oficial))
 
     print(f"{'dia':<12} {'VENDAS_CANAL':>14} {'tbVendaPDV':>14} {'dif':>10}")
     falhou = False
-    for r in oficial:
-        dia = str(r["data"])
-        a, b = por_dia.get(dia, 0.0), float(r["unidades"])
-        dif = a - b
-        marca = "OK" if abs(dif) <= TOLERANCIA else "<<< NAO BATE"
-        if abs(dif) > TOLERANCIA:
+    dias_ok = set()
+    for dia in dias:
+        em_canal = dia in por_dia_canal
+        em_oficial = dia in por_dia_oficial
+        if em_canal and em_oficial:
+            a, b = por_dia_canal[dia], por_dia_oficial[dia]
+            dif = a - b
+            if abs(dif) > TOLERANCIA:
+                falhou = True
+                marca = "<<< NAO BATE"
+            else:
+                dias_ok.add(dia)
+                marca = "OK"
+            print(f"{dia:<12} {a:>14.3f} {b:>14.3f} {dif:>10.3f}  {marca}")
+        elif em_canal:
+            a = por_dia_canal[dia]
+            if dia == hoje:
+                print(f"{dia:<12} {a:>14.3f} {'-':>14} {'-':>10}  "
+                      f"(dia corrente, sem consolidado oficial — fora da prova e do resumo)")
+            else:
+                falhou = True
+                print(f"{dia:<12} {a:>14.3f} {'-':>14} {'-':>10}  "
+                      f"<<< SO NO DORSAL (faltou consolidado oficial)")
+        else:  # em_oficial apenas
+            b = por_dia_oficial[dia]
             falhou = True
-        print(f"{dia:<12} {a:>14.3f} {b:>14.3f} {dif:>10.3f}  {marca}")
+            print(f"{dia:<12} {'-':>14} {b:>14.3f} {'-':>10}  "
+                  f"<<< SO NO OFICIAL (canal perdeu o dia)")
 
-    # o motivo de tudo isto existir: quanto o atacado distorceria o giro
-    salao = sum(float(r["unidades"]) for r in canal if r["canal"] == "salao")
-    atacado = sum(float(r["unidades"]) for r in canal if r["canal"] == "atacado")
-    print(f"\nsalao   : {salao:12.1f} un")
-    print(f"atacado : {atacado:12.1f} un  ({atacado / (salao + atacado) * 100:.1f}% do volume)")
+    # o motivo de tudo isto existir: quanto o atacado distorceria o giro --
+    # so sobre dias com veredito OK (exclui o dia corrente parcial e
+    # qualquer dia que tenha falhado a prova)
+    salao = sum(float(r["unidades"]) for r in canal
+                if r["canal"] == "salao" and str(r["data"]) in dias_ok)
+    atacado = sum(float(r["unidades"]) for r in canal
+                  if r["canal"] == "atacado" and str(r["data"]) in dias_ok)
+    total = salao + atacado
+    print(f"\nsalao   : {salao:15.3f} un")
+    if total:
+        print(f"atacado : {atacado:15.3f} un  ({atacado / total * 100:.3f}% do volume)")
+    else:
+        print(f"atacado : {atacado:15.3f} un  (sem dias com veredito OK no periodo)")
     if salao:
-        print(f"incluir o atacado inflaria o giro em {atacado / salao * 100:.0f}%")
+        print(f"incluir o atacado inflaria o giro em {atacado / salao * 100:.3f}%")
 
     if falhou:
         print("\n[FALHOU] A resolucao de EAN esta errada. NAO use esta base.", file=sys.stderr)
