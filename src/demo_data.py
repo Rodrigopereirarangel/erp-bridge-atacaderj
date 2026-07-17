@@ -13,12 +13,32 @@ def catalogo():
         ("2795", "MINEIRINHO 250ML", 24, 1.05, 1.79, 2.49, None, "B"),
         ("3905", "SAPOLIO RADIUM 450ML", 12, 2.30, 3.49, 4.20, 2.99, "C"),
     ]
-    return [
+    itens = [
         {"codigo": c, "descricao": d, "embalagem": q, "custo_atual": cu,
          "preco_atacado": pa, "preco_varejo": pv, "preco_promocao": pp,
          "curva": cv, "ativo": 1}
         for (c, d, q, cu, pa, pv, pp, cv) in base
     ]
+    # itens DE EXPOSICAO: codigo em INT, no mesmo tipo de demo_data.vendas_canal()
+    # e da query real VENDAS_CANAL (codigo sai limpo, sem sufixo .0 -- conferido
+    # no CSV real do ponte em 2026-07-17). Sem isto, vendas_canal.csv e
+    # catalogo_exposicao.csv nao compartilhavam NENHUM codigo e o join do
+    # calculo de exposicao nunca exercitava nada no --demo. embalagem = caixa-mae
+    # REAL desses codigos (ver comentario de VENDAS_CANAL em queries.py para o
+    # 18464); prateleira preenchida p/ exercitar catalogo_exposicao_csv.
+    exposicao = [
+        (18464, "LEITE COND PIRACANJUBA 395G", 27, 3.50, 4.20, 4.99, None, "A", "PRATELEIRA 1"),
+        (34743, "ITEM EXPOSICAO DEMO 2", 12, 2.10, 2.80, 3.50, None, "B", "PRATELEIRA 2"),
+        (16416, "ITEM EXPOSICAO DEMO 3", 10, 5.00, 6.20, 7.50, None, "C", "PRATELEIRA 1"),
+        (42309, "ITEM EXPOSICAO DEMO 4", 52, 1.20, 1.60, 1.99, None, "B", "PRATELEIRA 2"),
+    ]
+    itens += [
+        {"codigo": c, "descricao": d, "embalagem": q, "custo_atual": cu,
+         "preco_atacado": pa, "preco_varejo": pv, "preco_promocao": pp,
+         "curva": cv, "prateleira": pr, "ativo": 1}
+        for (c, d, q, cu, pa, pv, pp, cv, pr) in exposicao
+    ]
+    return itens
 
 
 def vendas(janela_dias=120):
@@ -121,7 +141,7 @@ def pedidos():
 
 
 def vendas_canal(janela_dias=400):
-    """Venda por item/dia/canal falsa. Sabado pesa ~2x a segunda (como na loja
+    """Venda por item/dia/canal falsa. Sabado pesa ~2,3x a segunda (como na loja
     real) e domingo nao vende — assim o --demo exercita o calendario e o fator
     de dia-da-semana do consumidor."""
     from datetime import date, timedelta
