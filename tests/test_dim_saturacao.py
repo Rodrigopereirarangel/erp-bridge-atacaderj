@@ -49,6 +49,50 @@ def test_folga_considera_todos_os_pdvs_abertos():
     assert sat.slots_saturados(cupons, limiar=0.05) == set()
 
 
+def test_cupom_cruza_slot_20_para_21():
+    # Valida a propriedade mais importante: clipping no limite de slot.
+    # 1 PDV, 1 cupom comecando em 10:29:00 (offset 1740s de BASE=10:00) com 200s de duracao.
+    # Slot 20 vai 10:00-10:30 (36000-37800s em absolute)
+    # Slot 21 vai 10:30-11:00 (37800-39600s em absolute)
+    # Cupom vai 10:29:00-10:31:20 (37740-37940s em absolute)
+    # Slot 20 contribui: min(37940, 37800) - max(37740, 36000) = 37800 - 37740 = 60s
+    # Slot 21 contribui: min(37940, 39600) - max(37740, 37800) = 37940 - 37800 = 140s
+    cupons = [_cupom(1, 1740, 200)]
+    folga = sat.folga_por_slot(cupons)
+    ocupado_20 = 60.0
+    ocupado_21 = 140.0
+    disponivel = 1 * 1800  # 1 PDV
+    expected_folga_20 = 1.0 - ocupado_20 / disponivel
+    expected_folga_21 = 1.0 - ocupado_21 / disponivel
+    assert abs(folga[(DIA, 20)] - expected_folga_20) < 1e-9
+    assert abs(folga[(DIA, 21)] - expected_folga_21) < 1e-9
+    # Ambos os slots devem constar no dicionario
+    assert (DIA, 20) in folga
+    assert (DIA, 21) in folga
+
+
+def test_cupom_apos_meia_noite_clipeado():
+    # Valida o guard: cupom que cruzaria meia-noite e clipado, nao emite slot >= 48.
+    # Criamos um cupom hipotetico comecando em 23:59:00 (86340s) com 120s de duracao.
+    # Teoricamente fim_s seria 86460s (slot 48, invalido).
+    # Apos clipping, fim_s vira min(86460, 86400) = 86400, garantindo ultimo = 47.
+    # Nota: usando uma data diferente para evitar conflito com testes anteriores.
+    outro_dia = date(2026, 7, 15)
+    tarde = datetime(2026, 7, 15, 23, 59, 0)
+    cupom_noite = {
+        "pdv": 1,
+        "inicio": tarde,
+        "fim": tarde + timedelta(seconds=120)
+    }
+    folga = sat.folga_por_slot([cupom_noite])
+    # Nenhuma chave deve ter slot >= 48
+    for (dia, slot), _ in folga.items():
+        assert slot < 48, f"Slot invalido {slot} para dia {dia}"
+    # Deve haver exatamente uma entrada: (outro_dia, 47)
+    assert len(folga) == 1
+    assert (outro_dia, 47) in folga
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))

@@ -28,6 +28,10 @@ def folga_por_slot(cupons, slot_seg=SLOT_SEG):
         dia = c["inicio"].date()
         ini_s = c["inicio"].hour * 3600 + c["inicio"].minute * 60 + c["inicio"].second
         fim_s = ini_s + (c["fim"] - c["inicio"]).total_seconds()
+        # Guarda: garante que nenhum cupom cruza meia-noite. A loja opera 05:30-15:00
+        # e cupons duram ~2min, entao isso nunca acontece em dados reais. Clipeamos
+        # para nunca emitir um indice de slot >= 48 (fora do intervalo [0,47]).
+        fim_s = min(fim_s, 86400)
         primeiro, ultimo = int(ini_s // slot_seg), int(fim_s // slot_seg)
         for s in range(primeiro, ultimo + 1):
             borda_ini, borda_fim = s * slot_seg, (s + 1) * slot_seg
