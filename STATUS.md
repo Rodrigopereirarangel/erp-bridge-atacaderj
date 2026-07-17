@@ -183,6 +183,23 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-17: **Fase 1 da exposicao MIN/MAX no ar.** Query `VENDAS_CANAL`
+  (DORSAL.tbCupom + tbCupomItem + resolucao de EAN por tbProdutoVenda) ->
+  `saida/exposicao/vendas_canal.csv` (venda por item/dia/canal em unidades) e
+  `catalogo_exposicao.csv` (caixa-mae do cadastro + prateleira). Alvo novo
+  `--only exposicao`, tarefa `AtacadeRJ - Exposicao Mensal` (dia 1, 04:00,
+  LastTaskResult 0, testada de verdade no ponte). Reconciliacao com
+  tbVendaPDV via `scripts/verificar-reconciliacao-canal.py`: **26 dias
+  mutuos exatos em `--dias 30` (diff 0.000)**; extracao real da tarefa
+  agendada: **272.373 linhas / 4.636 itens**; atacado (PDV 11/12) = **35,0%
+  do volume**. Descoberta que motivou tudo: `tbVendaPDV` NAO tem o numero do
+  PDV, e o cupom do DORSAL traz o produto ora como codigo interno ora como
+  EAN (com multiplicador de caixa). `scripts/cadastro-caixa-mae-suspeito.py`
+  rodou no ponte e gerou os ~30 itens de cadastro suspeito (CSV) para o dono
+  analisar (D17). Spec:
+  `docs/superpowers/specs/2026-07-17-exposicao-min-max-design.md`.
+  Proximo: Fase 2 (repo `exposicao-atacaderj`).
+
 - **2026-07-14 (RELATÓRIO "ABAIXO DO CUSTO" 06:00 — spec
   `docs/superpowers/specs/2026-07-14-abaixo-custo-6h-design.md`)** ✅
   Implementado `src/abaixo_custo.py` (CLI `--dia/--config/--dry-run`; funções
