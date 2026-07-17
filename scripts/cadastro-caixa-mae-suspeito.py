@@ -14,7 +14,7 @@ Criterio (medido em 17/07/2026):
   - Nesse recorte, a nota confirma o cadastro 933x contra 240 do EAN -> o
     cadastro e a fonte (D7).
   - Sobram ~30 itens onde a nota fala de caixa real e discorda do cadastro.
-    Ex.: TAPIOCA ROSA 500G cadastro=50 nota=5 (chegou 5x assim);
+    Ex.: TAPIOCA ROSA 500G cadastro=50 nota=5 (chegou 7x assim);
          FOFURA REQUEIJAO 60G C10 cadastro=1 (!) nota=10.
   - 23 dos 30 tem a nota MENOR que o cadastro — a direcao que superexpoe a
     prateleira (mais mercadoria parada = a avaria/validade que o MAX combate).
