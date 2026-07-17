@@ -19,7 +19,9 @@ Definir, para **cada item da loja**, a quantidade **mínima** e **máxima** que 
   fica parada tempo demais na prateleira e passa a correr **risco de avaria e de vencimento**.
   O horizonte de 30 dias é a tradução do critério "o produto tem que estar sempre girando".
 
-Ambos são **arredondados para múltiplos da caixa-mãe**, com **piso de 1 caixa-mãe**.
+Ambos são expressos em **múltiplos inteiros da caixa-mãe**, com **piso de 1 caixa-mãe**, e são
+achados **subindo a escada de caixas até a confiança pedida ser atingida** (§6.6) — não
+arredondando um percentil.
 
 Entrega: **PDF agrupado por prateleira, enviado no WhatsApp, mensal**.
 
@@ -29,7 +31,7 @@ Entrega: **PDF agrupado por prateleira, enviado no WhatsApp, mensal**.
 
 | # | Decisão | Motivo |
 |---|---------|--------|
-| D1 | **MÍN = P95 da demanda de 7 dias corridos; MÁX = P95 da demanda de 30 dias corridos** | Pedido explícito do dono. O MÁX é teto de rotação (avaria/validade), não alvo de cobertura |
+| D1 | **MÍN = menor nº de caixas com ≥95% de confiança de cobrir 7 dias corridos; MÁX = idem para 30 dias corridos** | Pedido explícito do dono. O horizonte de 30d do MÁX vem do critério de rotação (avaria/validade) — ver D16 e R7 p/ a consequência |
 | D2 | **Piso absoluto = 1 caixa-mãe** para MÍN e MÁX, sempre | Decisão do dono. Não se expõe menos que uma caixa. Resolve sozinho os 1.424 itens em que 1 caixa já estoura o teto de 30d |
 | D3 | **Giro exclui PDV 11 e 12** (atacado) | Venda de atacado não sai da prateleira; incluí-la infla o giro em ~78% (medido) |
 | D4 | **Saldo de estoque INCLUI PDV 11 e 12** | Decisão do dono. A caixa vendida no atacado consome o mesmo estoque. Dois filtros, duas perguntas |
@@ -44,6 +46,8 @@ Entrega: **PDF agrupado por prateleira, enviado no WhatsApp, mensal**.
 | D13 | **Bridge é a única porta do banco**; o repo novo consome CSV | Regra vigente do `erp-bridge-atacaderj/CLAUDE.md` |
 | D14 | **Primeira rodada em `dryRun: true`** | Mesmo padrão do detector de salão. 4.634 min/máx errados no salão custam caro |
 | D15 | Repo novo **standalone em Python** | numpy/scipy/pandas já instalados no ponte; o modelo pede isso |
+| D16 | **O backtest CALIBRA, não veta.** MÍN/MÁX = menor nº de caixas cuja confiança ≥ 95%; se não dá, **sobe a escada** | Decisão do dono (17/07), corrigindo o desenho anterior (que travava a entrega). Consequência: o MÁX passa a arredondar **para cima**, podendo exceder o teto de 30d em até 1 caixa |
+| D17 | **Os 30 itens de cadastro suspeito saem num relatório na 1ª rodada** | Decisão do dono (17/07). A nota segue fora do cálculo (D7) — ela só alimenta este diagnóstico |
 
 ---
 
@@ -153,13 +157,20 @@ Componentes isolados, cada um com uma responsabilidade, testável sozinho:
    canais** (D4).
 4. **`dow`** — fatores de dia-da-semana por categoria, encolhidos para a loja (§6.3).
 5. **`modelo`** — ajusta a binomial negativa por item sobre os dias limpos (§6.4).
-6. **`simular`** — Monte Carlo → P95 dos dois horizontes, **em unidades** (§6.5).
-7. **`minmax`** — aplica arredondamento e piso de caixa-mãe (§6.6). **Único lugar que conhece
-   caixa-mãe** (D8).
-8. **`validar`** — bootstrap + backtest; **trava a entrega** se a promessa de 95% não se sustentar (§7).
-9. **`relatorio`** — PDF por prateleira (§8).
-10. **`enviar`** — delega ao Baileys do bridge (`scripts/whatsapp/enviar.mjs`); respeita `dryRun`.
-11. **`rodar`** — orquestrador; tarefa mensal no ponte.
+6. **`simular`** — Monte Carlo → distribuição da demanda dos dois horizontes, **em unidades** (§6.5).
+7. **`escada`** — função **pura**: recebe `(distribuição, caixa_mae, limiar)` e devolve o menor
+   nº de caixas cuja confiança ≥ limiar (§6.6). Não conhece calendário, backtest nem relatório.
+8. **`calibrar`** — backtest mede a otimismo do modelo → fator de folga `λ` (§7). Bootstrap como
+   aferição de rodapé. **Não trava nada** (D16).
+9. **`minmax`** — aplica `escada` com o `λ` calibrado e monta a linha final do item. **Único
+   lugar que conhece caixa-mãe** (D8).
+
+> **Ordem de dependência (evita o ciclo):** `calibrar` **chama** `escada` para medir a cobertura
+> de cada candidato `λ`; `minmax` **chama** `escada` uma vez com o `λ` escolhido. `escada` não
+> chama ninguém. Sem essa separação, `calibrar` e `minmax` se importariam mutuamente.
+10. **`relatorio`** — PDF por prateleira (§8) + o relatório de cadastro suspeito na 1ª rodada (§8.1).
+11. **`enviar`** — delega ao Baileys do bridge (`scripts/whatsapp/enviar.mjs`); respeita `dryRun`.
+12. **`rodar`** — orquestrador; tarefa mensal no ponte.
 
 ---
 
@@ -216,57 +227,92 @@ Sobre os dias limpos (§6.2), canal **salão** (D3):
   `r_i` encolhido para a mediana global de `r` da categoria.
 - **Item sem nenhuma venda limpa no salão** → `μ_i = 0`; cai no piso de 1 caixa (D9).
 
-### 6.5 Simulação (P95 em unidades)
+### 6.5 Simulação (a distribuição da demanda do horizonte, em unidades)
 Para cada horizonte H ∈ {7 dias corridos, 30 dias corridos} e cada dia de início s ∈ {seg..sáb}:
 1. Monta a lista de dias úteis da janela e seus dias-da-semana.
 2. Sorteia cada dia de `NB(média = μ_i × f_dow(d), dispersão = r_i)`.
 3. Soma a janela → uma amostra da demanda do horizonte.
 
-`simulacao.sorteios` (default 20.000) por dia de início; agrupa os 6 conjuntos;
-**P95 = percentil 95 do agregado**. Semente fixa (`simulacao.semente`) → rodada reprodutível.
+`simulacao.sorteios` (default 20.000) por dia de início; agrupa os 6 conjuntos numa
+**distribuição empírica `D_i,H`** da demanda do item no horizonte. Semente fixa
+(`simulacao.semente`) → rodada reprodutível.
 
-### 6.6 MÍN e MÁX (o único passo que vê caixa-mãe — D8)
+### 6.6 MÍN e MÁX — escada de caixas até o limiar de confiança (D8, D16)
+
+**A definição é direta: a menor quantidade de caixas-mãe que entrega a confiança pedida.**
+Não se arredonda um percentil — sobe-se a escada até cruzar o limiar.
+
+Para cada item `i` e horizonte `H`, com a distribuição calibrada `D*_i,H` (§7.2):
+
 ```
-min_un = max(caixa_mae, ceil_para_multiplo(P95_7d,  caixa_mae))
-max_un = max(min_un,    floor_para_multiplo(P95_30d, caixa_mae))
-min_cx = min_un / caixa_mae
-max_cx = max_un / caixa_mae
+confianca(q) = P( D*_i,H  <=  q × caixa_mae )       # q = nº de caixas
+
+min_cx = menor q >= 1 com confianca_7d(q)  >= limiar     # limiar default = 0,95
+max_cx = menor q >= min_cx com confianca_30d(q) >= limiar
+min_un = min_cx × caixa_mae
+max_un = max_cx × caixa_mae
 ```
-- **MÍN arredonda para CIMA**: arredondar para baixo quebraria a promessa de 95%.
-- **MÁX arredonda para BAIXO**: é teto de validade; passar dele é o risco a evitar.
-- Quando os dois caem na mesma caixa, `min = max` e a instrução é honesta: **uma caixa exposta**.
+
+- **A escada sobe, nunca desce.** Se 2 caixas dão 60% de confiança, tenta 3; se 3 dão 88%, tenta
+  4; para na primeira que cruza o limiar. É a folga que o dono pediu — explícita, não implícita
+  num arredondamento.
+- **Piso de 1 caixa** (D2) já está em `q >= 1`.
+- **`max_cx >= min_cx` por construção**, e como `D_30d` domina `D_7d`, o max naturalmente sobe.
+- Quando os dois param na mesma caixa, `min = max` e a instrução é honesta: **uma caixa exposta**.
+- **Teto de busca:** `escada.maxCaixas` (default 500). Item que não cruza o limiar em 500 caixas
+  sai marcado no PDF — é sinal de dado estranho, não de prateleira gigante.
+
+**Consequência aceita (decisão do dono, 17/07):** o MÁX agora **sobe** até cobrir 30 dias com 95%,
+em vez de ser cortado para baixo pelo teto de rotação. Ele pode portanto **passar dos 30 dias de
+giro em até uma caixa-mãe**. O dono escolheu a garantia de confiança sobre o corte de validade.
 
 ---
 
-## 7. Validação — a entrega é travada por ela
+## 7. Calibração — o backtest é régua, não juiz (D16)
+
+**Decisão do dono (17/07), corrigindo o desenho anterior:** o backtest **não veta** a entrega.
+Ele **mede a otimismo do modelo e o corrige**, de modo que a escada de §6.6 suba o quanto for
+preciso para a confiança prometida ser a confiança real.
 
 ### 7.0 Subconjunto elegível
-As duas validações rodam **só nos itens onde o modelo de fato decide** — nos demais o resultado é
-o piso de 1 caixa (D2/D9) e não há promessa estatística a verificar. Elegível =
+A calibração é medida **só nos itens onde o modelo de fato decide** — nos demais o resultado é o
+piso de 1 caixa (D2/D9) e não há promessa estatística a aferir. Elegível =
 `μ_i ≥ validacao.giroMinimo` (default 1 un/dia útil) **e** ≥ `validacao.minJanelas` (default 12)
-janelas de 7 dias corridos limpas no histórico. Pelo perfil de §3.8, isso é da ordem de 1.400 itens.
-O nº de elegíveis entra no rodapé do PDF.
+janelas de 7 dias corridos limpas no histórico. Pelo perfil de §3.8, é da ordem de 1.400 itens.
+O fator calibrado e o nº de elegíveis entram no rodapé do PDF.
 
-### 7.1 Bootstrap (confere o modelo no horizonte curto)
+### 7.1 A medida (backtest honesto, sem espiar o futuro)
+- Separa as últimas `validacao.semanasHoldout` (default 8) semanas.
+- Para cada item elegível e cada semana do holdout, ajusta o modelo usando **só** os dados
+  anteriores àquela semana e produz o `min_cx` pela escada de §6.6.
+- `cobertura(λ)` = fração dos pares (item × semana) em que a venda real do salão ≤ `min_un`.
+
+### 7.2 A correção (o fator de folga λ)
+`λ` infla a distribuição simulada antes da escada: `D*_i,H = λ × D_i,H`.
+
+- Busca o **menor** `λ ≥ 1` tal que `cobertura(λ) ≥ percentil` (0,95), por busca binária em
+  `[1 ; calibracao.lambdaMax]` (default 3,0) com passo de parada `calibracao.tol` (default 0,01).
+- **λ só infla, nunca deflaciona** (`λ ≥ 1`): a folga que o dono pediu é unilateral. Se o modelo
+  já cobre ≥ 95% na medida real, `λ = 1` e nada muda.
+- O mesmo `λ` vale para os dois horizontes (a otimismo medida é do modelo, não do horizonte).
+- `λ` é **global**, não por item: com 8 semanas de holdout, um `λ` por item seria ajustado em 8
+  pontos — ruído, não calibração. Agregado sobre ~1.400 itens × 8 semanas ≈ 11.000 pares, a
+  medida tem base para sustentar.
+
+### 7.3 Bootstrap (confere o modelo no horizonte curto)
 Para cada item elegível, o P95 de 7 dias é recalculado pelo **percentil empírico das janelas
 reais de 7 dias corridos** que de fato aconteceram no histórico limpo. Se a binomial negativa e
-o bootstrap concordarem no horizonte curto, ganha-se o direito de usar a NB no horizonte de
+o bootstrap concordarem no horizonte curto, ganha-se confiança para usar a NB no horizonte de
 30 dias — onde o bootstrap não alcança (só ~5 janelas independentes em 6 meses).
 
-**Critério:** a **mediana, sobre os itens elegíveis**, de `|P95_NB − P95_bootstrap| ÷ P95_bootstrap`
-≤ `validacao.tolBootstrap` (default 15%).
+**Não trava nada**: o resultado (mediana de `|P95_NB − P95_bootstrap| ÷ P95_bootstrap`) sai
+**no rodapé do PDF** como aferição. Acima de `validacao.tolBootstrap` (default 15%), sai também
+um aviso destacado — o número é entregue, mas com a ressalva à vista.
 
-### 7.2 Backtest (confere a promessa de 95%)
-- Separa as últimas `validacao.semanasHoldout` (default 8) semanas.
-- Para cada item elegível e cada semana do holdout, calcula o MÍN usando **só** os dados
-  anteriores àquela semana (sem espiar o futuro).
-- Conta a fração de pares (item × semana) em que a venda real do salão da semana ≤ MÍN.
-- **Essa fração — a cobertura medida, agregada sobre todos os pares — tem que ficar em
-  `[0,90 ; 0,99]`.**
-
-### 7.3 Trava
-Se 7.1 ou 7.2 falharem, a rodada **não envia**: grava o diagnóstico e avisa. Um número com
-promessa de 95% que não passa no backtest é retórica, não estatística.
+### 7.4 Quando a calibração não alcança
+Se nem `λ = calibracao.lambdaMax` levar a cobertura ao limiar, a rodada **entrega mesmo assim**
+(decisão do dono: sem trava), usando `λ = lambdaMax`, e estampa no cabeçalho do PDF a cobertura
+real atingida. O dono decide olhando o número, não o sistema decidindo por ele.
 
 ---
 
@@ -294,6 +340,38 @@ não contam.
 **Tamanho:** ~4.634 itens. É um documento de referência para a gôndola, não uma lista diária
 de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 
+### 8.1 Relatório "cadastro de caixa-mãe suspeito" — só na 1ª rodada (D17)
+
+Entregue **junto com o primeiro teste**, num arquivo à parte, para o dono analisar antes de
+confiar nos números. **Não altera cálculo nenhum** (D7/D8: a caixa-mãe sai do cadastro, sempre).
+
+Critério: itens onde a nota de entrada dos últimos 12 meses fala de caixa **de verdade**
+(`qtEmbalagem > 1`, portanto informativa) e mesmo assim **discorda do cadastro**. Medido em
+17/07/2026: **30 itens** — dos quais 23 têm a nota dizendo um número **menor** que o cadastro
+(a direção que superexpõe a prateleira).
+
+| Coluna | Conteúdo |
+|---|---|
+| Código / Descrição | catálogo |
+| Caixa-mãe do cadastro | o que o cálculo **usou** |
+| Caixa-mãe da nota | o que o fornecedor faturou |
+| Vezes que chegou assim | nº de entradas com aquela embalagem em 12 meses |
+| MÍN/MÁX entregues | p/ o dono ver o impacto do cadastro no número |
+
+Casos conhecidos em 17/07 (a query os redescobre a cada rodada; esta lista é ilustrativa):
+
+| Item | Cadastro usa | Nota diz | Chegou assim |
+|---|---|---|---|
+| TAPIOCA ROSA 500G | 50 | 5 | 7× |
+| CLORO LIMPADUA 2L | 12 | 6 | 6× |
+| FEIJAO BRANCO URBANO 1K | 20 | 10 | 5× |
+| FEIJAO CARIOQUINHA GRANFINO 1KG | 30 | 10 | 4× |
+| FOFURA REQUEIJAO 60G **C10** | **1** | 10 | 2× |
+| FINI AMORAS **C12** 15G | **1** | 24 | 1× |
+
+Os dois últimos são cadastro furado à vista: caixa cadastrada como **1 unidade** num produto cujo
+nome diz C10 / C12.
+
 ---
 
 ## 9. Configuração (`config.local.json`, gitignored)
@@ -310,14 +388,16 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 | `modelo.minDiasLimpos` | 30 |
 | `simulacao.sorteios` | 20000 |
 | `simulacao.semente` | 42 |
-| `percentil` | 0.95 |
+| `percentil` | 0.95 (o limiar de confiança da escada — §6.6) |
 | `horizonte.minDiasCorridos` | 7 |
 | `horizonte.maxDiasCorridos` | 30 |
+| `escada.maxCaixas` | 500 |
+| `calibracao.lambdaMax` | 3.0 |
+| `calibracao.tol` | 0.01 |
 | `validacao.giroMinimo` | 1.0 (un/dia útil, p/ ser elegível — §7.0) |
 | `validacao.minJanelas` | 12 |
-| `validacao.tolBootstrap` | 0.15 |
+| `validacao.tolBootstrap` | 0.15 (só avisa; não trava — §7.3) |
 | `validacao.semanasHoldout` | 8 |
-| `validacao.coberturaAceita` | `[0.90, 0.99]` |
 | `whatsapp.destino` | (telefone; nunca versionado) |
 | `whatsapp.dryRun` | **true** (D14) |
 
@@ -329,7 +409,9 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 - **Item sem entrada registrada** → censura cai nos sinais 1+2 apenas; sem os 4, **nada é
   censurado** (D11 conservador).
 - **Item novo / sem histórico** → piso de 1 caixa (D9), marcado como "sem histórico" no PDF.
-- **Validação reprovada** (§7.3) → não envia; grava diagnóstico.
+- **Calibração não alcança o limiar** (§7.4) → **entrega mesmo assim** com `λ = lambdaMax` e a
+  cobertura real estampada no cabeçalho. **Nada trava a entrega** (D16).
+- **Item não cruza o limiar em `escada.maxCaixas`** → entrega no teto, marcado no PDF.
 - **Idempotência** → rodar 2× no mesmo mês não duplica envio.
 - **PC desligado** → ao rodar depois, registra atraso no rodapé.
 
@@ -344,11 +426,18 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 - **`dow`** — sábado > segunda; categoria magra encolhe p/ loja; fatores normalizam p/ média 1.
 - **`modelo`** — superdisperso → NB; subdisperso → Poisson; item sem venda → μ=0; encolhimento
   com poucos dias.
-- **`simular`** — reprodutível com semente; P95 cresce com o horizonte; 7d corridos = 6 dias úteis.
-- **`minmax`** — MÍN arredonda p/ cima; MÁX p/ baixo; piso de 1 caixa; `max ≥ min` **sempre**;
-  item lento → min = max = 1 caixa; caixa-mãe = 1 → arredondamento vira unidade.
+- **`simular`** — reprodutível com semente; a demanda cresce com o horizonte; 7d corridos =
+  6 dias úteis.
+- **`minmax` (a escada)** — para na **primeira** caixa que cruza o limiar (não na segunda);
+  sobe quando a confiança não basta (2cx=60% → 3cx=88% → 4cx=96% ⇒ devolve 4); piso de 1 caixa;
+  `max_cx ≥ min_cx` **sempre**; item lento → min = max = 1 caixa; caixa-mãe = 1 → escada em
+  unidades; item que não cruza em `escada.maxCaixas` sai marcado, não estoura.
 - **`importar`** — EAN resolvido; coluna faltando; canal inválido; data inválida.
-- **`validar`** — backtest reprovado trava a entrega.
+- **`calibrar`** — modelo otimista ⇒ `λ > 1` e a cobertura sobe p/ o limiar; modelo já honesto
+  ⇒ `λ = 1` (nunca deflaciona); limiar inalcançável ⇒ `λ = lambdaMax` e **entrega mesmo assim**
+  (nunca trava — D16); busca binária converge dentro de `calibracao.tol`.
+- **`cadastro-suspeito` (§8.1)** — nota com `qtEmbalagem = 1` **não** entra (não é opinião sobre
+  caixa); nota > 1 discordando do cadastro entra; o relatório **não muda** o min/max calculado.
 - **Reconciliação (teste de integração)** — a soma de `vendas_canal.csv` bate com
   `Solidcon.tbVendaPDV` no mesmo dia (a prova de §3.4, virada em teste automático).
 
@@ -359,7 +448,9 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 | # | Risco | Tratamento |
 |---|---|---|
 | R1 | **Histórico de só ~6 meses** (DORSAL desde 22/01/2026) | Aceito (D5). Sem comparação ano-a-ano; sazonalidade anual (Natal, Páscoa) **não** é capturada. A rodada mensal reage ao giro corrente |
-| R2 | **Caixa-mãe do cadastro pode estar errada** — 30 itens onde a nota de entrada contradiz o cadastro (TAPIOCA ROSA cadastrada 50 × nota 5; FOFURA REQUEIJAO **C10** cadastrado como caixa **1**) | **Aceito por decisão do dono (D7)**: usa o cadastro. Se o cadastro erra p/ cima, o item é superexposto. Conserto é no ERP, não aqui |
+| R2 | **Caixa-mãe do cadastro pode estar errada** — 30 itens onde a nota de entrada contradiz o cadastro (TAPIOCA ROSA cadastrada 50 × nota 5; FOFURA REQUEIJAO **C10** cadastrado como caixa **1**) | **Aceito por decisão do dono (D7)**: usa o cadastro. Se o cadastro erra p/ cima, o item é superexposto. **Mitigação (D17):** os 30 saem num relatório na 1ª rodada (§8.1) p/ o dono analisar; conserto é no ERP, não aqui |
+| R7 | **O MÁX pode passar do teto de 30 dias** em até 1 caixa-mãe (D16: a escada sobe até 95%) | Aceito por decisão do dono (17/07): confiança na cobertura vale mais que o corte fino de validade. O relatório mostra o giro un/dia, então o dono enxerga a cobertura real de cada item |
+| R8 | **`λ` é global** — um item muito mais imprevisível que a média recebe a mesma folga dos outros | Aceito: 8 semanas de holdout não sustentam um `λ` por item (ruído). Se o backtest mostrar cauda ruim concentrada numa faixa de giro, a evolução natural é `λ` por faixa — fica p/ uma rodada futura, com dado p/ decidir |
 | R3 | Loja pode abrir num domingo atípico | `calendario` deriva os dias abertos **dos dados**, não de regra fixa |
 | R4 | Novo PDV de salão (o 9 nasceu em 01/07/2026) | Filtro é `NOT IN (11,12)`, não `IN (1..9)` — PDV novo de salão entra sozinho |
 | R5 | Promoção antiga infla o histórico | A NB absorve como superdispersão; o P95 sobe de propósito (a demanda de pico é real) |
@@ -383,6 +474,9 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 1. Todo item do cadastro ativo tem **MÍN e MÁX em unidades e em caixas-mãe**, com piso de 1 caixa.
 2. O giro usado **não contém atacado** (PDV 11/12), e a reconciliação com a base oficial é exata.
 3. Dias de ruptura de estoque saem da base **só** com os 4 sinais; nenhum item lento é censurado.
-4. O **backtest mede ~95%** de cobertura do MÍN — a promessa é verificada, não afirmada.
-5. O dono recebe o PDF por prateleira mensalmente e o repositor caminha a gôndola na ordem.
-6. Custo recorrente **R$ 0**.
+4. **A confiança entregue é a confiança medida**: a escada sobe até 95% e o `λ` do backtest
+   corrige a otimismo do modelo. A cobertura real medida sai no cabeçalho do PDF — o dono lê o
+   número, o sistema não o esconde nem trava por causa dele (D16).
+5. Na 1ª rodada o dono recebe os **30 itens de cadastro suspeito** e decide o que fazer (D17).
+6. O dono recebe o PDF por prateleira mensalmente e o repositor caminha a gôndola na ordem.
+7. Custo recorrente **R$ 0**.
