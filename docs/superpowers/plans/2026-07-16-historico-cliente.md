@@ -329,3 +329,45 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 O job das **01:00** do app chama `python src/bridge.py --only historico-cliente`
 antes de rodar o motor. O agendamento fica no `scripts/register-tasks.ps1` do
 repo do app (Plan B, Task 10).
+
+---
+
+## Adendo (2026-07-16): coluna `grupo` para a capacidade "Ampliar a cesta"
+
+O app ganhou a aba **Ampliar** (cross-sell por pares), que precisa do **grupo
+mercadológico** de cada produto (BISCOITO, BEBIDA, DESCARTÁVEL…) — **NÃO** a
+`tbClassificacaoProduto` (prateleira/localização física). Adicionar uma **11ª
+coluna `grupo`** ao `historico_cliente.csv`. O app já lê `grupo` como **coluna
+opcional** (se vier vazia, a aba Ampliar simplesmente não gera sugestões), então
+esta mudança é aditiva e não quebra o consumidor.
+
+**Passo A — confirmar o campo no schema (no ponte):**
+`python src/inspect_schema.py grupo departamento secao mercadolog`
+Achar a tabela/coluna do **grupo mercadológico** ligada a `tbSuperProduto`
+(candidatos típicos do Solidcon: `cdGrupo`→`tbGrupo.nmGrupo`,
+`cdDepartamento`→`tbDepartamento`, ou uma hierarquia `cdSecao`/`cdCategoria`).
+Registrar o nome real encontrado.
+
+**Passo B — query `HISTORICO_CLIENTE`:** adicionar a coluna e o LEFT JOIN
+(exemplo assumindo `tbSuperProduto.cdGrupo` → `tbGrupo`; **trocar pelos nomes
+confirmados no Passo A**):
+```sql
+    -- ...colunas existentes...
+    RTRIM(gr.nmGrupo)                          AS grupo
+-- ...
+LEFT JOIN dbo.tbGrupo gr ON gr.cdGrupo = sp.cdGrupo   -- CONFIRMAR no schema
+```
+(fica antes do `ORDER BY`; `grupo` sai NULL/vazio para item sem grupo — ok.)
+
+**Passo C — projeção:** em `historico_cliente_csv`, acrescentar `"grupo"` ao
+final do `cab` e `r.get("grupo")` ao final de cada linha.
+
+**Passo D — demo:** em `demo_data.historico_cliente`, acrescentar `"grupo"` a cada
+dict (ex.: ARROZ/AÇÚCAR→`"MERCEARIA"`, itens de bebida→`"BEBIDA"`), para o
+`--demo` exercitar o formato.
+
+**Passo E — teste:** no `tests_historico_cliente.py`, o cabeçalho esperado passa a
+terminar em `;grupo` e a checagem de chaves inclui `grupo`.
+
+**Contrato atualizado:** 11 colunas — `cliente, codigo, produto, data, emb,
+unidades_por_emb, qtde_emb, unidades, valor, custo, grupo`.
