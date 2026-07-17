@@ -16,6 +16,7 @@ import json
 import os
 import random
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import db  # noqa: E402
@@ -95,6 +96,67 @@ def slots_piso_do_dow(dias_do_dow, floor_set):
     return {s for (dia, s) in floor_set if dia in dias_do_dow}
 
 
+def validar_desde(desde):
+    """Valida --desde no formato YYYY-MM-DD antes de ser interpolado nas
+    duas SQLs (CUPONS e CONFERENCIA_CONSOLIDADO, via .format(desde=...)).
+
+    args.desde e controlado pelo operador (argparse) atras de um login
+    somente-leitura -- risco de injecao e quase nulo -- mas hoje um valor
+    malformado (ex.: "22-01-2026" ou lixo) so aparece la na frente como um
+    erro de SQL opaco. Validar aqui falha cedo com mensagem clara e, de
+    quebra, fecha a porta teorica de injecao: uma string que nao seja
+    data no formato esperado nunca chega a virar SQL.
+    """
+    try:
+        datetime.strptime(desde, "%Y-%m-%d")
+    except ValueError:
+        raise SystemExit(
+            "[ERRO] --desde invalido (%r): use o formato YYYY-MM-DD." % (desde,))
+
+
+def checar_tipos_cupom(cupom):
+    """Guarda de tipo: falha cedo e com mensagem clara se o driver ODBC
+    devolver `inicio`/`fim` (HoraInicio/HoraFim, ver dim_queries.py) como
+    algo que nao seja datetime.datetime -- por exemplo str ou datetime.time.
+
+    O fato "sao datetime" foi conferido em 2026-07-17 com uma ferramenta de
+    consulta (ver dim_queries.py), nao necessariamente atraves DESTE driver
+    ODBC especifico. Todo modulo dim_* faz .hour/.date()/(fim - inicio)
+    direto em cima desses campos (chegadas_servicos acima inclusive); sem
+    essa guarda, o tipo errado so aparece bem mais fundo, como um
+    AttributeError opaco dentro de um dim_*.py. So um guarda -- nao tenta
+    converter/coagir o valor.
+    """
+    for campo in ("inicio", "fim"):
+        valor = cupom[campo]
+        if not isinstance(valor, datetime):
+            raise SystemExit(
+                "[ERRO] tbCupom.%s veio como %s (esperado datetime.datetime). "
+                "O driver ODBC esta devolvendo HoraInicio/HoraFim no tipo errado -- "
+                "confira o driver em config.local.json antes de rodar de novo."
+                % (campo, type(valor).__name__))
+
+
+def construir_parser():
+    ap = argparse.ArgumentParser(description="Dimensionamento de caixas por dia da semana")
+    ap.add_argument("--desde", default="2026-01-22", help="data inicial YYYY-MM-DD")
+    ap.add_argument("--p", type=float, default=0.85, help="percentil do dia (a margem)")
+    ap.add_argument("--stress", type=float, default=0.10, help="sensibilidade +-X na demanda")
+    ap.add_argument("--corte-handover", type=float, default=120.0)
+    # 9 = PDV 1-9 (varejo, o unico grupo dimensionado aqui). PDV 10 nao
+    # existe na loja; 11/12 sao atacado e ja saem excluidos das queries
+    # (ver dim_queries.py) -- 9 e o teto FISICO real de caixas simultaneos.
+    ap.add_argument("--c-max", type=int, default=9,
+                     help="numero de PDVs (caixas) de varejo que dao pra abrir ao mesmo "
+                          "tempo na loja (default 9 = PDV 1-9); um slot que precisar de "
+                          "mais que isso e flagado como piso/floor (fisicamente inviavel), "
+                          "nao impresso como estimativa limpa")
+    ap.add_argument("--limiar-divergencia", type=float, default=0.05,
+                     help="fracao maxima de dias divergentes antes de abortar (default 0.05)")
+    ap.add_argument("--config", default=None)
+    return ap
+
+
 def carregar_config(caminho):
     caminho = caminho or os.path.join(RAIZ, "config.local.json")
     if not os.path.exists(caminho):
@@ -114,16 +176,8 @@ def conferir_fonte(conn, desde):
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description="Dimensionamento de caixas por dia da semana")
-    ap.add_argument("--desde", default="2026-01-22", help="data inicial YYYY-MM-DD")
-    ap.add_argument("--p", type=float, default=0.85, help="percentil do dia (a margem)")
-    ap.add_argument("--stress", type=float, default=0.10, help="sensibilidade +-X na demanda")
-    ap.add_argument("--corte-handover", type=float, default=120.0)
-    ap.add_argument("--c-max", type=int, default=12)
-    ap.add_argument("--limiar-divergencia", type=float, default=0.05,
-                     help="fracao maxima de dias divergentes antes de abortar (default 0.05)")
-    ap.add_argument("--config", default=None)
-    args = ap.parse_args()
+    args = construir_parser().parse_args()
+    validar_desde(args.desde)
 
     cfg = carregar_config(args.config)
     conn = db.conectar(cfg["db"])
@@ -134,6 +188,7 @@ def main():
         conn.close()
     if not cupons:
         raise SystemExit("[ERRO] Nenhum cupom no periodo.")
+    checar_tipos_cupom(cupons[0])
 
     # 1) conferencia da fonte contra o consolidado do ERP
     nao_cancelados = {}

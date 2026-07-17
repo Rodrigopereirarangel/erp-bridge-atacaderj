@@ -6,7 +6,9 @@ divergencia (dias_divergentes/deve_abortar), a construcao chegadas+servicos
 sem o PC-ponte (unica maquina que alcanca o ERP)."""
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 import dimensionamento_caixas as dc  # noqa: E402
@@ -134,6 +136,67 @@ def test_slots_piso_do_dow_ignora_piso_de_dia_de_outro_dow():
 def test_slots_piso_do_dow_sem_nenhum_piso_devolve_vazio():
     dias_do_dow = {date(2026, 7, 6), date(2026, 7, 13)}
     assert dc.slots_piso_do_dow(dias_do_dow, set()) == set()
+
+
+# --------------------------------------------------------------------------
+# validar_desde (Fix 3 do code review: --desde malformado falha cedo, com
+# mensagem clara, antes de virar SQL via .format()).
+# --------------------------------------------------------------------------
+
+def test_validar_desde_aceita_yyyy_mm_dd():
+    # Nao levanta -- formato correto, mesmo default usado pelo CLI.
+    dc.validar_desde("2026-01-22")
+
+
+def test_validar_desde_rejeita_formato_dd_mm_yyyy():
+    with pytest.raises(SystemExit):
+        dc.validar_desde("22-01-2026")
+
+
+def test_validar_desde_rejeita_lixo_nao_data():
+    # O caso que fecharia a porta teorica de injecao: uma string que nao e
+    # data nenhuma (nem em outro formato) nunca chega a virar SQL.
+    with pytest.raises(SystemExit):
+        dc.validar_desde("1=1; DROP TABLE tbCupom")
+
+
+# --------------------------------------------------------------------------
+# checar_tipos_cupom (Fix 2 do code review: falha cedo se o driver ODBC
+# devolver inicio/fim como algo que nao seja datetime.datetime).
+# --------------------------------------------------------------------------
+
+def test_checar_tipos_cupom_aceita_datetime_datetime():
+    # Nao levanta -- inicio e fim sao datetime.datetime, como o resto do
+    # modulo (chegadas_servicos, dim_saturacao, dim_servico) exige.
+    cupom = _cupom(0, 100)
+    dc.checar_tipos_cupom(cupom)
+
+
+def test_checar_tipos_cupom_rejeita_inicio_string():
+    # Simula o driver ODBC devolvendo HoraInicio como str em vez de
+    # datetime.datetime -- exatamente o cenario que o Fix 2 cobre.
+    cupom = {"pdv": 1, "inicio": "2026-07-16 08:00:00", "fim": BASE}
+    with pytest.raises(SystemExit):
+        dc.checar_tipos_cupom(cupom)
+
+
+def test_checar_tipos_cupom_rejeita_fim_time():
+    # datetime.time NAO e datetime.datetime (sem .date(), sem subtracao
+    # direta com outro datetime) -- outro jeito plausivel do driver falhar.
+    cupom = {"pdv": 1, "inicio": BASE, "fim": time(8, 5, 0)}
+    with pytest.raises(SystemExit):
+        dc.checar_tipos_cupom(cupom)
+
+
+# --------------------------------------------------------------------------
+# construir_parser (Fix 1 do code review: default de --c-max tem que ser o
+# teto FISICO real da loja -- PDV 1-9 -- e nao um numero maior que nunca
+# flagaria piso/floor honestamente).
+# --------------------------------------------------------------------------
+
+def test_c_max_default_e_9_pdv_1_a_9():
+    args = dc.construir_parser().parse_args([])
+    assert args.c_max == 9
 
 
 if __name__ == "__main__":
