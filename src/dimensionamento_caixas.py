@@ -20,7 +20,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import db  # noqa: E402
 import dim_dimensionador  # noqa: E402
-import dim_erlang  # noqa: E402
 import dim_escala  # noqa: E402
 import dim_queries  # noqa: E402
 import dim_saturacao  # noqa: E402
@@ -33,6 +32,67 @@ META_PCT, META_SEG = 0.95, 180.0
 
 def _hora(slot):
     return "%02d:%02d" % (slot * 30 // 60, slot * 30 % 60)
+
+
+# --------------------------------------------------------------------------
+# Helpers puros (sem I/O) — testados isoladamente em
+# tests/test_dimensionamento_caixas.py.
+# --------------------------------------------------------------------------
+
+def dias_divergentes(nao_cancelados, consolidado):
+    """Dias em que o extraido (tbCupom, nao cancelados) diverge do consolidado
+    oficial do ERP (tbConsPDVOperador).
+
+    Percorre TODO dia presente em `consolidado` (a fonte de verdade contabil).
+    Um dia que esta em `consolidado` mas esta AUSENTE de `nao_cancelados`
+    conta como divergente com esperado consolidado[d] contra obtido 0 — cobre
+    o dia todo-cancelado ou totalmente ausente da extracao, que uma
+    comparacao so sobre as chaves de `nao_cancelados` deixaria passar.
+    """
+    divergentes = set()
+    for dia, esperado in consolidado.items():
+        obtido = nao_cancelados.get(dia, 0)
+        if esperado != obtido:
+            divergentes.add(dia)
+    return divergentes
+
+
+def deve_abortar(n_divergentes, n_comparados, limiar=0.05):
+    """True quando a fracao de dias divergentes excede `limiar`.
+
+    1 dia estranho num universo de 120 nao deveria travar a analise inteira;
+    divergencia generalizada indica bug sistemico de extracao e os numeros
+    nao sao confiaveis. `n_comparados == 0` nunca aborta (nada foi conferido,
+    nao ha base para decidir — e evita divisao por zero).
+    """
+    if n_comparados <= 0:
+        return False
+    return (n_divergentes / n_comparados) > limiar
+
+
+def chegadas_servicos(lista, handover):
+    """(chegadas, servicos) de uma lista de cupons, ordenados pelo horario de
+    INICIO (ascendente). chegadas = segundos desde a meia-noite; servicos =
+    duracao do cupom (fim - inicio) + handover, na mesma ordem de chegadas.
+
+    Pura: nao muta `lista` (usa `sorted`, nao `.sort()`).
+    """
+    ordenada = sorted(lista, key=lambda c: c["inicio"])
+    chegadas = [c["inicio"].hour * 3600 + c["inicio"].minute * 60 + c["inicio"].second
+                for c in ordenada]
+    servicos = [(c["fim"] - c["inicio"]).total_seconds() + handover for c in ordenada]
+    return chegadas, servicos
+
+
+def slots_piso_do_dow(dias_do_dow, floor_set):
+    """Slots (so o indice, sem o dia) que sao PISO para um dia-da-semana: pelo
+    menos um dos dias que compoem a curva desse dow bateu no piso (saturado
+    ou no teto de c_max) naquele slot.
+
+    `dias_do_dow` = dias (date) que contribuiram para a curva do dow.
+    `floor_set` = uniao global de (dia, slot) saturados ou no teto.
+    """
+    return {s for (dia, s) in floor_set if dia in dias_do_dow}
 
 
 def carregar_config(caminho):
@@ -60,6 +120,8 @@ def main():
     ap.add_argument("--stress", type=float, default=0.10, help="sensibilidade +-X na demanda")
     ap.add_argument("--corte-handover", type=float, default=120.0)
     ap.add_argument("--c-max", type=int, default=12)
+    ap.add_argument("--limiar-divergencia", type=float, default=0.05,
+                     help="fracao maxima de dias divergentes antes de abortar (default 0.05)")
     ap.add_argument("--config", default=None)
     args = ap.parse_args()
 
@@ -78,12 +140,22 @@ def main():
     for c in cupons:
         if not c["cancelado"]:
             nao_cancelados[c["dia"]] = nao_cancelados.get(c["dia"], 0) + 1
-    divergentes = [d for d, n in nao_cancelados.items()
-                   if d in consolidado and consolidado[d] != n]
+    divergentes = dias_divergentes(nao_cancelados, consolidado)
+    n_comparados = len(consolidado)
     print("== Conferencia da fonte (tbCupom x tbConsPDVOperador) ==")
-    print("   dias conferidos: %d | divergentes: %d" % (len(consolidado), len(divergentes)))
+    print("   dias conferidos: %d | divergentes: %d" % (n_comparados, len(divergentes)))
     if divergentes:
-        print("   [ATENCAO] dias que NAO batem: %s" % sorted(divergentes)[:10])
+        print("   [ATENCAO] dias que NAO batem (extraido x consolidado): %s"
+              % sorted(divergentes)[:10])
+        if deve_abortar(len(divergentes), n_comparados, args.limiar_divergencia):
+            raise SystemExit(
+                "[ERRO] %d/%d dias divergentes (%.1f%%) passam do limiar de %.1f%%: "
+                "extracao nao confiavel, abortando antes do resto do relatorio."
+                % (len(divergentes), n_comparados,
+                   100.0 * len(divergentes) / n_comparados,
+                   100.0 * args.limiar_divergencia))
+        print("   [ATENCAO] divergencia abaixo do limiar (%.1f%%): relatorio continua, "
+              "mas os dias acima nao sao confiaveis." % (100.0 * args.limiar_divergencia))
 
     # 2) handover + servico
     handover = dim_servico.estimar_handover(cupons, args.corte_handover)
@@ -107,17 +179,16 @@ def main():
     rng = random.Random(20260717)
     curvas, teto_total = {}, set()
     for (dia, dow), lista in por_dia.items():
-        lista.sort(key=lambda c: c["inicio"])
-        chegadas = [c["inicio"].hour * 3600 + c["inicio"].minute * 60 + c["inicio"].second
-                    for c in lista]
-        servicos = [(c["fim"] - c["inicio"]).total_seconds() + handover for c in lista]
+        chegadas, servicos = chegadas_servicos(lista, handover)
         curva, teto = dim_dimensionador.dimensionar_dia(
             chegadas, servicos, META_PCT, META_SEG, args.c_max)
         curvas.setdefault(dow, {})[dia] = curva
         teto_total |= {(dia, s) for s in teto}
 
     # 5) agregar no percentil e montar a escala
+    floor_total = saturados | teto_total
     print("\n== Caixas necessarios (P%d dos dias, 95%% < 3min) ==" % int(args.p * 100))
+    teve_piso = False
     for dow in sorted(curvas):
         p_curva = dim_escala.curva_percentil(curvas[dow], args.p)
         ativos = {s: c for s, c in p_curva.items() if c > 0}
@@ -125,11 +196,18 @@ def main():
             continue
         total, inicios = dim_escala.cobertura_minima(ativos)
         pico_slot = max(ativos, key=lambda s: ativos[s])
+        piso_dow = slots_piso_do_dow(set(curvas[dow]), floor_total)
         print("\n   %-8s min %d caixa(s) | max %d caixa(s) (pico %s) | %d operadora(s)"
               % (DIAS.get(dow, dow), min(ativos.values()), max(ativos.values()),
                  _hora(pico_slot), total))
-        print("      curva: " + " ".join("%s=%d" % (_hora(s), ativos[s])
-                                         for s in sorted(ativos)))
+        print("      curva: " + " ".join(
+            "%s=%d%s" % (_hora(s), ativos[s], "*" if s in piso_dow else "")
+            for s in sorted(ativos)))
+        if piso_dow & ativos.keys():
+            teve_piso = True
+    if teve_piso:
+        print("\n   * = piso (demanda censurada ou no teto de c_max): o numero e "
+              "minimo, nao estimativa.")
 
     # 6) ociosidade: exigido x aberto de fato
     print("\n== Ociosidade (exigido x aberto de fato) ==")
@@ -159,17 +237,15 @@ def main():
         for dow, por in curvas.items():
             novas = {}
             for dia, _curva in por.items():
+                # sort fixo antes de amostrar: preserva a mesma sequencia (logo
+                # o mesmo consumo do rng) que a versao anterior desta funcao.
                 lista = sorted(por_dia[(dia, dow)], key=lambda c: c["inicio"])
                 if fator > 1:
                     extras = rng.sample(lista, int(len(lista) * (fator - 1)))
-                    lista = sorted(lista + extras, key=lambda c: c["inicio"])
+                    lista = lista + extras
                 else:
-                    lista = sorted(rng.sample(lista, int(len(lista) * fator)),
-                                   key=lambda c: c["inicio"])
-                chegadas = [c["inicio"].hour * 3600 + c["inicio"].minute * 60
-                            + c["inicio"].second for c in lista]
-                servicos = [(c["fim"] - c["inicio"]).total_seconds() + handover
-                            for c in lista]
+                    lista = rng.sample(lista, int(len(lista) * fator))
+                chegadas, servicos = chegadas_servicos(lista, handover)
                 nc, _ = dim_dimensionador.dimensionar_dia(
                     chegadas, servicos, META_PCT, META_SEG, args.c_max)
                 novas[dia] = nc
