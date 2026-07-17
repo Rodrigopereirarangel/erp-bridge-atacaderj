@@ -183,6 +183,26 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-17: **Dimensionamento de caixas/operadoras por dia da semana RODADO
+  no ponte contra o banco real** (`src/dimensionamento_caixas.py` + 7 modulos
+  `dim_*` puros, ~1600 linhas, 73 testes, TDD subagente-a-subagente com review
+  por tarefa + review final da branch). Meta: **95% dos clientes com espera
+  < 3min na fila**, por faixa de 30min. Fonte `DORSAL.tbCupom` ∪
+  `tbCupomCancelado` (tbVendaPDV NAO serve: sem PDV/operador). Recorte: filial 1,
+  exclui PDV 11/12 (atacado), operador 7000 (fiscal), domingos. Metodo:
+  **simulacao de eventos discretos** (M/G/c fila unica, chegadas reais)
+  validada contra Erlang-C (deltas <=0.0052, tol 0.015); dimensionador por
+  ponto fixo; margem = **P85** do dia da semana; escala CLT 6h20. Confere
+  tbCupom x tbConsPDVOperador (145 dias, 1 divergente=2026-06-19, <5% -> avisa
+  e segue). Resultado real (6 meses, 94.789 cupons, servico mediano 65s +
+  handover 36s, **0 slots saturados** = demanda nao censurada, numeros sao
+  estimativa e nao piso):
+  operadoras/dia seg=8 ter=9 qua=10 qui=10 sex=11 sab=13; caixas simultaneos
+  min/max seg 2/5, ter 2/6, qua 3/6, qui 3/6, sex 3/7, sab 4/7 (pico 10-11h).
+  Ociosidade: no pico ~0 excesso; **06:30 sobra 1,5-2,6 caixas** (abertura
+  superdimensionada). NAO agendado (analise sob demanda). Spec+plano em
+  `docs/superpowers/`.
+
 - 2026-07-17: **Fase 1 da exposicao MIN/MAX no ar.** Query `VENDAS_CANAL`
   (DORSAL.tbCupom + tbCupomItem + resolucao de EAN por tbProdutoVenda) ->
   `saida/exposicao/vendas_canal.csv` (venda por item/dia/canal em unidades) e
