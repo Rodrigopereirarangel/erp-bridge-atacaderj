@@ -134,7 +134,13 @@ def main():
         print(f"incluir o atacado inflaria o giro em {atacado / salao * 100:.3f}%")
 
     if falhou:
-        print("\n[FALHOU] A resolucao de EAN esta errada. NAO use esta base.", file=sys.stderr)
+        if not dias_ok:
+            print("\n[FALHOU] Nenhum dia com veredito OK no periodo — nada foi "
+                  "provado (janela pequena demais ou so o dia corrente).",
+                  file=sys.stderr)
+        else:
+            print("\n[FALHOU] A resolucao de EAN esta errada. NAO use esta base.",
+                  file=sys.stderr)
         sys.exit(1)
     print("\n[OK] Reconciliacao exata: a base esta correta.")
 
