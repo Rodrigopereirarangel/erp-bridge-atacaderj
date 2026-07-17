@@ -47,7 +47,5 @@ def test_janela_e_parametrizavel():
 
 
 def test_e_somente_leitura():
-    sys.path.insert(0, os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
     import db  # noqa
     assert db._e_somente_leitura(_sql())
