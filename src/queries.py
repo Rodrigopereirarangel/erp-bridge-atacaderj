@@ -250,15 +250,28 @@ ORDER BY codigo, data
 # Deduplica por (produto, validade) pela maior recencia; rn<=2 pega as 2 mais
 # recentes por produto. A projecao (projections.vd) reordena p/ MENOR primeiro.
 VALIDADES = """
-WITH carga AS (
-    -- fonte AUTORIDADE: conferencia do recebimento. Por produto, cada validade
-    -- distinta com a data de conferencia mais recente em que ela apareceu.
-    SELECT ci.cdProduto AS codigo, CAST(ci.dtValidade AS date) AS validade,
-           MAX(ci.dtItemConferido) AS recencia
+WITH carga_dia AS (
+    -- fonte AUTORIDADE: conferencia do recebimento, agrupada por DIA. Duas notas
+    -- do mesmo dia (ex.: 10cx + 15cx do mesmo fornecedor) = UM recebimento so.
+    SELECT ci.cdProduto AS codigo,
+           CAST(ci.dtItemConferido AS date) AS dia,
+           CAST(ci.dtValidade AS date) AS validade
     FROM dbo.tbWmsCargaItem ci
     WHERE ci.dtValidade IS NOT NULL AND ci.cdProduto IS NOT NULL
       AND ci.dtItemConferido >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-    GROUP BY ci.cdProduto, CAST(ci.dtValidade AS date)
+    GROUP BY ci.cdProduto, CAST(ci.dtItemConferido AS date), CAST(ci.dtValidade AS date)
+),
+carga AS (
+    -- validades DISTINTAS dos 2 DIAS de recebimento mais recentes. Se os 2 dias
+    -- tiverem a mesma validade, sai so 1 (nao volta atras p/ estoque antigo).
+    SELECT codigo, validade, MAX(dia) AS recencia
+    FROM (
+        SELECT codigo, validade, dia,
+               DENSE_RANK() OVER (PARTITION BY codigo ORDER BY dia DESC) AS dr
+        FROM carga_dia
+    ) x
+    WHERE dr <= 2
+    GROUP BY codigo, validade
 ),
 fallback AS (
     -- RESERVA: so vale para produto que NAO tem conferencia (senao poluiria a
