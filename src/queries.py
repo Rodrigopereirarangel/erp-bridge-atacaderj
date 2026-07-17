@@ -250,38 +250,51 @@ ORDER BY codigo, data
 # Deduplica por (produto, validade) pela maior recencia; rn<=2 pega as 2 mais
 # recentes por produto. A projecao (projections.vd) reordena p/ MENOR primeiro.
 VALIDADES = """
+WITH carga AS (
+    -- fonte AUTORIDADE: conferencia do recebimento. Por produto, cada validade
+    -- distinta com a data de conferencia mais recente em que ela apareceu.
+    SELECT ci.cdProduto AS codigo, CAST(ci.dtValidade AS date) AS validade,
+           MAX(ci.dtItemConferido) AS recencia
+    FROM dbo.tbWmsCargaItem ci
+    WHERE ci.dtValidade IS NOT NULL AND ci.cdProduto IS NOT NULL
+      AND ci.dtItemConferido >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+    GROUP BY ci.cdProduto, CAST(ci.dtValidade AS date)
+),
+fallback AS (
+    -- RESERVA: so vale para produto que NAO tem conferencia (senao poluiria a
+    -- ordem dos "ultimos recebimentos" com recencia de escala diferente).
+    SELECT codigo, validade, MAX(recencia) AS recencia
+    FROM (
+        SELECT gv.cdProduto AS codigo, CAST(gv.dtValidade AS date) AS validade,
+               gv.dtInclusao AS recencia
+        FROM dbo.tbGestaoValidade gv
+        WHERE gv.dtValidade IS NOT NULL AND gv.cdProduto IS NOT NULL
+          AND gv.dtInclusao >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+        UNION ALL
+        SELECT i.cdProduto AS codigo, CAST(r.dVal AS date) AS validade,
+               ne.dtChegada AS recencia
+        FROM dbo.tbNotaFiscalItemRastro r
+        JOIN dbo.tbNotaItem i
+          ON i.cdNota = r.cdNota AND i.cdNotaItem = r.nItem
+         AND i.cdPessoaFilial = r.cdPessoaFilial
+        JOIN dbo.tbNotaEntrada ne
+          ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
+        WHERE r.dVal IS NOT NULL AND i.cdProduto IS NOT NULL
+          AND ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
+    ) u
+    GROUP BY codigo, validade
+),
+todas AS (
+    SELECT codigo, validade, recencia FROM carga
+    UNION ALL
+    SELECT f.codigo, f.validade, f.recencia FROM fallback f
+    WHERE NOT EXISTS (SELECT 1 FROM carga c WHERE c.codigo = f.codigo)
+)
 SELECT codigo, validade FROM (
     SELECT codigo, validade,
            ROW_NUMBER() OVER (PARTITION BY codigo
                               ORDER BY recencia DESC, validade DESC) AS rn
-    FROM (
-        SELECT codigo, validade, MAX(recencia) AS recencia
-        FROM (
-            SELECT ci.cdProduto AS codigo, CAST(ci.dtValidade AS date) AS validade,
-                   ci.dtItemConferido AS recencia
-            FROM dbo.tbWmsCargaItem ci
-            WHERE ci.dtValidade IS NOT NULL AND ci.cdProduto IS NOT NULL
-              AND ci.dtItemConferido >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-            UNION ALL
-            SELECT gv.cdProduto AS codigo, CAST(gv.dtValidade AS date) AS validade,
-                   gv.dtInclusao AS recencia
-            FROM dbo.tbGestaoValidade gv
-            WHERE gv.dtValidade IS NOT NULL AND gv.cdProduto IS NOT NULL
-              AND gv.dtInclusao >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-            UNION ALL
-            SELECT i.cdProduto AS codigo, CAST(r.dVal AS date) AS validade,
-                   ne.dtChegada AS recencia
-            FROM dbo.tbNotaFiscalItemRastro r
-            JOIN dbo.tbNotaItem i
-              ON i.cdNota = r.cdNota AND i.cdNotaItem = r.nItem
-             AND i.cdPessoaFilial = r.cdPessoaFilial
-            JOIN dbo.tbNotaEntrada ne
-              ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
-            WHERE r.dVal IS NOT NULL AND i.cdProduto IS NOT NULL
-              AND ne.dtChegada >= DATEADD(day, -{janela_entradas}, CAST(GETDATE() AS date))
-        ) u
-        GROUP BY codigo, validade
-    ) g
+    FROM todas
 ) t
 WHERE rn <= 2
 ORDER BY codigo, validade
