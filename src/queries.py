@@ -342,9 +342,9 @@ ORDER BY codigo, data_pedido
 # 14, 15 e 16/07. O script scripts/verificar-reconciliacao-canal.py
 # reproduz essa prova no ponte.
 #
-# Historico do DORSAL: desde 2026-01-22 (~150 dias uteis). Menor que o do
+# Historico do DORSAL: desde 2026-01-22 (~125 dias uteis). Menor que o do
 # tbVendaPDV (2023), mas e o unico que permite excluir o atacado — que e
-# 44% do volume.
+# 35% do volume (medido em 30 dias; a amostra de 3 dias dava 44%).
 VENDAS_CANAL = """
 SELECT
     COALESCE(pv.cdProduto, i.cdProduto)              AS codigo,
