@@ -118,3 +118,27 @@ def pedidos():
          "qtd_pedida": 240, "status": "aberto",
          "previsao_entrega": (hoje + timedelta(days=4)).isoformat(), "fornecedor": "Kelloggs"},
     ]
+
+
+def vendas_canal(janela_dias=400):
+    """Venda por item/dia/canal falsa. Sabado pesa ~2x a segunda (como na loja
+    real) e domingo nao vende — assim o --demo exercita o calendario e o fator
+    de dia-da-semana do consumidor."""
+    from datetime import date, timedelta
+    hoje = date.today()
+    itens = [(18464, 30.0), (34743, 8.0), (16416, 3.0), (42309, 0.05)]
+    peso_dia = {0: 0.7, 1: 0.8, 2: 0.9, 3: 1.1, 4: 1.3, 5: 1.6}  # seg..sab
+    linhas = []
+    for d in range(janela_dias):
+        dia = hoje - timedelta(days=d)
+        if dia.weekday() == 6:  # domingo: loja fechada
+            continue
+        for cod, base in itens:
+            un = round(base * peso_dia[dia.weekday()], 3)
+            if un > 0:
+                linhas.append({"codigo": cod, "data": dia.isoformat(),
+                               "canal": "salao", "unidades": un})
+            if cod in (18464, 34743) and d % 3 == 0:   # atacado e esporadico e grande
+                linhas.append({"codigo": cod, "data": dia.isoformat(),
+                               "canal": "atacado", "unidades": round(base * 20, 3)})
+    return linhas

@@ -279,3 +279,44 @@ def prateleira_csv(catalogo, caminho):
               for r in catalogo if str(r.get("prateleira") or "").strip()]
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
+
+
+# ---------- Consumidor: exposicao (calc. MIN/MAX) ----------
+
+def vendas_canal_csv(vendas_canal, caminho):
+    """Venda diaria por item em UNIDADES, separada por canal (salao x atacado).
+    Base do calculo de MIN/MAX de exposicao (spec 2026-07-17).
+
+    O canal ja vem resolvido da query (queries.VENDAS_CANAL): o consumidor
+    nunca ve numero de PDV. Duas perguntas diferentes usam filtros diferentes
+    deste mesmo arquivo — o giro da prateleira usa SO 'salao' (atacado nao sai
+    da gondola), e o saldo de estoque usa OS DOIS (a caixa do atacado consome
+    o mesmo estoque)."""
+    cab = ["codigo", "data", "canal", "unidades"]
+    linhas = [[r["codigo"], r["data"], r["canal"], r["unidades"]] for r in vendas_canal]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
+def catalogo_exposicao_csv(catalogo, caminho):
+    """Atributos que o calculo de exposicao precisa do cadastro.
+
+    caixa_mae = catalogo["embalagem"] = VW_NEOGRID_PRODUTO_PRECO.QUANTIDADE_CAIXA.
+    E o CADASTRO — nunca a nota de entrada (decisao do dono, spec D7): o
+    calculo roda todo em unidades e so converte para caixa no ultimo passo.
+    Item sem caixa-mae fica de fora: sem ela nao da para arredondar."""
+    cab = ["codigo", "descricao", "caixa_mae", "prateleira", "curva"]
+    linhas = []
+    for r in catalogo:
+        emb = r.get("embalagem")
+        if not emb or float(emb) <= 0:
+            continue
+        linhas.append([
+            r["codigo"],
+            r.get("descricao"),
+            int(float(emb)),
+            str(r.get("prateleira") or "").strip(),
+            r.get("curva"),
+        ])
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
