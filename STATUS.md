@@ -183,6 +183,19 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-17 (2ª rodada): **Meta oficial revisada para 5min/95% todos os dias**
+  (decisão do dono após análise de sensibilidade: o sábado exige 12 turnos com
+  3min OU 5min — a meta apertada só encarecia os dias de semana). CLI ganhou
+  `--meta-seg`/`--meta-pct` (default 300s/0.95). Relatório oficial 5min/95%
+  (jornada 6h20): turnos/dia seg=8 ter=9 qua=9 qui=10 sex=10 **sáb=12**
+  (semana 58; em 44h: seg=7 ter=9 qua=9 qui=9 sex=9 sáb=12, semana 55).
+  Pico simultâneo continua ≤7 caixas. Stress +10%: sáb=13. Ociosidade da
+  abertura ficou ainda mais visível (06:30 sobra +2,1 a +3,0 caixas).
+  Quadro (férias 0,085N + faltas medidas 7,4%): mínimo 13-14, fixo pleno 15,
+  ou **mista 11-12 fixas + 3 tempo-parcial sex/sáb**. Medido nos sábados: span
+  mediano no caixa 7,7h (69% >7,5h, máx 9,7h) — é assim que 8-9 pessoas cobrem
+  hoje o que o modelo divide em 12 turnos legais.
+
 - 2026-07-17: **Dimensionamento de caixas/operadoras por dia da semana RODADO
   no ponte contra o banco real** (`src/dimensionamento_caixas.py` + 7 modulos
   `dim_*` puros, ~1600 linhas, 73 testes, TDD subagente-a-subagente com review
