@@ -331,7 +331,7 @@ ORDER BY emissao, vendedor, cliente, pedido, i.cdPedidoItem
 # grupo = familia mercadologica = VW_MGN_PRODUTO.Departamento (ver cabecalho).
 HISTORICO_CLIENTE = """
 SELECT
-    ps.nmPessoa                                AS cliente,
+    LTRIM(RTRIM(ps.nmPessoa))                  AS cliente,
     i.cdProduto                                AS codigo,
     sp.nmProdutoPai                            AS produto,
     CAST(p.dtAtendido AS date)                 AS data,

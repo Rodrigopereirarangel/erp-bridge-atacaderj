@@ -269,6 +269,11 @@ def pedidos_venda_csv(itens, caminho):
 # grupo vazio no CSV (o app trata como "SEM GRUPO" e nao gera par de cross-sell).
 GRUPO_FORA_DO_MIX = "INATIVOS OU FORA DO MIX"
 
+# Grafias divergentes da arvore do ERP que sao a MESMA familia (descoberto na
+# revisao de 2026-07-17: "CONSERVAS 2" partia a familia CONSERVAS em duas e
+# enfraquecia o lookalike do app).
+GRUPO_NORMALIZA = {"CONSERVAS 2": "CONSERVAS"}
+
 
 def historico_cliente_csv(itens, caminho):
     """Historico de compras por cliente (itens de pedido de venda/DAV, ~24
@@ -282,6 +287,7 @@ def historico_cliente_csv(itens, caminho):
         grupo = str(r.get("grupo") or "").strip()
         if grupo.upper() == GRUPO_FORA_DO_MIX:
             grupo = ""
+        grupo = GRUPO_NORMALIZA.get(grupo.upper(), grupo)
         linhas.append([r["cliente"], r["codigo"], r["produto"], r["data"],
                        r["emb"], r["unidades_por_emb"], r["qtde_emb"],
                        r["unidades"], r["valor"], r["custo"], grupo])

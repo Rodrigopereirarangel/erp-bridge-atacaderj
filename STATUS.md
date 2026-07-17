@@ -523,3 +523,5 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
   merge — mas fica registrado que **a integração final ainda depende de
   decidir/executar os planos de `docs/superpowers/plans/`**. Ver item revisto
   no checklist acima.
+
+- 2026-07-17 (revisão profunda): HISTORICO_CLIENTE ganha LTRIM(RTRIM(nmPessoa)) (13 clientes tinham espaço na borda do nome) e normalização de grafia de família ("CONSERVAS 2"→"CONSERVAS", que partia a família no lookalike do app). tests_historico_cliente: 7.

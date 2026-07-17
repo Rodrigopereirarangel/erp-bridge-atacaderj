@@ -63,6 +63,15 @@ def test_grupo_fora_do_mix_vira_vazio():
     assert grupos == ["", "", "", "BEBIDAS"], grupos
 
 
+def test_grupo_normalizado_conservas_2():
+    # "CONSERVAS 2" e a MESMA familia de "CONSERVAS" (grafia da arvore do ERP);
+    # sem normalizar, o lookalike do app ve duas familias diferentes
+    _, linhas = _escrever_e_ler([_linha(grupo="CONSERVAS 2"),
+                                 _linha(grupo="CONSERVAS")])
+    grupos = [ln[-1] for ln in linhas[1:]]
+    assert grupos == ["CONSERVAS", "CONSERVAS"], grupos
+
+
 def test_demo_tem_forma_e_contas_consistentes():
     itens = demo_data.historico_cliente()
     assert len(itens) >= 8, "demo minguado"
@@ -92,6 +101,7 @@ def test_query_respeita_os_fatos_do_schema():
     assert "dtAtendido" in q                             # emissao, nao dtPedido
     assert "LEFT JOIN dbo.VW_MGN_PRODUTO" in q           # item sem familia nao some
     assert "i.qtPedidoItem > 0" in q                     # item zerado nao e compra
+    assert "LTRIM(RTRIM(ps.nmPessoa))" in q              # nome sem espaco na borda
     for alias in CAB:
         assert f"AS {alias}" in q, f"query nao expoe a coluna {alias}"
 
@@ -100,6 +110,7 @@ TESTES = [
     test_cabecalho_11_colunas_terminando_em_grupo,
     test_valores_na_ordem_do_contrato,
     test_grupo_fora_do_mix_vira_vazio,
+    test_grupo_normalizado_conservas_2,
     test_demo_tem_forma_e_contas_consistentes,
     test_demo_passa_pela_projecao,
     test_query_respeita_os_fatos_do_schema,
