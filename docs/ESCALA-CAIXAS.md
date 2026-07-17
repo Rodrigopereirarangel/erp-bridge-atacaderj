@@ -1,5 +1,13 @@
 # Escala de caixas — banco de horas (decisão do dono, 17/07/2026)
 
+> **MOVIDO (17/07):** a escala oficial e viva agora mora no repo
+> [`escala`](https://github.com/Rodrigopereirarangel/escala) —
+> `frente-de-loja-pdv/ESCALA.md` (estrutura completa da frente: 12 postos /
+> 13 pessoas, com balcão de atacado, conferência e gerência) e `DECISOES.md`
+> (histórico do porquê). Este arquivo fica como registro histórico do
+> dimensionamento dos caixas do varejo; o motor de cálculo continua aqui
+> (`src/dimensionamento_caixas.py` + `src/dim_*.py`).
+
 Meta: **95% dos clientes com espera < 5min**, todos os dias, dimensionado no
 P85 (dia forte) sobre 6 meses de cupons reais. Quadro: **11 operadoras**
 (mínimo 10), banco de horas já vigente na loja. Férias (~1 sempre fora) e
