@@ -18,12 +18,17 @@ via camada de projecao, o formato exato de cada consumidor:
   sobe no artifact do claude.ai pelo botao "Catalogo" do app
   historico-cliente -> historico_cliente.csv do app recuperacao-itens
                    (Recuperar+Ampliar; compras por cliente, ~24 meses de DAV)
+  vendas-canal  -> exposicao/vendas_canal.csv + exposicao/catalogo_exposicao.csv
+                   (venda por item/dia/canal em unidades + caixa-mae/prateleira;
+                    base do calculo de MIN/MAX de exposicao — janela longa,
+                    agenda MENSAL propria, como o historico-cliente)
 
 Uso:
   python src/bridge.py --demo                # gera tudo com dados falsos (sem banco)
   python src/bridge.py                       # gera tudo lendo o MySQL (config.local.json)
   python src/bridge.py --only catalogo       # so o catalogo (para o agendamento 3-5x/dia)
   python src/bridge.py --only movimentos     # vendas+recebimentos+pedidos (agendamento diario)
+  python src/bridge.py --only exposicao      # base do MIN/MAX de exposicao (mensal)
   python src/bridge.py --config caminho.json # usa outro arquivo de config
 """
 
@@ -56,30 +61,44 @@ def carregar_config(caminho):
 
 
 def coletar(cfg, usar_demo, alvo="all"):
-    """Devolve as 7 tabelas brutas, do banco ou do demo. So o historico de
-    cliente e condicionado ao alvo: a janela e longa (~24 meses de DAV), entao
-    ele nao roda nos agendamentos de catalogo/movimentos — e vice-versa, o job
-    das 01:00 (--only historico-cliente) nao paga as outras 6 queries."""
+    """Devolve as 8 tabelas brutas, do banco ou do demo. Duas sao condicionadas
+    ao alvo porque tem janela longa e agenda propria: o historico de cliente
+    (~24 meses de DAV) e a exposicao (~400 dias de cupom do DORSAL). Nenhuma
+    das duas roda nos agendamentos de catalogo/movimentos — e vice-versa, os
+    jobs delas nao pagam as outras queries."""
     janela = cfg.get("janela_dias", 120)
     janela_ent = cfg.get("janela_entradas_dias", 180)
     janela_pv = cfg.get("janela_pedidos_venda_dias", 7)
     meses_vm = cfg.get("vendas_mensal_meses", 6)
     meses_hc = cfg.get("historico_cliente_meses", 24)
+    janela_exp = cfg.get("exposicao", {}).get("janela_dias", 400)
+    pdvs_atacado = cfg.get("exposicao", {}).get("pdvs_atacado", [11, 12])
     quer_hc = alvo in ("all", "historico-cliente")
+    quer_exp = alvo in ("all", "exposicao")
     so_hc = alvo == "historico-cliente"
+    so_exp = alvo == "exposicao"
+    leve = so_hc or so_exp          # alvos de janela longa: nao pagam o resto
+
     if usar_demo:
-        if so_hc:
-            return [], [], [], [], [], [], demo_data.historico_cliente()
+        vc = demo_data.vendas_canal(janela_exp) if quer_exp else []
+        if leve:
+            hc = demo_data.historico_cliente() if quer_hc else []
+            cat = demo_data.catalogo() if quer_exp else []
+            return cat, [], [], [], [], [], hc, vc
         return (demo_data.catalogo(), demo_data.vendas(janela),
                 demo_data.entradas(janela_ent), demo_data.pedidos(), [],
                 demo_data.vendas_mensal(),
-                demo_data.historico_cliente() if quer_hc else [])
+                demo_data.historico_cliente() if quer_hc else [], vc)
 
     import db
     conn = db.conectar(cfg["db"])
     try:
         cat = ven = ent = ped = pv = vm = []
-        if not so_hc:
+        # a exposicao precisa do catalogo (caixa-mae/prateleira), mas nao das
+        # queries de movimento
+        if so_exp:
+            cat = db.consultar(conn, queries.CATALOGO)
+        elif not so_hc:
             cat = db.consultar(conn, queries.CATALOGO)
             ven = db.consultar(conn, queries.VENDAS.format(janela=int(janela)))
             ent = db.consultar(conn, queries.ENTRADAS.format(janela_entradas=int(janela_ent)))
@@ -88,12 +107,16 @@ def coletar(cfg, usar_demo, alvo="all"):
             vm = db.consultar(conn, queries.VENDAS_MENSAL.format(meses_fechados=int(meses_vm)))
         hc = (db.consultar(conn, queries.HISTORICO_CLIENTE.format(historico_meses=int(meses_hc)))
               if quer_hc else [])
+        vc = (db.consultar(conn, queries.VENDAS_CANAL.format(
+                  janela_exposicao=int(janela_exp),
+                  pdvs_atacado=", ".join(str(int(p)) for p in pdvs_atacado)))
+              if quer_exp else [])
     finally:
         conn.close()
-    return cat, ven, ent, ped, pv, vm, hc
+    return cat, ven, ent, ped, pv, vm, hc, vc
 
 
-def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, alvo):
+def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo):
     saida = cfg["saida"]
     salao = saida["detector_salao_dir"]
     estoque = saida["detector_estoque_dir"]
@@ -186,6 +209,13 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, alvo):
         else:
             rel.append("historico_cliente.csv: PULADO (falta saida.historico_cliente_csv no config)")
 
+    if alvo in ("all", "exposicao"):
+        exp_dir = saida.get("exposicao_dir") or os.path.join(RAIZ, "saida", "exposicao")
+        n = projections.vendas_canal_csv(vc, os.path.join(exp_dir, "vendas_canal.csv"))
+        rel.append(f"exposicao/vendas_canal.csv: {n}")
+        n = projections.catalogo_exposicao_csv(cat, os.path.join(exp_dir, "catalogo_exposicao.csv"))
+        rel.append(f"exposicao/catalogo_exposicao.csv: {n}")
+
     if alvo in ("all", "movimentos", "vendas-mensal"):
         dash_dir = saida.get("dashboard_dir") or os.path.join(RAIZ, "saida", "dashboard")
         ni, nm = projections.vendas_mensal_dashboard(
@@ -200,7 +230,7 @@ def main():
     ap = argparse.ArgumentParser(description="Ponte ERP -> consumidores AtacadeRJ")
     ap.add_argument("--demo", action="store_true", help="usa dados falsos, sem tocar no banco")
     ap.add_argument("--only", default="all",
-                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente"],
+                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente", "exposicao"],
                     help="qual bloco gerar (default: all)")
     ap.add_argument("--config", default=None, help="caminho do config (default: config.local.json)")
     args = ap.parse_args()
@@ -209,8 +239,8 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, ent, ped, pv, vm, hc = coletar(cfg, args.demo, args.only)
-        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, args.only)
+        cat, ven, ent, ped, pv, vm, hc, vc = coletar(cfg, args.demo, args.only)
+        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")

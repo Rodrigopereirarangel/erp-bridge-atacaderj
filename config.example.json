@@ -41,6 +41,12 @@
     "remetentes": ["5521970117082"]
   },
 
+  "exposicao": {
+    "_comentario": "base do MIN/MAX de exposicao na prateleira (job MENSAL). janela_dias 400 = todo o historico do DORSAL (que so comeca em 2026-01-22). pdvs_atacado = PDVs cujas vendas NAO saem da prateleira (atacado): ficam fora do giro, mas contam no saldo de estoque.",
+    "janela_dias": 400,
+    "pdvs_atacado": [11, 12]
+  },
+
   "saida": {
     "_upload_manual_dir": "pastas com UM arquivo cada (upload manual de contingencia), sobrescritos a cada janela; padrao: Desktop/AtacadeRJ-Banco e Desktop/AtacadeRJ-Auditoria",
     "upload_manual_dir": "C:/Users/COMPUTADOR/Desktop/AtacadeRJ-Banco",
@@ -49,6 +55,7 @@
     "detector_salao_dir":   "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-salao",
     "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque",
     "_historico_cliente_csv": "relativo ao CWD de proposito (o --demo roda em qualquer maquina); no config.local.json use o caminho ABSOLUTO do data/input do app recuperacao-itens",
-    "historico_cliente_csv": "saida/recuperacao-itens/historico_cliente.csv"
+    "historico_cliente_csv": "saida/recuperacao-itens/historico_cliente.csv",
+    "exposicao_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/exposicao"
   }
 }
