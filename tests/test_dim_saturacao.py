@@ -54,7 +54,7 @@ def test_cupom_cruza_slot_20_para_21():
     # 1 PDV, 1 cupom comecando em 10:29:00 (offset 1740s de BASE=10:00) com 200s de duracao.
     # Slot 20 vai 10:00-10:30 (36000-37800s em absolute)
     # Slot 21 vai 10:30-11:00 (37800-39600s em absolute)
-    # Cupom vai 10:29:00-10:31:20 (37740-37940s em absolute)
+    # Cupom vai 10:29:00-10:32:20 (37740-37940s em absolute)
     # Slot 20 contribui: min(37940, 37800) - max(37740, 36000) = 37800 - 37740 = 60s
     # Slot 21 contribui: min(37940, 39600) - max(37740, 37800) = 37940 - 37800 = 140s
     cupons = [_cupom(1, 1740, 200)]
@@ -75,7 +75,9 @@ def test_cupom_apos_meia_noite_clipeado():
     # Valida o guard: cupom que cruzaria meia-noite e clipado, nao emite slot >= 48.
     # Criamos um cupom hipotetico comecando em 23:59:00 (86340s) com 120s de duracao.
     # Teoricamente fim_s seria 86460s (slot 48, invalido).
-    # Apos clipping, fim_s vira min(86460, 86400) = 86400, garantindo ultimo = 47.
+    # Apos clipping, fim_s vira min(86460, 86400) = 86400. Slot 48 ainda e iterado
+    # (ultimo = 48), mas sempre contribui dentro <= 0 (pois ini_s < 86400 e fim_s <= 86400),
+    # entao o filtro if dentro > 0 o suprime. Nao ha bound em ultimo; a protecao e o filtro.
     # Nota: usando uma data diferente para evitar conflito com testes anteriores.
     outro_dia = date(2026, 7, 15)
     tarde = datetime(2026, 7, 15, 23, 59, 0)
@@ -91,6 +93,9 @@ def test_cupom_apos_meia_noite_clipeado():
     # Deve haver exatamente uma entrada: (outro_dia, 47)
     assert len(folga) == 1
     assert (outro_dia, 47) in folga
+    # Verifica que exatamente 60s (nao 120s) foi contado: cupom comeca em 86340s,
+    # slot 47 termina em 86400s, entao contribui min(86400, 86400) - 86340 = 60s.
+    assert abs(folga[(outro_dia, 47)] - (1 - 60.0/1800.0)) < 1e-9
 
 
 if __name__ == "__main__":
