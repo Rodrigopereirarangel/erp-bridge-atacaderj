@@ -1966,8 +1966,15 @@ numero auditavel em vez de magico. Cobertura abaixo do limiar sai destacada no
 cabecalho — o dono le o numero, o sistema nao esconde nem trava (D16)."""
 import html as _html
 import os
+import re
 import shutil
 import subprocess
+
+
+def _chave_natural(s):
+    """PRATELEIRA 2 antes de PRATELEIRA 10 — ordem em que o repositor caminha,
+    nao a ordem lexicografica ("10" < "2" em string)."""
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
 
 CSS = """
 body{font-family:Segoe UI,Arial,sans-serif;font-size:11px;margin:18px;color:#111}
@@ -2005,7 +2012,15 @@ def html(linhas, resumo):
             f"(λ={resumo['lam']:.2f}). Os números abaixo estão entregues assim mesmo — "
             f"trate o mínimo como otimista.</div>")
 
-    for prat in sorted(por_prat):
+    tol = resumo.get("tol_bootstrap")
+    if tol is not None and resumo["bootstrap"] > tol:
+        p.append(
+            f"<div class='alerta'><b>Atenção:</b> o modelo divergiu "
+            f"{resumo['bootstrap'] * 100:.0f}% do histórico real no teste de 7 dias "
+            f"(tolerância {tol * 100:.0f}%). O MÍN está aferido pelo backtest; "
+            f"o MÁX de 30 dias depende mais do modelo — confira os itens grandes.</div>")
+
+    for prat in sorted(por_prat, key=_chave_natural):
         p.append(f"<h2>{e(prat)}</h2>")
         p.append("<table><tr><th>Código</th><th>Descrição</th><th>Cx-mãe</th>"
                  "<th>Giro un/dia</th><th>MÍN un</th><th>MÍN cx</th>"
@@ -2188,7 +2203,7 @@ def test_resumo_tem_o_que_o_rodape_precisa():
         _montar(d)
         r = rodar.pipeline(_cfg(d), np.random.default_rng(42))["resumo"]
         for k in ("periodo", "dias_uteis", "dias_censurados", "lam", "cobertura",
-                  "bootstrap", "elegiveis", "itens", "gerado_em"):
+                  "bootstrap", "tol_bootstrap", "elegiveis", "itens", "gerado_em"):
             assert k in r, f"falta {k}"
         assert r["lam"] >= 1.0
 
@@ -2306,13 +2321,23 @@ import relatorio   # noqa: E402
 import simular     # noqa: E402
 
 
-def _janelas_de_7_dias(vendas_item, cal, fora):
+def _janelas_de_7_dias(vendas_item, cal, fora, a_partir_de=None):
     """Soma do salao em cada janela de 7 dias corridos LIMPA (nenhum dia
-    censurado dentro). Alimenta o backtest e o bootstrap."""
-    dias = cal["dias"]
-    if not dias:
+    censurado dentro), restrita a VIDA do item (1a a ultima venda). Sem essa
+    restricao, um item novo contribuiria janelas de zero de ANTES de existir —
+    deflacionando o P95 empirico do bootstrap e inflando a cobertura do
+    backtest com acertos triviais. `a_partir_de` (ISO) restringe o INICIO
+    (usado p/ pegar so as janelas do holdout)."""
+    vida = calendario.janela_do_item(vendas_item, cal)
+    if vida is None:
         return []
-    ini, fim = date.fromisoformat(dias[0]), date.fromisoformat(dias[-1])
+    dias = cal["dias"]
+    ini = date.fromisoformat(dias[vida[0]])
+    fim = date.fromisoformat(dias[vida[1]])
+    if a_partir_de:
+        apd = date.fromisoformat(a_partir_de)
+        if apd > ini:
+            ini = apd
     idx = set(dias)
     out = []
     d = ini
@@ -2359,14 +2384,36 @@ def pipeline(cfg, rng):
     n_janelas = {cod: len(v) for cod, v in janelas.items()}
     eleg = calibrar.elegiveis(ajustes, n_janelas, cfg)
 
-    holdout = cfg["validacao"]["semanasHoldout"]
+    # Backtest SEM ESPIAR O FUTURO (spec §7.1): o modelo usado na medicao e
+    # ajustado SO com os dias anteriores ao holdout (as ultimas N semanas);
+    # as janelas do holdout sao a prova. Sem esse corte, o modelo teria visto
+    # as proprias semanas que deveria prever — cobertura inflada, lambda
+    # otimista, e a folga que o dono pediu sairia menor do que a real.
+    # O modelo de PRODUCAO (as linhas finais) segue usando o periodo inteiro;
+    # o corte existe apenas para medir a otimismo honestamente.
+    semanas = cfg["validacao"]["semanasHoldout"]
+    n_dias = len(cal["dias"])
+    corte = max(0, n_dias - semanas * 6)          # ~6 dias uteis por semana
+    cal_treino = {"dias": cal["dias"][:corte],
+                  "indice": {d: i for i, d in enumerate(cal["dias"][:corte])},
+                  "fechados": cal["fechados"]}
+    inicio_holdout = cal["dias"][corte] if corte < n_dias else None
+
     pares = []
-    for cod in eleg:
-        d7 = simular.distribuicao(ajustes[cod]["mu"], ajustes[cod]["r"], _f(cod),
-                                  cfg["horizonte"]["minDiasCorridos"], cfg, rng)
-        for _, real in janelas[cod][-holdout:]:
-            pares.append({"amostras": d7, "caixa_mae": catalogo[cod]["caixa_mae"],
-                          "real": real})
+    if inicio_holdout:
+        for cod in eleg:
+            aj_t = modelo.ajustar(cod, vendas.get(cod, {}), cal_treino,
+                                  fora_por_item.get(cod, set()), _f(cod), cfg,
+                                  r_global=rg)
+            if aj_t["mu"] <= 0:
+                continue                # item novo demais: nasceu dentro do holdout
+            d7_t = simular.distribuicao(aj_t["mu"], aj_t["r"], _f(cod),
+                                        cfg["horizonte"]["minDiasCorridos"], cfg, rng)
+            for _, real in _janelas_de_7_dias(vendas.get(cod, {}), cal,
+                                              fora_por_item.get(cod, set()),
+                                              a_partir_de=inicio_holdout):
+                pares.append({"amostras": d7_t,
+                              "caixa_mae": catalogo[cod]["caixa_mae"], "real": real})
     lam, cobertura = calibrar.buscar_lambda(pares, cfg) if pares else (1.0, 1.0)
 
     # bootstrap: so aferição de rodape (nao trava — spec §7.3)
@@ -2393,6 +2440,7 @@ def pipeline(cfg, rng):
         "lam": lam,
         "cobertura": cobertura,
         "bootstrap": bootstrap,
+        "tol_bootstrap": cfg["validacao"]["tolBootstrap"],
         "elegiveis": len(eleg),
         "itens": len(linhas),
         "gerado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -2489,6 +2537,19 @@ ssh -i ~/.ssh/id_ed25519_ponte User@100.99.176.6 "cd C:\Users\User\exposicao-ata
 ```
 Expected: todos passam. O `config.example.json` já aponta para os caminhos do ponte (`C:/Users/User/erp-bridge-atacaderj/saida/...`) e já vem com `dryRun: true`.
 
+**⚠️ Confira o caminho do `entradas.csv` antes de rodar.** O default aponta para
+`.../erp-bridge-atacaderj/saida/detector-salao/entradas.csv`, mas no ponte o `config.local.json`
+do bridge redireciona `saida.detector_salao_dir` para o `data/input` do detector — o arquivo
+real provavelmente está em `C:/Users/User/detector-ruptura-atacaderj/data/input/entradas.csv`.
+Leia o config do bridge no ponte e ajuste `entrada.entradas_csv` no `config.local.json` da
+exposicao para onde o arquivo de fato existe:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_ponte User@100.99.176.6 "python -c \"import json; print(json.load(open(r'C:\Users\User\erp-bridge-atacaderj\config.local.json', encoding='utf-8'))['saida']['detector_salao_dir'])\""
+```
+Se o `importar` não achar o arquivo, ele dá erro claro — mas melhor acertar agora do que na
+rodada agendada do mês seguinte.
+
 - [ ] **Step 3: Rodar com os dados REAIS (ainda dry-run)**
 
 ```bash
@@ -2512,14 +2573,18 @@ scp -i ~/.ssh/id_ed25519_ponte User@100.99.176.6:C:/Users/User/exposicao-atacade
 
 **Não ligue o envio.** `dryRun` vira `false` **só** depois de o dono validar os números contra a gôndola (spec D14). É uma linha no `config.local.json` do ponte, e é decisão dele, não sua.
 
-- [ ] **Step 5: Agendar (mensal, dia 1 às 05:30) e commitar**
+- [ ] **Step 5: Agendar (mensal, dia 1 às 06:00) e commitar**
 
 Depois da validação do dono, e só então:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_ponte User@100.99.176.6 "schtasks /Create /TN \"AtacadeRJ - Exposicao MinMax\" /TR \"python C:\Users\User\exposicao-atacaderj\src\rodar.py\" /SC MONTHLY /D 1 /ST 05:30 /F && schtasks /Run /TN \"AtacadeRJ - Exposicao MinMax\" && timeout /t 300 && schtasks /Query /TN \"AtacadeRJ - Exposicao MinMax\" /FO LIST | findstr /C:\"Last Result\""
+ssh -i ~/.ssh/id_ed25519_ponte User@100.99.176.6 "schtasks /Create /TN \"AtacadeRJ - Exposicao MinMax\" /TR \"python C:\Users\User\exposicao-atacaderj\src\rodar.py\" /SC MONTHLY /D 1 /ST 06:00 /F && schtasks /Run /TN \"AtacadeRJ - Exposicao MinMax\" && timeout /t 300 && schtasks /Query /TN \"AtacadeRJ - Exposicao MinMax\" /FO LIST | findstr /C:\"Last Result\""
 ```
-Expected: `Last Result: 0` (05:30 roda **depois** do `--only exposicao` das 04:00, que gera os CSVs)
+Expected: `Last Result: 0`
+
+Por que 06:00: o `--only exposicao` das 04:00 já gerou os CSVs, o Movimentos das 05:00 já
+atualizou o `entradas.csv`, e o DetectorRuptura-Diario das 05:30 (seg–sáb, mesmo PC) já passou —
+a simulação é pesada de CPU e não deve disputar com ele.
 
 ```bash
 git add README.md
