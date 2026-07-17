@@ -319,3 +319,48 @@ GROUP BY i.cdProduto, CAST(p.dtPedido AS date)
 HAVING SUM((i.qtPedidoItem - COALESCE(i.qtAtendida, 0)) * i.qtEmbalagem) > 0
 ORDER BY codigo, data_pedido
 """
+
+# VENDAS_CANAL: venda diaria por item em UNIDADES, separada por canal
+# (salao x atacado). E a base do calculo de MIN/MAX de exposicao
+# (spec 2026-07-17). Tres fatos do schema que ela existe para contornar,
+# todos verificados em producao em 2026-07-17:
+#
+# 1. tbVendaPDV NAO TEM o numero do PDV. Nenhuma coluna. O PDV so existe
+#    em DORSAL.tbCupom.cdPDV -> por isso esta query sai do DORSAL, e nao
+#    da tabela que o resto do bridge usa.
+# 2. tbCupomItem.cdProduto vem ora como codigo interno, ora como EAN de
+#    barras. tbProdutoVenda mapeia cdEAN -> cdProduto.
+# 3. Cada EAN carrega qtVenda = quantas UNIDADES ele representa. O
+#    produto 18464 (LEITE COND PIRACANJUBA) tem EAN 7898215152002
+#    (qtVenda=1, a unidade) e 17898215152009 (qtVenda=27, a CAIXA). No
+#    atacado bipa-se a caixa: sem multiplicar por qtVenda, 1 caixa vira
+#    "1 unidade" e o giro sai 27x errado.
+#
+# PROVA (2026-07-17): com a resolucao de EAN, o total desta query bate ao
+# decimal com Solidcon.tbVendaPDV (a base oficial ja validada contra o
+# consolidado do PDV): 23.406,68 / 22.293,31 / 39.474,89 unidades em
+# 14, 15 e 16/07. O script scripts/verificar-reconciliacao-canal.py
+# reproduz essa prova no ponte.
+#
+# Historico do DORSAL: desde 2026-01-22 (~150 dias uteis). Menor que o do
+# tbVendaPDV (2023), mas e o unico que permite excluir o atacado — que e
+# 44% do volume.
+VENDAS_CANAL = """
+SELECT
+    COALESCE(pv.cdProduto, i.cdProduto)              AS codigo,
+    CAST(c.dtCupom AS date)                          AS data,
+    CASE WHEN c.cdPDV IN ({pdvs_atacado})
+         THEN 'atacado' ELSE 'salao' END             AS canal,
+    CAST(SUM(i.qtItem * COALESCE(pv.qtVenda, 1)) AS decimal(14,3)) AS unidades
+FROM DORSAL.dbo.tbCupom c
+JOIN DORSAL.dbo.tbCupomItem i ON i.gdCupom = c.gdCupom
+LEFT JOIN dbo.tbProdutoVenda pv
+       ON pv.cdEAN = i.cdProduto
+      AND pv.cdEmpresa = 10          -- empresa da loja (verificado)
+WHERE c.dtCupom >= DATEADD(day, -{janela_exposicao}, CAST(GETDATE() AS date))
+GROUP BY COALESCE(pv.cdProduto, i.cdProduto),
+         CAST(c.dtCupom AS date),
+         CASE WHEN c.cdPDV IN ({pdvs_atacado})
+              THEN 'atacado' ELSE 'salao' END
+ORDER BY codigo, data, canal
+"""
