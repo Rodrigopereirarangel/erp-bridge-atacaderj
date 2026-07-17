@@ -10,18 +10,58 @@ import dim_queries as q  # noqa: E402
 
 
 def test_cupons_exclui_atacado_e_operador_nao_operacional():
+    """Verifica que PDV 11/12 (atacado) e operador 7000 (fiscal) sao excluídos
+    em AMBAS as branches (tbCupom e tbCupomCancelado)."""
     sql = q.CUPONS.upper()
-    assert "NOT IN (11, 12)" in sql.replace("  ", " ")
-    assert "7000" in sql
-    assert "CDFILIAL = 1" in sql.replace("  ", " ")
+    parte1, parte2 = sql.split("UNION ALL")
+
+    # Filtro PDV 11/12 deve estar em ambas as branches
+    filtro_pdv = "NOT IN (11, 12)"
+    assert filtro_pdv in parte1.replace("  ", " "), \
+        f"Filtro '{filtro_pdv}' faltando na branch 1 (tbCupom)"
+    assert filtro_pdv in parte2.replace("  ", " "), \
+        f"Filtro '{filtro_pdv}' faltando na branch 2 (tbCupomCancelado)"
+
+    # Filtro operador 7000 deve estar em ambas as branches
+    filtro_op = "CDOPERADOR <> 7000"
+    assert filtro_op in parte1.replace("  ", " "), \
+        f"Filtro '{filtro_op}' faltando na branch 1 (tbCupom)"
+    assert filtro_op in parte2.replace("  ", " "), \
+        f"Filtro '{filtro_op}' faltando na branch 2 (tbCupomCancelado)"
+
+    # Filtro filial deve estar em ambas as branches
+    filtro_filial = "CDFILIAL = 1"
+    assert filtro_filial in parte1.replace("  ", " "), \
+        f"Filtro '{filtro_filial}' faltando na branch 1 (tbCupom)"
+    assert filtro_filial in parte2.replace("  ", " "), \
+        f"Filtro '{filtro_filial}' faltando na branch 2 (tbCupomCancelado)"
 
 
 def test_cupons_inclui_a_tabela_de_cancelados():
-    # cupom cancelado consumiu tempo de caixa: fora dele, subdimensiona
+    """Verifica que AMBAS as branches existem: tbCupom (nao cancelado)
+    e tbCupomCancelado (cancelado). Cupom cancelado consumiu tempo de caixa:
+    fora dele, subdimensiona."""
     sql = q.CUPONS.upper()
-    assert "TBCUPOM" in sql
-    assert "TBCUPOMCANCELADO" in sql
-    assert "UNION ALL" in sql
+
+    # Verifica UNION ALL
+    assert "UNION ALL" in sql, "Query deve usar UNION ALL para combinar branches"
+
+    # Split nas branches
+    partes = sql.split("UNION ALL")
+    assert len(partes) == 2, "Query deve ter exatamente 2 branches (UNION ALL)"
+    parte1, parte2 = partes
+
+    # Branch 1 deve ter tbCupom (nao cancelado) - busca a clausula FROM completa
+    assert "FROM DORSAL.DBO.TBCUPOM\n" in parte1, \
+        "Branch 1 deve ter FROM DORSAL.dbo.tbCupom"
+
+    # Branch 2 deve ter tbCupomCancelado - busca a clausula FROM completa
+    assert "FROM DORSAL.DBO.TBCUPOMCANCELADO\n" in parte2, \
+        "Branch 2 deve ter FROM DORSAL.dbo.tbCupomCancelado"
+
+    # Verifica que nao ha a tabela cancelada na branch 1
+    assert "TBCUPOMCANCELADO" not in parte1, \
+        "Branch 1 deve ter APENAS tbCupom, nao tbCupomCancelado"
 
 
 def test_cupons_exclui_domingo():
