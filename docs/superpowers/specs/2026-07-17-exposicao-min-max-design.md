@@ -132,6 +132,11 @@ codigo;data;canal;unidades
 ```
 - `canal` = `atacado` se `cdPDV IN (11,12)`, senão `salao`.
 - Unidades já resolvidas por EAN (§3.3). Janela: `{janela_exposicao}` dias (default 400 = tudo).
+- **A lista de PDVs de atacado é do config do BRIDGE** (`exposicao.pdvs_atacado`, default
+  `[11, 12]`), não do repo consumidor: quem classifica o canal é a query. O repo recebe o
+  `canal` já resolvido e nunca vê número de PDV.
+- **Por que `canal` e não `pdv` cru:** emitir uma linha por PDV multiplicaria o CSV por ~11 sem
+  ganho — nenhum consumidor precisa distinguir o PDV 3 do PDV 5.
 
 ### 4.2 `catalogo` — **alteração no bridge**
 A query `CATALOGO` já expõe `embalagem` (= `QUANTIDADE_CAIXA`) e `prateleira`. Exportar ambos
@@ -345,6 +350,12 @@ de ação — diferente do detector de ruptura, que manda ~11 itens/dia.
 Entregue **junto com o primeiro teste**, num arquivo à parte, para o dono analisar antes de
 confiar nos números. **Não altera cálculo nenhum** (D7/D8: a caixa-mãe sai do cadastro, sempre).
 
+**Onde mora:** é um **script de diagnóstico no bridge**
+(`scripts/cadastro-caixa-mae-suspeito.py`, rodado no ponte), **não** um estágio do pipeline
+mensal. Motivo (YAGNI): é a única coisa no projeto que precisa da nota de entrada, é de uso
+pontual, e não vale uma query no pipeline nem um custo mensal. Fica no bridge porque é ele quem
+tem a porta do banco (D13).
+
 Critério: itens onde a nota de entrada dos últimos 12 meses fala de caixa **de verdade**
 (`qtEmbalagem > 1`, portanto informativa) e mesmo assim **discorda do cadastro**. Medido em
 17/07/2026: **30 itens** — dos quais 23 têm a nota dizendo um número **menor** que o cadastro
@@ -379,7 +390,6 @@ nome diz C10 / C12.
 | Parâmetro | Default |
 |---|---|
 | `janela.dias` | 400 (pega todo o DORSAL disponível) |
-| `canal.pdvsAtacado` | `[11, 12]` |
 | `calendario.diaFechadoFracao` | 0.2 |
 | `censura.kIntervalo` | 2 |
 | `censura.razaoEsgotamento` | 1.0 |
@@ -412,8 +422,13 @@ nome diz C10 / C12.
 - **Calibração não alcança o limiar** (§7.4) → **entrega mesmo assim** com `λ = lambdaMax` e a
   cobertura real estampada no cabeçalho. **Nada trava a entrega** (D16).
 - **Item não cruza o limiar em `escada.maxCaixas`** → entrega no teto, marcado no PDF.
-- **Idempotência** → rodar 2× no mesmo mês não duplica envio.
-- **PC desligado** → ao rodar depois, registra atraso no rodapé.
+- **Idempotência** → rodar 2× no mesmo mês não duplica envio (marca de último envio na pasta
+  de saída; `--forcar-envio` fura de propósito).
+- **PC desligado** → a tarefa roda quando o PC voltar; o rodapé estampa o `gerado_em` real e o
+  período do histórico, então o atraso fica visível no próprio documento.
+- **Item novo** → só contam os dias **a partir da 1ª venda dele**. Sem isso, um item cadastrado
+  mês passado carregaria ~150 dias de "zero" de antes de existir, o giro sairia diluído e ele
+  ficaria preso em 1 caixa para sempre.
 
 ---
 
