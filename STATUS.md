@@ -183,6 +183,19 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-17 (3ª rodada): **Decisão final do quadro: 11 operadoras (mín 10) com
+  BANCO DE HORAS, zero parciais** — o banco (já vigente na loja) dissolve a
+  rigidez dos turnos fixos: sábado com 8 pessoas em jornadas 5h30-9h (era 12
+  turnos fixos; 31% de desperdício eliminado), compensação na segunda (o vale).
+  Escala completa em `docs/ESCALA-CAIXAS.md`. Anti-overfitting rodado:
+  itens×tempo (12s/item monotônico), faturamento frente×retaguarda 30/30 dias
+  a 0,00%, throughput físico, backtest jan-abr→mai-jul (5/6 dias generalizam)
+  e jackknife mensal (sáb pico=7 estável). Backtest revelou REGRA DE VÉSPERA:
+  véspera/emenda de feriado escala como sábado (05/06 pós-Corpus e 10/07
+  estouraram a grade de sexta com 26-30% de nível). Pendências da escala:
+  almoço de 1h real no sábado (hoje suprimido em várias jornadas — passivo) e
+  teto de 10h/dia nos spans longos.
+
 - 2026-07-17 (2ª rodada): **Meta oficial revisada para 5min/95% todos os dias**
   (decisão do dono após análise de sensibilidade: o sábado exige 12 turnos com
   3min OU 5min — a meta apertada só encarecia os dias de semana). CLI ganhou
