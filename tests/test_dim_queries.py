@@ -9,11 +9,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import dim_queries as q  # noqa: E402
 
 
+def _branches(sql):
+    """Extrai as duas branches (tbCupom e tbCupomCancelado) do UNION ALL.
+    Guarda contra regressoes que mudem a contagem de branches."""
+    partes = sql.split("UNION ALL")
+    assert len(partes) == 2, \
+        f"Query deve ter exatamente 2 branches (UNION ALL), encontrou {len(partes)}"
+    return partes[0], partes[1]
+
+
 def test_cupons_exclui_atacado_e_operador_nao_operacional():
     """Verifica que PDV 11/12 (atacado) e operador 7000 (fiscal) sao excluídos
     em AMBAS as branches (tbCupom e tbCupomCancelado)."""
     sql = q.CUPONS.upper()
-    parte1, parte2 = sql.split("UNION ALL")
+    parte1, parte2 = _branches(sql)
 
     # Filtro PDV 11/12 deve estar em ambas as branches
     filtro_pdv = "NOT IN (11, 12)"
@@ -43,13 +52,9 @@ def test_cupons_inclui_a_tabela_de_cancelados():
     fora dele, subdimensiona."""
     sql = q.CUPONS.upper()
 
-    # Verifica UNION ALL
+    # Verifica UNION ALL e extrai as branches
     assert "UNION ALL" in sql, "Query deve usar UNION ALL para combinar branches"
-
-    # Split nas branches
-    partes = sql.split("UNION ALL")
-    assert len(partes) == 2, "Query deve ter exatamente 2 branches (UNION ALL)"
-    parte1, parte2 = partes
+    parte1, parte2 = _branches(sql)
 
     # Branch 1 deve ter tbCupom (nao cancelado) - busca a clausula FROM completa
     assert "FROM DORSAL.DBO.TBCUPOM\n" in parte1, \
@@ -65,8 +70,55 @@ def test_cupons_inclui_a_tabela_de_cancelados():
 
 
 def test_cupons_exclui_domingo():
-    # loja fechada; DATEPART(weekday) = 1 e domingo no SQL Server
-    assert "DATEPART(weekday, dtCupom) <> 1" in q.CUPONS
+    """Verifica que domingo (DATEPART(weekday)=1) e excluido de AMBAS as
+    branches (tbCupom e tbCupomCancelado). Loja fechada; se cair de uma branch,
+    domingos vao surgir no resultado."""
+    sql = q.CUPONS.upper()
+    parte1, parte2 = _branches(sql)
+
+    filtro_domingo = "DATEPART(WEEKDAY, DTCUPOM) <> 1"
+    assert filtro_domingo in parte1, \
+        f"Filtro '{filtro_domingo}' faltando na branch 1 (tbCupom)"
+    assert filtro_domingo in parte2, \
+        f"Filtro '{filtro_domingo}' faltando na branch 2 (tbCupomCancelado)"
+
+
+def test_cupons_exclui_horas_inválidas():
+    """Verifica que as três condicoes de sanidade de tempo estao em AMBAS as
+    branches: HoraInicio IS NOT NULL, HoraFim IS NOT NULL, HoraFim >= HoraInicio.
+    Se caírem, horas negativas ou vazias vao entrar na demanda."""
+    sql = q.CUPONS.upper()
+    parte1, parte2 = _branches(sql)
+
+    # HoraInicio NOT NULL
+    assert "HORAINICIO IS NOT NULL" in parte1, \
+        "Filtro 'HoraInicio IS NOT NULL' faltando na branch 1 (tbCupom)"
+    assert "HORAINICIO IS NOT NULL" in parte2, \
+        "Filtro 'HoraInicio IS NOT NULL' faltando na branch 2 (tbCupomCancelado)"
+
+    # HoraFim NOT NULL
+    assert "HORAFIM IS NOT NULL" in parte1, \
+        "Filtro 'HoraFim IS NOT NULL' faltando na branch 1 (tbCupom)"
+    assert "HORAFIM IS NOT NULL" in parte2, \
+        "Filtro 'HoraFim IS NOT NULL' faltando na branch 2 (tbCupomCancelado)"
+
+    # HoraFim >= HoraInicio
+    assert "HORAFIM >= HORAINICIO" in parte1, \
+        "Filtro 'HoraFim >= HoraInicio' faltando na branch 1 (tbCupom)"
+    assert "HORAFIM >= HORAINICIO" in parte2, \
+        "Filtro 'HoraFim >= HoraInicio' faltando na branch 2 (tbCupomCancelado)"
+
+
+def test_cupons_placeholder_desde_presente():
+    """Verifica que o placeholder '{desde}' (data inicial, runtime) e presente
+    em AMBAS as branches. Se cair de uma, datas antigas vao entrar no resultado."""
+    sql = q.CUPONS
+    parte1, parte2 = _branches(sql)
+
+    assert "{desde}" in parte1, \
+        "Placeholder '{desde}' faltando na branch 1 (tbCupom)"
+    assert "{desde}" in parte2, \
+        "Placeholder '{desde}' faltando na branch 2 (tbCupomCancelado)"
 
 
 def test_cupons_nao_extrai_valor_monetario():
