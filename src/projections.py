@@ -335,18 +335,24 @@ def catalogo_exposicao_csv(catalogo, caminho):
     caixa_mae = catalogo["embalagem"] = VW_NEOGRID_PRODUTO_PRECO.QUANTIDADE_CAIXA.
     E o CADASTRO — nunca a nota de entrada (decisao do dono, spec D7): o
     calculo roda todo em unidades e so converte para caixa no ultimo passo.
-    Item sem caixa-mae fica de fora: sem ela nao da para arredondar."""
-    cab = ["codigo", "descricao", "caixa_mae", "prateleira", "curva"]
+    Item sem caixa-mae fica de fora: sem ela nao da para arredondar.
+
+    setor = PAI da classificacao ("PRATELEIRA 21" -> "CORREDOR 20") p/ o
+    filtro do relatorio; classificacao raiz (sem pai) usa a propria."""
+    cab = ["codigo", "descricao", "caixa_mae", "setor", "prateleira", "curva"]
     linhas = []
     for r in catalogo:
         emb = r.get("embalagem")
         if not emb or float(emb) <= 0:
             continue
+        prateleira = str(r.get("prateleira") or "").strip()
+        setor = str(r.get("setor") or "").strip() or prateleira
         linhas.append([
             r["codigo"],
             r.get("descricao"),
             int(float(emb)),
-            str(r.get("prateleira") or "").strip(),
+            setor,
+            prateleira,
             r.get("curva"),
         ])
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
