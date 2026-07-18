@@ -73,7 +73,7 @@ SELECT
     -- corredor = PAI, setor = AVO; sem o nivel, o consumidor desce na cascata.
     clp.nmClassificacaoProduto       AS corredor,
     clpp.nmClassificacaoProduto      AS setor,
-    1                                AS ativo
+    CAST(p.inAtivo AS int)           AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
     SELECT SEQPRODUTO, SEQLOJA,

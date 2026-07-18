@@ -348,9 +348,17 @@ def catalogo_exposicao_csv(catalogo, caminho):
         emb = r.get("embalagem")
         if not emb or float(emb) <= 0:
             continue
+        # SO produto ATIVO ganha min/max de prateleira (dono, 18/07):
+        # inAtivo=0 do cadastro fora; classificacao 'INATIVOS OU FORA DO MIX'
+        # tambem fora (5 itens tem inAtivo=1 com essa classificacao — o
+        # cadastro se contradiz e a classificacao expressa a intencao).
+        if not r.get("ativo", 1):
+            continue
         prateleira = str(r.get("prateleira") or "").strip()
         corredor = str(r.get("corredor") or "").strip() or prateleira
         setor = str(r.get("setor") or "").strip() or corredor
+        if "INATIVOS OU FORA DO MIX" in (setor, corredor, prateleira):
+            continue
         linhas.append([
             r["codigo"],
             r.get("descricao"),

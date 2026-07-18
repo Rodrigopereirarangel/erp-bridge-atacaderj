@@ -90,3 +90,23 @@ def test_demo_data_vendas_canal_tem_os_dois_canais():
     assert {"codigo", "data", "canal", "unidades"} <= set(linhas[0])
     canais = {r["canal"] for r in linhas}
     assert canais == {"salao", "atacado"}
+
+
+def test_catalogo_exposicao_exclui_inativos():
+    # dono (18/07): so produto ativo ganha min/max — inAtivo=0 do cadastro e
+    # a classificacao 'INATIVOS OU FORA DO MIX' ficam fora
+    cat = [
+        {"codigo": 1, "descricao": "ATIVO", "embalagem": 12, "prateleira": "P1",
+         "setor": "S", "corredor": "C", "curva": "A", "ativo": 1},
+        {"codigo": 2, "descricao": "DESLIGADO", "embalagem": 12, "prateleira": "P1",
+         "setor": "S", "corredor": "C", "curva": "A", "ativo": 0},
+        {"codigo": 3, "descricao": "FORA DO MIX", "embalagem": 12,
+         "prateleira": "INATIVOS OU FORA DO MIX",
+         "setor": "INATIVOS OU FORA DO MIX", "corredor": "INATIVOS OU FORA DO MIX",
+         "curva": None, "ativo": 1},
+    ]
+    with tempfile.TemporaryDirectory() as d:
+        caminho = os.path.join(d, "c.csv")
+        assert projections.catalogo_exposicao_csv(cat, caminho) == 1
+        txt = _ler(caminho)
+        assert "ATIVO" in txt and "DESLIGADO" not in txt and "FORA DO MIX" not in txt
