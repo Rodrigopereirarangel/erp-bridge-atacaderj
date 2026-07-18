@@ -342,7 +342,7 @@ def catalogo_exposicao_csv(catalogo, caminho):
     faltando desce na cascata (corredor vazio vira a prateleira; setor
     vazio vira o corredor efetivo) — nunca sai celula vazia no filtro."""
     cab = ["codigo", "descricao", "caixa_mae", "setor", "corredor",
-           "prateleira", "curva"]
+           "prateleira", "curva", "peso"]
     linhas = []
     for r in catalogo:
         emb = r.get("embalagem")
@@ -367,6 +367,7 @@ def catalogo_exposicao_csv(catalogo, caminho):
             corredor,
             prateleira,
             r.get("curva"),
+            1 if r.get("peso") else 0,
         ])
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)

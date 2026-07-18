@@ -73,6 +73,11 @@ SELECT
     -- corredor = PAI, setor = AVO; sem o nivel, o consumidor desce na cascata.
     clp.nmClassificacaoProduto       AS corredor,
     clpp.nmClassificacaoProduto      AS setor,
+    -- vendido por PESO (mortadela, queijo, carnes...): kg/g em
+    -- tbSuperProduto.cdUnidadeMedida — o relatorio de exposicao mostra kg
+    -- em vez de un e marca com balanca (dono, 18/07)
+    CASE WHEN LOWER(RTRIM(sp.cdUnidadeMedida)) IN ('kg','g')
+         THEN 1 ELSE 0 END           AS peso,
     CAST(p.inAtivo AS int)           AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)

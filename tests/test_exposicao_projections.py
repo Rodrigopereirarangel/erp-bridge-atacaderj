@@ -37,8 +37,8 @@ def test_catalogo_exposicao_csv_renomeia_embalagem_para_caixa_mae():
         n = projections.catalogo_exposicao_csv(cat, caminho)
         assert n == 1
         txt = _ler(caminho)
-        assert txt.splitlines()[0] == "codigo;descricao;caixa_mae;setor;corredor;prateleira;curva"
-        assert "34743;QUALY 500G;12;LIMPEZA;CORREDOR 30;PRATELEIRA 33;A" in txt
+        assert txt.splitlines()[0] == "codigo;descricao;caixa_mae;setor;corredor;prateleira;curva;peso"
+        assert "34743;QUALY 500G;12;LIMPEZA;CORREDOR 30;PRATELEIRA 33;A;0" in txt
 
 
 def test_catalogo_exposicao_csv_cascata_de_niveis_faltando():
@@ -49,7 +49,7 @@ def test_catalogo_exposicao_csv_cascata_de_niveis_faltando():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "7;RAIZ;6;REFRIGERADOS;REFRIGERADOS;REFRIGERADOS;B" in _ler(caminho)
+        assert "7;RAIZ;6;REFRIGERADOS;REFRIGERADOS;REFRIGERADOS;B;0" in _ler(caminho)
 
 
 def test_catalogo_exposicao_csv_so_sem_avo_cai_no_corredor():
@@ -59,7 +59,7 @@ def test_catalogo_exposicao_csv_so_sem_avo_cai_no_corredor():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "8;MEIO;6;CONGELADOS;CONGELADOS;CONGELADOS (CLASSIFICAR);C" in _ler(caminho)
+        assert "8;MEIO;6;CONGELADOS;CONGELADOS;CONGELADOS (CLASSIFICAR);C;0" in _ler(caminho)
 
 
 def test_catalogo_exposicao_csv_pula_item_sem_caixa_mae():
@@ -81,7 +81,7 @@ def test_catalogo_exposicao_csv_aceita_prateleira_vazia():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "9;X;6;;;;" in _ler(caminho)
+        assert "9;X;6;;;;;0" in _ler(caminho)
 
 
 def test_demo_data_vendas_canal_tem_os_dois_canais():
@@ -110,3 +110,14 @@ def test_catalogo_exposicao_exclui_inativos():
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
         txt = _ler(caminho)
         assert "ATIVO" in txt and "DESLIGADO" not in txt and "FORA DO MIX" not in txt
+
+
+def test_catalogo_exposicao_marca_item_por_peso():
+    # mortadela/queijo (cdUnidadeMedida kg/g): coluna peso=1
+    cat = [{"codigo": 3, "descricao": "QJ MUSSARELA", "embalagem": 1,
+            "prateleira": "LATICINIO", "setor": "LATICINIO",
+            "corredor": "LATICINIO", "curva": "A", "ativo": 1, "peso": 1}]
+    with tempfile.TemporaryDirectory() as d:
+        caminho = os.path.join(d, "c.csv")
+        assert projections.catalogo_exposicao_csv(cat, caminho) == 1
+        assert "3;QJ MUSSARELA;1;LATICINIO;LATICINIO;LATICINIO;A;1" in _ler(caminho)
