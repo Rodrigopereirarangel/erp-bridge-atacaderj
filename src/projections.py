@@ -383,9 +383,22 @@ def catalogo_exposicao_csv(catalogo, caminho, testemunhas=None):
         # cadastro se contradiz e a classificacao expressa a intencao).
         if not r.get("ativo", 1):
             continue
-        prateleira = str(r.get("prateleira") or "").strip()
-        corredor = str(r.get("corredor") or "").strip() or prateleira
-        setor = str(r.get("setor") or "").strip() or corredor
+        # ANCORA NA RAIZ (bug achado pelo dono, 18/07): a query traz a trilha
+        # ancorada na FOLHA (item -> pai -> avo). Produto pendurado num nivel
+        # raso (ex.: AYMORE SALPET direto em CORREDOR 140; 122 no corredor e
+        # 806 direto no setor) deslizava a trilha inteira — "prateleira:
+        # CORREDOR 140, setor: BISCOITOS BISCOITOS". O degrau de CIMA e sempre
+        # o setor; o que faltar EMBAIXO fica vazio (o relatorio mostra
+        # "(sem prateleira)"), nunca escorrega.
+        folha = str(r.get("prateleira") or "").strip()
+        pai = str(r.get("corredor") or "").strip()
+        avo = str(r.get("setor") or "").strip()
+        if avo:                       # 3 degraus completos
+            setor, corredor, prateleira = avo, pai, folha
+        elif pai:                     # item pendurado no corredor
+            setor, corredor, prateleira = pai, folha, ""
+        else:                         # item pendurado direto no setor/raiz
+            setor, corredor, prateleira = folha, "", ""
         if "INATIVOS OU FORA DO MIX" in (setor, corredor, prateleira):
             continue
         linhas.append([

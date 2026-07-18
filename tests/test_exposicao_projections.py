@@ -49,7 +49,7 @@ def test_catalogo_exposicao_csv_cascata_de_niveis_faltando():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "7;RAIZ;6;REFRIGERADOS;REFRIGERADOS;REFRIGERADOS;B;0;cadastro" in _ler(caminho)
+        assert "7;RAIZ;6;REFRIGERADOS;;;B;0;cadastro" in _ler(caminho)
 
 
 def test_catalogo_exposicao_csv_so_sem_avo_cai_no_corredor():
@@ -59,7 +59,7 @@ def test_catalogo_exposicao_csv_so_sem_avo_cai_no_corredor():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "8;MEIO;6;CONGELADOS;CONGELADOS;CONGELADOS (CLASSIFICAR);C;0;cadastro" in _ler(caminho)
+        assert "8;MEIO;6;CONGELADOS;CONGELADOS (CLASSIFICAR);;C;0;cadastro" in _ler(caminho)
 
 
 def test_catalogo_exposicao_csv_pula_item_sem_caixa_mae():
@@ -145,7 +145,7 @@ def test_caixa_aproximada_resgata_item_sem_embalagem_nenhuma():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho, cmt) == 1
-        assert "1;X;12;P;P;P;;0;aproximada" in _ler(caminho)
+        assert "1;X;12;P;;;;0;aproximada" in _ler(caminho)
 
 
 def test_testemunhas_discordantes_fica_verificar():
@@ -157,7 +157,7 @@ def test_testemunhas_discordantes_fica_verificar():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho, cmt) == 1
-        assert "2;Y;1;P;P;P;;0;verificar" in _ler(caminho)
+        assert "2;Y;1;P;;;;0;verificar" in _ler(caminho)
 
 
 def test_cadastro_com_caixa_nunca_e_sobrescrito():
@@ -167,7 +167,7 @@ def test_cadastro_com_caixa_nunca_e_sobrescrito():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         projections.catalogo_exposicao_csv(cat, caminho, cmt)
-        assert "3;Z;12;P;P;P;A;0;cadastro" in _ler(caminho)
+        assert "3;Z;12;P;;;A;0;cadastro" in _ler(caminho)
 
 
 def test_peso_nao_ganha_caixa_aproximada():
@@ -178,7 +178,7 @@ def test_peso_nao_ganha_caixa_aproximada():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         projections.catalogo_exposicao_csv(cat, caminho, cmt)
-        assert "4;CARNE MOIDA 500G;1;ACOUGUE;ACOUGUE;ACOUGUE;A;1;cadastro" in _ler(caminho)
+        assert "4;CARNE MOIDA 500G;1;ACOUGUE;;;A;1;cadastro" in _ler(caminho)
 
 
 def test_sem_caixa_e_sem_testemunha_fica_verificar():
@@ -187,4 +187,18 @@ def test_sem_caixa_e_sem_testemunha_fica_verificar():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         projections.catalogo_exposicao_csv(cat, caminho, None)
-        assert "5;W;1;P;P;P;;0;verificar" in _ler(caminho)
+        assert "5;W;1;P;;;;0;verificar" in _ler(caminho)
+
+
+def test_item_pendurado_no_corredor_nao_desliza_a_trilha():
+    # bug do print do dono (18/07): AYMORE SALPET esta classificada DIRETO em
+    # CORREDOR 140 (pai BISCOITOS, sem prateleira). A trilha ancorada na folha
+    # mostrava "setor BISCOITOS, corredor BISCOITOS, prateleira CORREDOR 140".
+    # Ancorada na RAIZ: setor=BISCOITOS, corredor=CORREDOR 140, prateleira vazia.
+    cat = [{"codigo": 1523, "descricao": "AYMORE SALPET 100G", "embalagem": 42,
+            "prateleira": "CORREDOR 140", "corredor": "BISCOITOS",
+            "setor": None, "curva": "B", "ativo": 1}]
+    with tempfile.TemporaryDirectory() as d:
+        caminho = os.path.join(d, "c.csv")
+        assert projections.catalogo_exposicao_csv(cat, caminho) == 1
+        assert "1523;AYMORE SALPET 100G;42;BISCOITOS;CORREDOR 140;;B;0;cadastro" in _ler(caminho)
