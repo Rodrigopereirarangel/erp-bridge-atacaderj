@@ -30,24 +30,36 @@ def test_vendas_canal_csv_cabecalho_e_linhas():
 
 def test_catalogo_exposicao_csv_renomeia_embalagem_para_caixa_mae():
     cat = [{"codigo": 34743, "descricao": "QUALY 500G", "embalagem": 12,
-            "prateleira": "PRATELEIRA 33", "setor": "CORREDOR 30", "curva": "A"}]
+            "prateleira": "PRATELEIRA 33", "corredor": "CORREDOR 30",
+            "setor": "LIMPEZA", "curva": "A"}]
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "catalogo_exposicao.csv")
         n = projections.catalogo_exposicao_csv(cat, caminho)
         assert n == 1
         txt = _ler(caminho)
-        assert txt.splitlines()[0] == "codigo;descricao;caixa_mae;setor;prateleira;curva"
-        assert "34743;QUALY 500G;12;CORREDOR 30;PRATELEIRA 33;A" in txt
+        assert txt.splitlines()[0] == "codigo;descricao;caixa_mae;setor;corredor;prateleira;curva"
+        assert "34743;QUALY 500G;12;LIMPEZA;CORREDOR 30;PRATELEIRA 33;A" in txt
 
 
-def test_catalogo_exposicao_csv_setor_cai_na_prateleira_sem_pai():
-    # classificacao raiz (sem pai no ERP): o setor e a propria classificacao
+def test_catalogo_exposicao_csv_cascata_de_niveis_faltando():
+    # classificacao raiz (sem pai/avo no ERP): os niveis descem na cascata
     cat = [{"codigo": 7, "descricao": "RAIZ", "embalagem": 6,
-            "prateleira": "REFRIGERADOS", "setor": None, "curva": "B"}]
+            "prateleira": "REFRIGERADOS", "corredor": None, "setor": None,
+            "curva": "B"}]
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "7;RAIZ;6;REFRIGERADOS;REFRIGERADOS;B" in _ler(caminho)
+        assert "7;RAIZ;6;REFRIGERADOS;REFRIGERADOS;REFRIGERADOS;B" in _ler(caminho)
+
+
+def test_catalogo_exposicao_csv_so_sem_avo_cai_no_corredor():
+    cat = [{"codigo": 8, "descricao": "MEIO", "embalagem": 6,
+            "prateleira": "CONGELADOS (CLASSIFICAR)", "corredor": "CONGELADOS",
+            "setor": None, "curva": "C"}]
+    with tempfile.TemporaryDirectory() as d:
+        caminho = os.path.join(d, "c.csv")
+        assert projections.catalogo_exposicao_csv(cat, caminho) == 1
+        assert "8;MEIO;6;CONGELADOS;CONGELADOS;CONGELADOS (CLASSIFICAR);C" in _ler(caminho)
 
 
 def test_catalogo_exposicao_csv_pula_item_sem_caixa_mae():
@@ -69,7 +81,7 @@ def test_catalogo_exposicao_csv_aceita_prateleira_vazia():
     with tempfile.TemporaryDirectory() as d:
         caminho = os.path.join(d, "c.csv")
         assert projections.catalogo_exposicao_csv(cat, caminho) == 1
-        assert "9;X;6;;;" in _ler(caminho)
+        assert "9;X;6;;;;" in _ler(caminho)
 
 
 def test_demo_data_vendas_canal_tem_os_dois_canais():

@@ -68,11 +68,11 @@ SELECT
     -- classificacao mercadologica = endereco fisico na loja ("PRATELEIRA 33")
     -- -> coluna Prateleira do relatorio de ruptura do salao (pedido do dono, 16/07)
     cl.nmClassificacaoProduto        AS prateleira,
-    -- PAI da classificacao = setor/corredor ("PRATELEIRA 21" -> "CORREDOR 20";
-    -- "CONGELADOS (CLASSIFICAR)" -> "CONGELADOS") -> filtro por setor do
-    -- relatorio de exposicao (pedido do dono, 17/07). Sem pai, o consumidor
-    -- cai na propria classificacao.
-    clp.nmClassificacaoProduto       AS setor,
+    -- A classificacao tem TRES degraus (dono, 17/07): setor > corredor >
+    -- prateleira. Ex.: PERFUMARIA > CORREDOR 20 > PRATELEIRA 21.
+    -- corredor = PAI, setor = AVO; sem o nivel, o consumidor desce na cascata.
+    clp.nmClassificacaoProduto       AS corredor,
+    clpp.nmClassificacaoProduto      AS setor,
     1                                AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
@@ -105,6 +105,9 @@ LEFT JOIN dbo.tbClassificacaoProduto cl
 LEFT JOIN dbo.tbClassificacaoProduto clp
        ON clp.cdClassificacaoProduto = cl.cdClassificacaoProdutoPai
       AND clp.cdEmpresa = cl.cdEmpresaPai
+LEFT JOIN dbo.tbClassificacaoProduto clpp
+       ON clpp.cdClassificacaoProduto = clp.cdClassificacaoProdutoPai
+      AND clpp.cdEmpresa = clp.cdEmpresaPai
 LEFT JOIN (
     SELECT cdProduto, MIN(promo_vigente) AS promo_vigente FROM (
         SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente

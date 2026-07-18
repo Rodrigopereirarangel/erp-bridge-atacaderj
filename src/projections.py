@@ -337,21 +337,26 @@ def catalogo_exposicao_csv(catalogo, caminho):
     calculo roda todo em unidades e so converte para caixa no ultimo passo.
     Item sem caixa-mae fica de fora: sem ela nao da para arredondar.
 
-    setor = PAI da classificacao ("PRATELEIRA 21" -> "CORREDOR 20") p/ o
-    filtro do relatorio; classificacao raiz (sem pai) usa a propria."""
-    cab = ["codigo", "descricao", "caixa_mae", "setor", "prateleira", "curva"]
+    Tres degraus da classificacao (dono, 17/07): setor > corredor >
+    prateleira (ex.: PERFUMARIA > CORREDOR 20 > PRATELEIRA 21). Nivel
+    faltando desce na cascata (corredor vazio vira a prateleira; setor
+    vazio vira o corredor efetivo) — nunca sai celula vazia no filtro."""
+    cab = ["codigo", "descricao", "caixa_mae", "setor", "corredor",
+           "prateleira", "curva"]
     linhas = []
     for r in catalogo:
         emb = r.get("embalagem")
         if not emb or float(emb) <= 0:
             continue
         prateleira = str(r.get("prateleira") or "").strip()
-        setor = str(r.get("setor") or "").strip() or prateleira
+        corredor = str(r.get("corredor") or "").strip() or prateleira
+        setor = str(r.get("setor") or "").strip() or corredor
         linhas.append([
             r["codigo"],
             r.get("descricao"),
             int(float(emb)),
             setor,
+            corredor,
             prateleira,
             r.get("curva"),
         ])
