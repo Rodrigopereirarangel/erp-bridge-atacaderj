@@ -20,7 +20,8 @@ PADROES = {
     "dir_saida": None,             # default: <repo>/saida/painel
     "porta_http": 8477,
     "cobranca_dias_limiar": 7,
-    "cobranca_max_dias": 60,
+    "cobranca_max_dias": 45,
+    "cobranca_alerta_dias": 21,
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
     "reload_minutos": 5,
@@ -106,7 +107,9 @@ def montar_cobranca(pedidos, hoje, limiar_dias=7):
             "telefone": tel,
             "contato": (r.get("contato") or "").strip(),
         })
-    itens.sort(key=lambda i: (-i["dias_aberto"], -i["valor_pendente"]))
+    # ordem CRESCENTE de dias (decisao do dono, 20/07): trabalhar primeiro o
+    # que ainda tem salvacao; empate = maior valor pendente primeiro
+    itens.sort(key=lambda i: (i["dias_aberto"], -i["valor_pendente"]))
     return itens
 
 
@@ -262,6 +265,7 @@ def rodar(cfg, usar_demo=False):
         "cfg": {k: cfgp[k] for k in ("rodizio_segundos", "reload_minutos",
                                      "validade_urgente_dias",
                                      "cobranca_dias_limiar",
+                                     "cobranca_alerta_dias",
                                      "detector_dashboard_url")},
         "validade_relampago": q_validade,
         "ruptura": q_ruptura,

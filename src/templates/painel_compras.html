@@ -27,6 +27,9 @@
   table { width:100%; border-collapse:collapse; font-size:.9rem }
   th { text-align:left; color:var(--mut); font-weight:600; padding:.25rem .5rem;
        border-bottom:1px solid var(--borda); position:sticky; top:0; background:var(--card) }
+  th.ord { cursor:pointer; user-select:none; white-space:nowrap }
+  th.ord:hover { color:var(--txt) }
+  td.vazio { color:var(--mut); text-align:center; padding:.9rem; white-space:normal }
   td { padding:.28rem .5rem; border-bottom:1px solid #1c2128; white-space:nowrap }
   td.desc { white-space:normal }
   .num { text-align:right; font-variant-numeric:tabular-nums }
@@ -41,6 +44,7 @@
   #detalhe.aberto { display:block }
   #detalhe .topo { display:flex; gap:.8rem; align-items:center; margin-bottom:.8rem }
   #detalhe h2 { flex-shrink:0 }
+  #detalhe .carimbo { float:none; margin-left:.6rem; font-weight:400 }
   #detalhe input { background:#0d1117; color:var(--txt); border:1px solid #30363d;
                    border-radius:8px; padding:.45rem .7rem; font-size:1rem; flex:1 }
   button { background:var(--borda); color:var(--txt); border:1px solid #30363d;
@@ -75,7 +79,9 @@ function diasTag(d) {
   return '<span class="tag ' + cls + '">' + txt + "</span>";
 }
 
-/* ---- definicao dos quadrantes: kpis(), cab[], linha(item), dados ---- */
+/* ---- definicao dos quadrantes: kpis(), cols[], linha(item), dados ----
+   cols: t = titulo do cabecalho; k = chave do item p/ ordenar; num = compara
+   como numero; v(i) = extrator quando a chave nao e ordenavel crua. */
 const Q = {
   validade_relampago: {
     titulo: "⚡ Validade × Relâmpago", d: D.validade_relampago,
@@ -87,7 +93,11 @@ const Q = {
               [urg.length ? "warn" : "ok", urg.length, "vencendo ≤" + C.validade_urgente_dias + "d"],
               [sem.length ? "warn" : "ok", sem.length, "sem validade"]];
     },
-    cab: ["Código", "Produto", "Curva", "Preço ⚡", "Fim promo", "Validades", "Urgência"],
+    cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+           {t: "Curva", k: "curva"}, {t: "Preço ⚡", k: "preco_relampago", num: 1},
+           {t: "Fim promo", k: "promo_fim"},
+           {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
+           {t: "Urgência", k: "dias_ate_vencer", num: 1}],
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    esc(i.curva || "—"), '<td class="num">' + rs(i.preco_relampago) + "</td>",
                    esc(i.promo_fim), esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
@@ -99,7 +109,11 @@ const Q = {
       return [["", it.length, "prováveis rupturas"],
               [sem.length ? "bad" : "ok", sem.length, "sem pedido"]];
     },
-    cab: ["Código", "Produto", "Prob.", "Un/mês", "R$ hist.", "Parado", "Curva", "Pedido"],
+    cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+           {t: "Prob.", k: "probabilidade", num: 1}, {t: "Un/mês", k: "un_mes", num: 1},
+           {t: "R$ hist.", k: "rs_hist", num: 1}, {t: "Parado", k: "dias_parado", num: 1},
+           {t: "Curva", k: "curva"},
+           {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0}],
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + (i.probabilidade == null ? "—" :
                      Math.round(i.probabilidade * 100) + "%") + "</td>",
@@ -123,11 +137,16 @@ const Q = {
               [this.d.abandonados ? "bad" : "ok", this.d.abandonados || 0,
                "abandonados (fora da janela)"]];
     },
-    cab: ["Fornecedor", "Pedido", "Data", "Dias", "Previsão", "Atraso", "Itens", "R$ pendente", "Telefone"],
+    cols: [{t: "Fornecedor", k: "fornecedor"}, {t: "Pedido", k: "pedido", num: 1},
+           {t: "Data", k: "data_pedido"}, {t: "Dias", k: "dias_aberto", num: 1},
+           {t: "Previsão", k: "previsao_entrega"}, {t: "Atraso", k: "atraso_previsao", num: 1},
+           {t: "Itens", k: "itens_pendentes", num: 1},
+           {t: "R$ pendente", k: "valor_pendente", num: 1}, {t: "Telefone", k: "telefone"}],
+    // amarelo ate cobranca_alerta_dias (21), vermelho dali em diante
     linha: (i) => ['<td class="desc">' + esc(i.fornecedor) + "</td>", esc(i.pedido),
                    esc(i.data_pedido),
                    '<td class="num"><span class="tag ' +
-                     (i.dias_aberto >= 2 * C.cobranca_dias_limiar ? "bad" : "warn") +
+                     (i.dias_aberto > (C.cobranca_alerta_dias || 21) ? "bad" : "warn") +
                      '">' + i.dias_aberto + "d</span></td>",
                    esc(i.previsao_entrega || "—"),
                    '<td class="num">' + (i.atraso_previsao ? i.atraso_previsao + "d" : "—") + "</td>",
@@ -140,7 +159,7 @@ const Q = {
     kpis() {
       return [["", esc(this.d.rotulo || "—"), "semana da revisão"]];
     },
-    cab: [], linha: null,   // sem tabela: quadrante e so card + link
+    cols: [], linha: null,   // sem tabela: quadrante e so card + link
     corpo() {
       if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
       return TV ? '<p style="color:var(--mut)">Revisão ' + esc(this.d.rotulo) +
@@ -151,14 +170,43 @@ const Q = {
   },
 };
 
+/* ---- ordenacao por coluna (clique no cabecalho: asc -> desc -> original) ---- */
+const SORT = {};   // por quadrante: {k, dir: 1|-1}
+function alternarOrdem(id, k) {
+  const s = SORT[id];
+  if (s && s.k === k && s.dir === 1) SORT[id] = {k, dir: -1};
+  else if (s && s.k === k) delete SORT[id];      // 3o clique volta a ordem original
+  else SORT[id] = {k, dir: 1};
+}
+function ordenar(q, id, itens) {
+  const s = SORT[id];
+  if (!s) return itens;
+  const col = q.cols.find((c) => c.k === s.k);
+  if (!col) return itens;
+  const val = (i) => col.v ? col.v(i) : i[s.k];
+  return [...itens].sort((a, b) => {
+    const va = val(a), vb = val(b);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;                    // nulo/sem-dado sempre no fim
+    if (vb == null) return -1;
+    if (col.num) return (va - vb) * s.dir;
+    return String(va).localeCompare(String(vb), "pt-BR") * s.dir;
+  });
+}
+
 /* ---- visao geral (grade 2x2, top-8 por quadrante) ---- */
-function tabela(q, itens) {
-  if (!q.cab.length) return q.corpo ? q.corpo() : "";
-  const linhas = itens.map((i) => "<tr>" + q.linha(i).map(
-    (c) => String(c).startsWith("<td") ? c : "<td>" + c + "</td>").join("") + "</tr>");
-  return '<div style="overflow:auto"><table><tr>' +
-    q.cab.map((h) => "<th>" + h + "</th>").join("") + "</tr>" +
-    linhas.join("") + "</table></div>";
+function tabela(q, id, itens) {
+  if (!q.cols.length) return q.corpo ? q.corpo() : "";
+  const s = SORT[id];
+  const ths = q.cols.map((c) =>
+    '<th class="ord" data-k="' + c.k + '" title="ordenar">' + c.t +
+    (s && s.k === c.k ? (s.dir === 1 ? " ▲" : " ▼") : "") + "</th>").join("");
+  const linhas = itens.length
+    ? itens.map((i) => "<tr>" + q.linha(i).map(
+        (c) => String(c).startsWith("<td") ? c : "<td>" + c + "</td>").join("") + "</tr>").join("")
+    : '<tr><td class="vazio" colspan="' + q.cols.length +
+      '">nenhum item para mostrar</td></tr>';
+  return '<div style="overflow:auto"><table><tr>' + ths + "</tr>" + linhas + "</table></div>";
 }
 function cartao(id) {
   const q = Q[id], d = q.d;
@@ -167,7 +215,8 @@ function cartao(id) {
   h += '<div class="kpis">' + q.kpis().map(
     ([cls, v, rot]) => '<div class="kpi ' + cls + '"><b>' + v + "</b><span>" +
                        rot + "</span></div>").join("") + "</div>";
-  h += q.cab.length ? tabela(q, d.itens.slice(0, 8)) : (q.corpo ? q.corpo() : "");
+  h += q.cols.length ? tabela(q, id, ordenar(q, id, d.itens).slice(0, 8))
+                     : (q.corpo ? q.corpo() : "");
   h += (q.rodape && q.rodape()) || "";
   return h;
 }
@@ -177,9 +226,19 @@ function pintarGrade() {
   for (const id of Object.keys(Q)) {
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
-    el.addEventListener("click", (ev) => { if (ev.target.closest("a")) return;
+    el.addEventListener("click", (ev) => {
       if (TV) return;
-      if (id === "concorrente") { if (Q.concorrente.d.arquivo) window.open(Q.concorrente.d.arquivo); return; }
+      const th = ev.target.closest("th.ord");
+      if (th) { alternarOrdem(id, th.dataset.k); pintarGrade(); return; }
+      if (ev.target.closest("a")) return;
+      if (id === "concorrente") {
+        if (Q.concorrente.d.arquivo) {
+          // popup bloqueado? abre na propria aba — clique nunca fica sem resposta
+          const w = window.open(Q.concorrente.d.arquivo);
+          if (!w) location.href = Q.concorrente.d.arquivo;
+        }
+        return;
+      }
       abrirDetalhe(id);
     });
     g.appendChild(el);
@@ -187,17 +246,20 @@ function pintarGrade() {
 }
 
 /* ---- detalhe (tabela completa + filtro; na TV entra no rodizio) ---- */
+let detalheAtual = null, filtroAtual = "";
 function abrirDetalhe(id, filtro) {
   const q = Q[id], det = document.getElementById("detalhe");
+  detalheAtual = id; filtroAtual = filtro || "";
+  const base = ordenar(q, id, q.d.itens);
   const itens = filtro
-    ? q.d.itens.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
-    : q.d.itens;
+    ? base.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
+    : base;
   det.innerHTML = '<div class="topo"><h2>' + q.titulo +
     '<span class="carimbo">' + esc(q.d.carimbo || "—") + "</span></h2>" +
     '<input id="filtro" placeholder="filtrar… (código, produto, fornecedor)">' +
     '<button id="voltar">← voltar (Esc)</button></div>' +
     (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
-    tabela(q, itens);
+    tabela(q, id, itens);
   det.classList.add("aberto");
   const inp = document.getElementById("filtro");
   if (inp) { inp.value = filtro || ""; if (!TV) inp.focus();
@@ -205,7 +267,18 @@ function abrirDetalhe(id, filtro) {
   const btn = document.getElementById("voltar");
   if (btn) btn.addEventListener("click", fecharDetalhe);
 }
-function fecharDetalhe() { document.getElementById("detalhe").classList.remove("aberto"); }
+function fecharDetalhe() {
+  detalheAtual = null;
+  document.getElementById("detalhe").classList.remove("aberto");
+}
+document.getElementById("detalhe").addEventListener("click", (ev) => {
+  const th = ev.target.closest("th.ord");
+  if (th && detalheAtual && !TV) {
+    alternarOrdem(detalheAtual, th.dataset.k);
+    abrirDetalhe(detalheAtual, filtroAtual);
+    pintarGrade();          // o card da visao geral acompanha a ordem escolhida
+  }
+});
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharDetalhe(); });
 
 /* ---- modo TV: rodizio automatico + recarga periodica ---- */

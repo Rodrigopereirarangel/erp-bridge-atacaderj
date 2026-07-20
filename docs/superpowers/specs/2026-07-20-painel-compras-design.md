@@ -74,10 +74,15 @@ pricing-atacaderj ── dados/revisao_Sxx.html (cópia) ───────�
   com `dtPedido`, `tbPedidoCompra.dtEntregaPrevista`, itens/valor pendentes.
 - **Entra na lista quando:** dias em aberto ≥ limiar (padrão **7**, configurável)
   **OU** previsão de entrega vencida — **dentro de uma janela máxima**
-  (`cobranca_max_dias`, padrão **60**). Motivo (medido 2026-07-20): a loja não
-  encerra pedido morto no ERP — 534 abertos, 494 com 7+ dias, com pedidos de
-  janeiro ainda "abertos". Sem a janela o quadrante nasceria inútil; os mais
-  velhos que ela viram só um contador honesto de "abandonados" no card.
+  (`cobranca_max_dias`, padrão **45** — decisão do dono 20/07: acima de 45 dias
+  não aparece no relatório). Motivo (medido 2026-07-20): a loja não encerra
+  pedido morto no ERP — 534 abertos, 494 com 7+ dias, com pedidos de janeiro
+  ainda "abertos". Sem a janela o quadrante nasceria inútil; os mais velhos que
+  ela viram só um contador honesto de "abandonados" no card.
+- **Ordem CRESCENTE de dias em aberto** (decisão do dono 20/07): trabalhar
+  primeiro o que ainda tem salvação; empate = maior valor pendente primeiro.
+- **Cores do badge de dias:** amarelo até `cobranca_alerta_dias` (padrão
+  **21**), vermelho dali em diante.
 - **Linha:** fornecedor, nº do pedido, data do pedido, **dias em aberto**, previsão
   de entrega (e atraso vs previsão), valor pendente; telefone do fornecedor se a
   investigação §10b confirmar o campo em `tbPessoa` (ligar na hora).
@@ -99,6 +104,12 @@ pricing-atacaderj ── dados/revisao_Sxx.html (cópia) ───────�
   Zero dependência de mouse/teclado.
 - **Modo PC (padrão):** visão geral idêntica; **clicar num quadrante abre o
   detalhe** (tabela com busca, filtros, ordenação); Esc/botão volta. Sem rodízio.
+  **Colunas dinâmicas** (20/07): todo cabeçalho é clicável — 1º clique ordena
+  crescente (▲), 2º decrescente (▼), 3º volta à ordem original; vale na visão
+  geral e no detalhe. Tabela vazia mostra "nenhum item para mostrar" (o detalhe
+  de um quadrante indisponível nunca fica idêntico ao card). Clique no card do
+  concorrente abre a revisão em nova aba, com fallback na mesma aba se o
+  navegador bloquear popup.
 - Implementação da UI segue as skills `dataviz` e `frontend-design` na fase de
   implementação (contraste para TV, hierarquia dos contadores, tabelas legíveis).
 

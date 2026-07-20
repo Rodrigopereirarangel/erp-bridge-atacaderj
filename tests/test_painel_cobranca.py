@@ -38,15 +38,17 @@ def test_recente_mas_previsao_vencida_entra():
     assert itens[0]["dias_aberto"] == 3 and itens[0]["atraso_previsao"] == 1
 
 
-def test_ordena_pior_primeiro_e_formata_telefone():
+def test_ordena_crescente_por_dias_e_formata_telefone():
+    # decisao do dono (20/07): ordem CRESCENTE de dias — o comprador trabalha
+    # primeiro o que ainda tem salvacao; o muito velho fica no fim
     itens = pc.montar_cobranca([
         _p(pedido=1, data_pedido="2026-07-10", ddd="21", telefone="33334444",
            contato="ANA"),
         _p(pedido=2, data_pedido="2026-07-01", ddd="00", telefone="00000000"),
     ], HOJE, 7)
-    assert [i["pedido"] for i in itens] == [2, 1]
-    assert itens[1]["telefone"] == "(21) 33334444" and itens[1]["contato"] == "ANA"
-    assert itens[0]["telefone"] == ""   # 00/00000000 = lixo, nao mostrar
+    assert [i["pedido"] for i in itens] == [1, 2]
+    assert itens[0]["telefone"] == "(21) 33334444" and itens[0]["contato"] == "ANA"
+    assert itens[1]["telefone"] == ""   # 00/00000000 = lixo, nao mostrar
 
 
 def test_telefone_so_zeros_com_separador_e_escondido():
