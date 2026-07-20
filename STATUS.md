@@ -183,6 +183,19 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (3ª rodada): **Painel de Compras NO AR no ponte** — 9 tasks
+  executadas via subagentes (fixes de review em 3/6/7/8 + 3 Important do
+  review final: servidor no logon sem limite 72h, firewall TCP 8477,
+  trilha PAINEL no bridge_erros.log), merge `618cb43` no master, 131 testes.
+  Implantado via ssh: config.local.json + rodada real (5,1s: **247 relâmpago,
+  252 cobrança +167 abandonados**, concorrente S29; item 35887 conferido ao
+  centavo no ERP cru) + tarefas registradas + servidor respondendo **200 em
+  http://192.168.0.164:8477/** (TV: `#tv`). Pendências herdadas: quadrante
+  ruptura avisa "indisponível" até clonar/agendar o detector-estoque no ponte
+  (`detector_rounds_dir` já aponta); revisão do pricing segue semanal.
+  Follow-ups aceitos (Minors do review final): "indisponível desde" usa
+  carimbo atual; falha só de VALIDADES zera validades com banner; bloco painel
+  fora do CONTRATO-DE-DADOS.md; badge de idade da rodada.
 - 2026-07-20 (2ª rodada): **Painel de Compras: plano de implementação pronto**
   (`docs/superpowers/plans/2026-07-20-painel-compras.md`, 9 tasks TDD) com as
   3 investigações §10 RESOLVIDAS no schema real via ssh: relâmpago =
