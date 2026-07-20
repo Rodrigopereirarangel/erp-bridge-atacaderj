@@ -108,3 +108,28 @@ def montar_cobranca(pedidos, hoje, limiar_dias=7):
         })
     itens.sort(key=lambda i: (-i["dias_aberto"], -i["valor_pendente"]))
     return itens
+
+
+def carregar_ruptura(rounds_dir):
+    """Rodada mais recente do detector-estoque, traduzida para o painel.
+    Items ja vem ordenados por scorePrioridade desc (detectAll.js)."""
+    if not rounds_dir or not os.path.isdir(rounds_dir):
+        return None
+    arquivos = sorted(glob.glob(os.path.join(rounds_dir, "*.json")))
+    if not arquivos:
+        return None
+    with open(arquivos[-1], encoding="utf-8") as f:
+        rodada = json.load(f)
+    itens = [{
+        "codigo": _cod(i.get("codigo")),
+        "descricao": i.get("descricao"),
+        "prioridade": i.get("scorePrioridade"),
+        "probabilidade": i.get("probabilidade"),
+        "tem_pedido": bool(i.get("temPedido")),
+        "curva": i.get("curvaABC"),
+        "un_mes": i.get("unMes"),
+        "rs_hist": i.get("rsHist"),
+        "dias_parado": i.get("diasParado"),
+        "cobertura_esgotada": bool(i.get("coberturaEsgotada")),
+    } for i in rodada.get("items", [])]
+    return {"ref": rodada.get("refDate") or rodada.get("id"), "itens": itens}
