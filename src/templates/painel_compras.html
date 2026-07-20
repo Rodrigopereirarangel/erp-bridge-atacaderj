@@ -64,7 +64,7 @@ const C = D.cfg;
 const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 const rs = (v) => v == null ? "—" : "R$ " + nf.format(v);
 const esc = (s) => String(s == null ? "" : s)
-  .replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  .replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 document.getElementById("cab").textContent =
   "gerado em " + D.gerado_em + (TV ? " · modo TV" : "");
 
@@ -138,7 +138,7 @@ const Q = {
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
     kpis() {
-      return [["", this.d.rotulo || "—", "semana da revisão"]];
+      return [["", esc(this.d.rotulo || "—"), "semana da revisão"]];
     },
     cab: [], linha: null,   // sem tabela: quadrante e so card + link
     corpo() {
@@ -177,7 +177,7 @@ function pintarGrade() {
   for (const id of Object.keys(Q)) {
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (ev) => { if (ev.target.closest("a")) return;
       if (TV) return;
       if (id === "concorrente") { if (Q.concorrente.d.arquivo) window.open(Q.concorrente.d.arquivo); return; }
       abrirDetalhe(id);
