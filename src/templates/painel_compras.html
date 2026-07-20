@@ -51,6 +51,12 @@
            font-variant-numeric:tabular-nums; line-height:1.15 }
   .kpi span { color:var(--mut); font-size:.72rem }
   .kpi.warn b { color:var(--warn) } .kpi.bad b { color:var(--bad) } .kpi.ok b { color:var(--ok) }
+  .kpi[data-k] { cursor:pointer; transition:border-color .15s, transform .1s }
+  .kpi[data-k]:hover { border-color:#3a5a8c }
+  .kpi[data-k]:active { transform:scale(.97) }
+  .abrir-dica { color:var(--acc); font-size:.72rem; font-weight:400; margin-left:.6rem;
+                opacity:0; transition:opacity .15s }
+  .quadro:hover .abrir-dica { opacity:1 }
   table { width:100%; border-collapse:collapse; font-size:.89rem }
   th { text-align:left; color:var(--fraco); font-size:.72rem; font-weight:650;
        text-transform:uppercase; letter-spacing:.07em; padding:.3rem .55rem .35rem;
@@ -83,6 +89,10 @@
   #detalhe { position:fixed; inset:0; background:var(--bg); padding:1rem;
              display:none; overflow:auto; z-index:9 }
   #detalhe.aberto { display:block }
+  /* no detalhe so existe UMA barra (a do proprio #detalhe); o cabecalho da
+     tabela gruda no topo da tela ao rolar */
+  #detalhe .rolagem { overflow:visible }
+  #detalhe th { background:var(--bg) }
   #detalhe .topo { display:flex; gap:.8rem; align-items:center; margin-bottom:.8rem }
   #detalhe h2 { flex-shrink:0; font:650 1.15rem/1.3 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif }
   #detalhe .carimbo { float:none; margin-left:.6rem; font-weight:400 }
@@ -128,8 +138,27 @@ const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 const rs = (v) => v == null ? "—" : "R$ " + nf.format(v);
 const esc = (s) => String(s == null ? "" : s)
   .replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-document.getElementById("cab").textContent =
-  "gerado em " + D.gerado_em + (TV ? " · modo TV" : "");
+// datas em dd/mm/aaaa (decisao do dono, 20/07); aceita "AAAA-MM-DD[ HH:MM:SS]"
+const dbr = (s) => {
+  if (!s) return "—";
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return esc(String(s));
+  return m[3] + "/" + m[2] + "/" + m[1] + (m[4] ? " " + m[4] + ":" + m[5] : "");
+};
+// cabecalho com idade relativa ("ha Xmin"), atualizada a cada minuto
+function pintarCab() {
+  let rel = "";
+  const m = String(D.gerado_em).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
+  if (m) {
+    const t = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+    const min = Math.max(0, Math.round((Date.now() - t.getTime()) / 60000));
+    rel = " · há " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
+  }
+  document.getElementById("cab").textContent =
+    "gerado em " + dbr(D.gerado_em) + rel + (TV ? " · modo TV" : "");
+}
+pintarCab();
+setInterval(pintarCab, 60000);
 
 function diasTag(d) {
   if (d == null) return '<span class="tag mut">sem validade registrada</span>';
@@ -144,46 +173,49 @@ function diasTag(d) {
 const Q = {
   validade_relampago: {
     titulo: "⚡ Validade × Relâmpago", d: D.validade_relampago,
+    filtroDica: "filtrar… produto ou código",
+    // 4o campo: clique no KPI abre a lista ja ordenada por esse aspecto
     kpis() {
       const it = this.d.itens, urg = it.filter(
         (i) => i.dias_ate_vencer != null && i.dias_ate_vencer <= C.validade_urgente_dias);
       const sem = it.filter((i) => i.dias_ate_vencer == null);
-      return [["", it.length, "em relâmpago"],
-              [urg.length ? "warn" : "ok", urg.length, "vencendo ≤" + C.validade_urgente_dias + "d"],
-              [sem.length ? "warn" : "ok", sem.length, "sem validade"]];
+      return [["", it.length, "em relâmpago", null],
+              [urg.length ? "warn" : "ok", urg.length,
+               "vencendo ≤" + C.validade_urgente_dias + "d", {k: "dias_ate_vencer", dir: 1}],
+              [sem.length ? "warn" : "ok", sem.length, "sem validade", null]];
     },
-    // lista aberta (dono, 20/07): sem codigo/curva; dias CORRIDOS p/ vencer
-    // como numero (negativo = ja vencida). O filtro ainda acha por codigo
-    // (busca no item inteiro), mesmo sem a coluna.
+    // lista aberta (dono, 20/07): sem codigo/curva; UMA coluna de vencimento
+    // (o badge ja carrega os dias corridos — numero + urgencia juntos).
+    // O filtro ainda acha por codigo (busca no item inteiro), mesmo sem a coluna.
     cols: [{t: "Produto", k: "descricao"},
            {t: "Preço ⚡", k: "preco_relampago", num: 1},
            {t: "Fim promo", k: "promo_fim"},
            {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
-           {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1},
-           {t: "Urgência", k: "urgencia", num: 1, v: (i) => i.dias_ate_vencer}],
+           {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1}],
     linha: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   esc(i.promo_fim), esc(i.validades.join(", ") || "—"),
-                   '<td class="num">' + (i.dias_ate_vencer != null ? i.dias_ate_vencer + "d" : "—") + "</td>",
-                   diasTag(i.dias_ate_vencer)],
+                   dbr(i.promo_fim), (i.validades.map(dbr).join(", ") || "—"),
+                   '<td class="num">' + diasTag(i.dias_ate_vencer) + "</td>"],
     // previa enxuta: so o que decide acao; codigo/curva/datas ficam no detalhe
     colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "Preço ⚡", k: "preco_relampago", num: 1},
-                 {t: "Urgência", k: "dias_ate_vencer", num: 1}],
+                 {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   diasTag(i.dias_ate_vencer)],
+                   '<td class="num">' + diasTag(i.dias_ate_vencer) + "</td>"],
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,
     // decisao do dono (20/07): o quadrante trabalha so com prob. > 75%
     // ("chance de ter zerado de fato"); abaixo disso e ruido do gate frio
     corte: (i) => (i.probabilidade || 0) > 0.75,
+    filtroDica: "filtrar… produto ou código",
     kpis() {
       const it = this.d.itens.filter(this.corte);
       const sem = it.filter((i) => !i.tem_pedido);
-      return [["", it.length, "prováveis rupturas (>75%)"],
-              [sem.length ? "bad" : "ok", sem.length, "sem pedido"]];
+      return [["", it.length, "prováveis rupturas (>75%)", null],
+              [sem.length ? "bad" : "ok", sem.length, "sem pedido",
+               {k: "tem_pedido", dir: 1}]];
     },
     // previa do card (dono, 20/07): so curva A com prob. > 85%, maior R$
     // primeiro, sem a coluna Un/mes — a lista completa fica no clique
@@ -225,10 +257,11 @@ const Q = {
   },
   cobranca: {
     titulo: "📞 Cobrança de fornecedor", d: D.cobranca,
+    filtroDica: "filtrar… fornecedor, nº do pedido ou telefone",
     // dono (20/07): so o contador de pedidos — R$ total e abandonados sairam
     kpis() {
       const it = this.d.itens;
-      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar"]];
+      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar", null]];
     },
     cols: [{t: "Fornecedor", k: "fornecedor"}, {t: "Pedido", k: "pedido", num: 1},
            {t: "Data", k: "data_pedido"}, {t: "Dias", k: "dias_aberto", num: 1},
@@ -248,11 +281,11 @@ const Q = {
                    esc(i.telefone ? i.telefone + (i.contato ? " (" + i.contato + ")" : "") : "—")],
     // amarelo ate cobranca_alerta_dias (21), vermelho dali em diante
     linha: (i) => ['<td class="desc">' + esc(i.fornecedor) + "</td>", esc(i.pedido),
-                   esc(i.data_pedido),
+                   dbr(i.data_pedido),
                    '<td class="num"><span class="tag ' +
                      (i.dias_aberto > (C.cobranca_alerta_dias || 21) ? "bad" : "warn") +
                      '">' + i.dias_aberto + "d</span></td>",
-                   esc(i.previsao_entrega || "—"),
+                   dbr(i.previsao_entrega),
                    '<td class="num">' + (i.atraso_previsao ? i.atraso_previsao + "d" : "—") + "</td>",
                    '<td class="num">' + i.itens_pendentes + "</td>",
                    '<td class="num">' + rs(i.valor_pendente) + "</td>",
@@ -318,12 +351,16 @@ function conjunto(q) {   // universo de trabalho do quadrante (corte aplicado)
 }
 function cartao(id) {
   const q = Q[id], d = q.d;
-  let h = '<h2>' + q.titulo + '<span class="carimbo">' + esc(d.carimbo || "—") + "</span></h2>";
+  let h = '<h2>' + q.titulo +
+    (TV ? "" : '<span class="abrir-dica">abrir lista ⤢</span>') +
+    '<span class="carimbo">' + dbr(d.carimbo) + "</span></h2>";
   if (d.erro) h += '<div class="erro">indisponível: ' + esc(d.erro) + "</div>";
   const ks = q.kpis();
   if (ks.length) h += '<div class="kpis">' + ks.map(
-    ([cls, v, rot]) => '<div class="kpi ' + cls + '"><b>' + v + "</b><span>" +
-                       rot + "</span></div>").join("") + "</div>";
+    ([cls, v, rot, ord]) => '<div class="kpi ' + cls + '"' +
+      (ord && !TV ? ' data-k="' + ord.k + '" data-dir="' + ord.dir +
+        '" title="abrir a lista ordenada por isto"' : "") +
+      "><b>" + v + "</b><span>" + rot + "</span></div>").join("") + "</div>";
   if (q.notaPrevia) h += '<div class="nota-previa">' + q.notaPrevia + "</div>";
   if (q.cols.length) {
     const base = q.previa ? q.previa(conjunto(q)) : conjunto(q);
@@ -358,12 +395,25 @@ function pintarGrade() {
     el.querySelectorAll("iframe").forEach((f) => {
       f.addEventListener("load", () => podarRevisao(f));
       if (f.contentDocument && f.contentDocument.readyState === "complete") podarRevisao(f);
+      // o iframe tem pointer-events:none (o clique e do card) — a RODA do
+      // mouse e repassada por JS para rolar a revisao por dentro (mesma origem)
+      const moldura = f.closest(".previa-frame");
+      if (moldura) moldura.addEventListener("wheel", (we) => {
+        try { f.contentWindow.scrollBy(0, we.deltaY); we.preventDefault(); }
+        catch (e) {}
+      }, {passive: false});
     });
     el.addEventListener("click", (ev) => {
       if (TV) return;
       // clique/arrasto NA BARRA de rolagem interna: o alvo e o proprio
       // .rolagem (filhos recebem os cliques no conteudo) — nao abre detalhe
       if (ev.target.classList && ev.target.classList.contains("rolagem")) return;
+      // KPI com ordenacao propria: abre a lista JA ordenada por esse aspecto
+      const kpi = ev.target.closest(".kpi[data-k]");
+      if (kpi && id !== "concorrente") {
+        SORT[id] = {k: kpi.dataset.k, dir: Number(kpi.dataset.dir) || 1};
+        pintarGrade(); abrirDetalhe(id); return;
+      }
       const th = ev.target.closest("th.ord");
       if (th) { alternarOrdem(id, th.dataset.k); pintarGrade(); return; }
       if (ev.target.closest("a")) return;
@@ -393,9 +443,10 @@ function abrirDetalhe(id, filtro) {
   const itens = (filtro
     ? base.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
     : base).slice(0, TV ? (q.previaMax || 20) : Infinity);
+  const qtd = filtro ? itens.length + " de " + base.length : base.length + " itens";
   det.innerHTML = '<div class="topo"><h2>' + q.titulo +
-    '<span class="carimbo">' + esc(q.d.carimbo || "—") + "</span></h2>" +
-    '<input id="filtro" placeholder="filtrar… (código, produto, fornecedor)">' +
+    '<span class="carimbo">' + dbr(q.d.carimbo) + " · " + qtd + "</span></h2>" +
+    '<input id="filtro" placeholder="' + esc(q.filtroDica || "filtrar…") + '">' +
     '<button id="voltar">← voltar (Esc)</button></div>' +
     (TV && q.notaPrevia ? '<div class="nota-previa">' + q.notaPrevia + "</div>" : "") +
     (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
@@ -431,6 +482,12 @@ if (TV) {
     if (ordem[i] === null) fecharDetalhe(); else abrirDetalhe(ordem[i]);
   }, (C.rodizio_segundos || 20) * 1000);
   setTimeout(() => location.reload(), (C.reload_minutos || 5) * 60000);
+} else {
+  // PC: recarrega para pegar geracoes novas SO quando ocioso na visao geral
+  // (nunca no meio de um detalhe/filtro — nao interrompe quem esta usando)
+  setInterval(() => {
+    if (!detalheAtual) location.reload();
+  }, Math.max(5, C.reload_minutos || 5) * 60000);
 }
 </script>
 </body>
