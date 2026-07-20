@@ -155,3 +155,14 @@ def copiar_revisao_pricing(dados_dir, dir_saida):
     mtime = datetime.fromtimestamp(os.path.getmtime(origem))
     return {"rotulo": f"{ano}-S{sem}", "arquivo": "revisao_pricing.html",
             "modificado_em": mtime.strftime("%Y-%m-%d %H:%M")}
+
+
+def renderizar(payload):
+    """Embute o payload no template (mesmo padrao do vendas_mensal_dashboard:
+    placeholder /*__DADOS__*/null e escape de '</' para nao fechar o <script>)."""
+    template = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "templates", "painel_compras.html")
+    with open(template, encoding="utf-8") as f:
+        html = f.read()
+    dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
+    return html.replace("/*__DADOS__*/null", dados.replace("</", "<\\/"))
