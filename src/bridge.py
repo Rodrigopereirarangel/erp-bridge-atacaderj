@@ -22,6 +22,8 @@ via camada de projecao, o formato exato de cada consumidor:
                    (venda por item/dia/canal em unidades + caixa-mae/prateleira;
                     base do calculo de MIN/MAX de exposicao — janela longa,
                     agenda MENSAL propria, como o historico-cliente)
+  painel        -> painel/index.html + dados_painel.json (Painel de Compras
+                   TV+PC: validade x relampago, ruptura, cobranca, concorrente)
 
 Uso:
   python src/bridge.py --demo                # gera tudo com dados falsos (sem banco)
@@ -29,6 +31,7 @@ Uso:
   python src/bridge.py --only catalogo       # so o catalogo (para o agendamento 3-5x/dia)
   python src/bridge.py --only movimentos     # vendas+recebimentos+pedidos (agendamento diario)
   python src/bridge.py --only exposicao      # base do MIN/MAX de exposicao (mensal)
+  python src/bridge.py --only painel         # painel de compras (06:00 + pos-catalogo)
   python src/bridge.py --config caminho.json # usa outro arquivo de config
 """
 
@@ -249,7 +252,7 @@ def main():
     ap = argparse.ArgumentParser(description="Ponte ERP -> consumidores AtacadeRJ")
     ap.add_argument("--demo", action="store_true", help="usa dados falsos, sem tocar no banco")
     ap.add_argument("--only", default="all",
-                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente", "exposicao"],
+                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente", "exposicao", "painel"],
                     help="qual bloco gerar (default: all)")
     ap.add_argument("--config", default=None, help="caminho do config (default: config.local.json)")
     args = ap.parse_args()
@@ -258,8 +261,13 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, ent, ped, pv, vm, hc, vc, val = coletar(cfg, args.demo, args.only)
-        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val)
+        relatorio = []
+        if args.only != "painel":
+            cat, ven, ent, ped, pv, vm, hc, vc, val = coletar(cfg, args.demo, args.only)
+            relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val)
+        if args.only in ("all", "painel"):
+            import painel_compras
+            relatorio += painel_compras.rodar(cfg, usar_demo=args.demo)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")

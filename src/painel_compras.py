@@ -166,3 +166,117 @@ def renderizar(payload):
         html = f.read()
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
     return html.replace("/*__DADOS__*/null", dados.replace("</", "<\\/"))
+
+
+def _consulta(conn, sql, quadrante, erros):
+    """SELECT com falha isolada: registra o 1o erro do quadrante e devolve None."""
+    import db
+    try:
+        return db.consultar(conn, sql)
+    except Exception as e:  # noqa: BLE001 — qualquer falha vira aviso no quadrante
+        erros.setdefault(quadrante, str(e))
+        return None
+
+
+def rodar(cfg, usar_demo=False):
+    """Gera <dir_saida>/index.html + dados_painel.json a partir das 4 fontes.
+    Devolve as linhas de relatorio para o [OK] do bridge."""
+    import demo_data
+    import projections
+    cfgp = dict(PADROES)
+    cfgp.update(cfg.get("painel") or {})
+    destino = cfgp.get("dir_saida") or os.path.join(RAIZ, "saida", "painel")
+    os.makedirs(destino, exist_ok=True)
+    gerado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    hoje = date.today().isoformat()
+
+    # --- fontes SQL (cada quadrante falha sozinho) ---
+    erros = {}
+    cat = val = relamp = cob = None
+    aband = 0
+    if usar_demo:
+        cat, val = demo_data.catalogo(), demo_data.validades()
+        relamp, cob = demo_data.promo_relampago(), demo_data.pedidos_cobranca()
+        aband = 2
+    else:
+        import db
+        import queries
+        try:
+            conn = db.conectar(cfg["db"])
+        except Exception as e:  # noqa: BLE001
+            erros["validade_relampago"] = erros["cobranca"] = f"banco inacessivel: {e}"
+        else:
+            try:
+                jan = int(cfg.get("janela_entradas_dias", 180))
+                max_d = int(cfgp["cobranca_max_dias"])
+                cat = _consulta(conn, queries.CATALOGO, "validade_relampago", erros)
+                val = _consulta(conn, queries.VALIDADES.format(janela_entradas=jan),
+                                "validade_relampago", erros) or []
+                relamp = _consulta(conn, queries.PROMO_RELAMPAGO,
+                                   "validade_relampago", erros)
+                cob = _consulta(conn, queries.PEDIDOS_COBRANCA.format(
+                    cobranca_max_dias=max_d), "cobranca", erros)
+                ab = _consulta(conn, queries.PEDIDOS_ABANDONADOS.format(
+                    cobranca_max_dias=max_d), "cobranca", erros)
+                aband = int(ab[0]["n"]) if ab else 0
+            finally:
+                conn.close()
+
+    q_validade = {"carimbo": gerado_em, "erro": erros.get("validade_relampago"),
+                  "itens": []}
+    if relamp is not None and cat is not None:
+        q_validade["itens"] = cruzar_validade_relampago(relamp, val, cat, hoje)
+
+    q_cobranca = {"carimbo": gerado_em, "erro": erros.get("cobranca"),
+                  "itens": [], "abandonados": aband}
+    if cob is not None:
+        q_cobranca["itens"] = montar_cobranca(
+            cob, hoje, int(cfgp["cobranca_dias_limiar"]))
+
+    q_ruptura = {"carimbo": None, "erro": None, "itens": []}
+    try:
+        r = carregar_ruptura(cfgp.get("detector_rounds_dir"))
+        if r is None:
+            q_ruptura["erro"] = "nenhuma rodada do detector encontrada"
+        else:
+            q_ruptura["carimbo"], q_ruptura["itens"] = r["ref"], r["itens"]
+    except Exception as e:  # noqa: BLE001
+        q_ruptura["erro"] = f"falha lendo a rodada do detector: {e}"
+
+    q_conc = {"carimbo": None, "erro": None, "rotulo": None, "arquivo": None}
+    try:
+        rv = copiar_revisao_pricing(cfgp.get("pricing_dados_dir"), destino)
+        if rv is None:
+            q_conc["erro"] = "nenhum revisao_Sxx.html do pricing encontrado"
+        else:
+            q_conc.update({"carimbo": rv["modificado_em"], "rotulo": rv["rotulo"],
+                           "arquivo": rv["arquivo"]})
+    except Exception as e:  # noqa: BLE001
+        q_conc["erro"] = f"falha copiando a revisao do pricing: {e}"
+
+    payload = {
+        "origem": "erp-bridge-painel", "gerado_em": gerado_em,
+        "cfg": {k: cfgp[k] for k in ("rodizio_segundos", "reload_minutos",
+                                     "validade_urgente_dias",
+                                     "cobranca_dias_limiar",
+                                     "detector_dashboard_url")},
+        "validade_relampago": q_validade,
+        "ruptura": q_ruptura,
+        "cobranca": q_cobranca,
+        "concorrente": q_conc,
+    }
+    dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
+    projections._escrever_atomico(os.path.join(destino, "dados_painel.json"),
+                                  dados.encode("utf-8"))
+    projections._escrever_atomico(os.path.join(destino, "index.html"),
+                                  renderizar(payload).encode("utf-8"))
+
+    avisos = [q for q, e in (("validade", q_validade["erro"]),
+                             ("ruptura", q_ruptura["erro"]),
+                             ("cobranca", q_cobranca["erro"]),
+                             ("concorrente", q_conc["erro"])) if e]
+    resumo = (f"painel/index.html: {len(q_validade['itens'])} relampago, "
+              f"{len(q_ruptura['itens'])} ruptura, "
+              f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados)"
+              + (f" — AVISO em: {', '.join(avisos)}" if avisos else ""))
+    return [resumo]
