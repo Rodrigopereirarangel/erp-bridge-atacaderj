@@ -12,10 +12,12 @@
          font:16px/1.45 "Segoe UI", system-ui, sans-serif }
   h1 { font-size:1.35rem; margin-bottom:.8rem }
   h1 small { color:var(--mut); font-weight:400; font-size:.85rem; margin-left:.6rem }
-  .grade { display:grid; grid-template-columns:1fr 1fr; gap:1rem }
+  /* minmax(0,1fr): itens de grid nao encolhem abaixo do conteudo nowrap sem
+     isto — a tabela larga estourava a grade p/ fora da janela */
+  .grade { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem }
   .quadro { background:var(--card); border:1px solid var(--borda); border-radius:12px;
             padding:1rem; cursor:pointer;
-            display:flex; flex-direction:column;
+            display:flex; flex-direction:column; min-width:0;
             /* a grade 2x2 cabe na janela: cada card = metade da altura util,
                e o conteudo rola por dentro (.rolagem) */
             height:calc(50vh - 3.1rem); min-height:15rem }
