@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (2ª rodada): **Painel de Compras: plano de implementação pronto**
+  (`docs/superpowers/plans/2026-07-20-painel-compras.md`, 9 tasks TDD) com as
+  3 investigações §10 RESOLVIDAS no schema real via ssh: relâmpago =
+  `tbPromocaoRelampago` (247 vigentes); fornecedor =
+  `tbPedidoCompra.cdPessoaComercial→tbPessoa` + telefone em `tbTelefone`;
+  descoberta: 494/534 pedidos abertos com 7+ dias (loja não encerra pedido
+  morto) → janela `cobranca_max_dias=60` + contador de abandonados (spec
+  emendada §4.3/§7/§10/§12).
 - 2026-07-20: **Painel de Compras (TV + PC): design aprovado** — spec em
   `docs/superpowers/specs/2026-07-20-painel-compras-design.md`. Tela única com 4
   quadrantes (validade×relâmpago, ruptura via detector-estoque, cobrança de
