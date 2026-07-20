@@ -47,6 +47,20 @@
     "pdvs_atacado": [11, 12]
   },
 
+  "painel": {
+    "_comentario": "Painel de Compras (TV+PC). dir_saida e servido por http.server (porta_http). cobranca: entra com >= dias_limiar aberto OU previsao vencida, janela maxima cobranca_max_dias (medido 2026-07-20: sem janela seriam 494 pedidos — lixo historico vira contador de abandonados). detector_rounds_dir = <detector-estoque>/data/rounds. detector_dashboard_url = http://localhost:5173 (porta do dashboard do detector).",
+    "dir_saida": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/painel",
+    "porta_http": 8477,
+    "cobranca_dias_limiar": 7,
+    "cobranca_max_dias": 60,
+    "validade_urgente_dias": 30,
+    "rodizio_segundos": 20,
+    "reload_minutos": 5,
+    "pricing_dados_dir": "",
+    "detector_rounds_dir": "",
+    "detector_dashboard_url": ""
+  },
+
   "saida": {
     "_upload_manual_dir": "pastas com UM arquivo cada (upload manual de contingencia), sobrescritos a cada janela; padrao: Desktop/AtacadeRJ-Banco e Desktop/AtacadeRJ-Auditoria",
     "upload_manual_dir": "C:/Users/COMPUTADOR/Desktop/AtacadeRJ-Banco",

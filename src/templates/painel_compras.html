@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Compras — AtacadeRJ</title>
+<style>
+  :root { --bg:#0e1116; --card:#161b22; --borda:#21262d; --txt:#e6edf3;
+          --mut:#8b949e; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff }
+  * { box-sizing:border-box; margin:0 }
+  body { background:var(--bg); color:var(--txt); padding:1rem;
+         font:16px/1.45 "Segoe UI", system-ui, sans-serif }
+  h1 { font-size:1.35rem; margin-bottom:.8rem }
+  h1 small { color:var(--mut); font-weight:400; font-size:.85rem; margin-left:.6rem }
+  .grade { display:grid; grid-template-columns:1fr 1fr; gap:1rem }
+  .quadro { background:var(--card); border:1px solid var(--borda); border-radius:12px;
+            padding:1rem; cursor:pointer; min-height:15rem }
+  .quadro h2 { font-size:1.1rem; margin-bottom:.4rem }
+  .carimbo { color:var(--mut); font-size:.75rem; float:right; margin-top:.2rem }
+  .erro { background:#3d1d1f; color:var(--bad); padding:.4rem .6rem;
+          border-radius:8px; margin:.4rem 0; font-size:.9rem }
+  .kpis { display:flex; gap:.7rem; margin:.5rem 0 .7rem; flex-wrap:wrap }
+  .kpi { background:#0d1117; border-radius:10px; padding:.4rem .8rem; text-align:center }
+  .kpi b { display:block; font-size:1.6rem }
+  .kpi span { color:var(--mut); font-size:.75rem }
+  .kpi.warn b { color:var(--warn) } .kpi.bad b { color:var(--bad) } .kpi.ok b { color:var(--ok) }
+  table { width:100%; border-collapse:collapse; font-size:.9rem }
+  th { text-align:left; color:var(--mut); font-weight:600; padding:.25rem .5rem;
+       border-bottom:1px solid var(--borda); position:sticky; top:0; background:var(--card) }
+  td { padding:.28rem .5rem; border-bottom:1px solid #1c2128; white-space:nowrap }
+  td.desc { white-space:normal }
+  .num { text-align:right; font-variant-numeric:tabular-nums }
+  .tag { border-radius:6px; padding:.05rem .45rem; font-size:.78rem }
+  .tag.bad { background:#3d1d1f; color:var(--bad) }
+  .tag.warn { background:#3a2d12; color:var(--warn) }
+  .tag.ok { background:#12351c; color:var(--ok) }
+  .tag.mut { background:var(--borda); color:var(--mut) }
+  a { color:var(--acc) }
+  #detalhe { position:fixed; inset:0; background:var(--bg); padding:1rem;
+             display:none; overflow:auto; z-index:9 }
+  #detalhe.aberto { display:block }
+  #detalhe .topo { display:flex; gap:.8rem; align-items:center; margin-bottom:.8rem }
+  #detalhe h2 { flex-shrink:0 }
+  #detalhe input { background:#0d1117; color:var(--txt); border:1px solid #30363d;
+                   border-radius:8px; padding:.45rem .7rem; font-size:1rem; flex:1 }
+  button { background:var(--borda); color:var(--txt); border:1px solid #30363d;
+           border-radius:8px; padding:.45rem 1rem; font-size:1rem; cursor:pointer }
+  body.tv { font-size:21px; cursor:none }
+  body.tv .quadro { cursor:default }
+  body.tv .kpi b { font-size:2.4rem }
+  body.tv #detalhe .topo input, body.tv #detalhe .topo button { display:none }
+  @media (max-width:900px){ .grade { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+<h1>🛒 Painel de Compras <small id="cab"></small></h1>
+<div class="grade" id="grade"></div>
+<div id="detalhe"></div>
+<script>
+const D = /*__DADOS__*/null;
+const TV = location.hash.toLowerCase() === "#tv";
+if (TV) document.body.classList.add("tv");
+const C = D.cfg;
+const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+const rs = (v) => v == null ? "—" : "R$ " + nf.format(v);
+const esc = (s) => String(s == null ? "" : s)
+  .replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+document.getElementById("cab").textContent =
+  "gerado em " + D.gerado_em + (TV ? " · modo TV" : "");
+
+function diasTag(d) {
+  if (d == null) return '<span class="tag mut">sem validade registrada</span>';
+  const cls = d < 0 ? "bad" : (d <= C.validade_urgente_dias ? "warn" : "ok");
+  const txt = d < 0 ? ("vencida ha " + (-d) + "d") : ("vence em " + d + "d");
+  return '<span class="tag ' + cls + '">' + txt + "</span>";
+}
+
+/* ---- definicao dos quadrantes: kpis(), cab[], linha(item), dados ---- */
+const Q = {
+  validade_relampago: {
+    titulo: "⚡ Validade × Relâmpago", d: D.validade_relampago,
+    kpis() {
+      const it = this.d.itens, urg = it.filter(
+        (i) => i.dias_ate_vencer != null && i.dias_ate_vencer <= C.validade_urgente_dias);
+      const sem = it.filter((i) => i.dias_ate_vencer == null);
+      return [["", it.length, "em relâmpago"],
+              [urg.length ? "warn" : "ok", urg.length, "vencendo ≤" + C.validade_urgente_dias + "d"],
+              [sem.length ? "warn" : "ok", sem.length, "sem validade"]];
+    },
+    cab: ["Código", "Produto", "Curva", "Preço ⚡", "Fim promo", "Validades", "Urgência"],
+    linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
+                   esc(i.curva || "—"), '<td class="num">' + rs(i.preco_relampago) + "</td>",
+                   esc(i.promo_fim), esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
+  },
+  ruptura: {
+    titulo: "📉 Ruptura de estoque", d: D.ruptura,
+    kpis() {
+      const it = this.d.itens, sem = it.filter((i) => !i.tem_pedido);
+      return [["", it.length, "prováveis rupturas"],
+              [sem.length ? "bad" : "ok", sem.length, "sem pedido"]];
+    },
+    cab: ["Código", "Produto", "Prob.", "Un/mês", "R$ hist.", "Parado", "Curva", "Pedido"],
+    linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
+                   '<td class="num">' + (i.probabilidade == null ? "—" :
+                     Math.round(i.probabilidade * 100) + "%") + "</td>",
+                   '<td class="num">' + nf.format(i.un_mes || 0) + "</td>",
+                   '<td class="num">' + rs(i.rs_hist) + "</td>",
+                   '<td class="num">' + (i.dias_parado ?? "—") + "d</td>",
+                   esc(i.curva || "—"),
+                   i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
+                                : '<span class="tag bad">🛒 sem pedido</span>'],
+    rodape: () => D.cfg.detector_dashboard_url && !TV
+      ? '<p style="margin-top:.6rem"><a href="' + esc(D.cfg.detector_dashboard_url) +
+        '">abrir o dashboard do detector (feedback 🔴/🟢)</a></p>' : "",
+  },
+  cobranca: {
+    titulo: "📞 Cobrança de fornecedor", d: D.cobranca,
+    kpis() {
+      const it = this.d.itens;
+      const total = it.reduce((s, i) => s + (i.valor_pendente || 0), 0);
+      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar"],
+              ["", rs(total), "pendente"],
+              [this.d.abandonados ? "bad" : "ok", this.d.abandonados || 0,
+               "abandonados (fora da janela)"]];
+    },
+    cab: ["Fornecedor", "Pedido", "Data", "Dias", "Previsão", "Atraso", "Itens", "R$ pendente", "Telefone"],
+    linha: (i) => ['<td class="desc">' + esc(i.fornecedor) + "</td>", esc(i.pedido),
+                   esc(i.data_pedido),
+                   '<td class="num"><span class="tag ' +
+                     (i.dias_aberto >= 2 * C.cobranca_dias_limiar ? "bad" : "warn") +
+                     '">' + i.dias_aberto + "d</span></td>",
+                   esc(i.previsao_entrega || "—"),
+                   '<td class="num">' + (i.atraso_previsao ? i.atraso_previsao + "d" : "—") + "</td>",
+                   '<td class="num">' + i.itens_pendentes + "</td>",
+                   '<td class="num">' + rs(i.valor_pendente) + "</td>",
+                   esc(i.telefone ? i.telefone + (i.contato ? " (" + i.contato + ")" : "") : "—")],
+  },
+  concorrente: {
+    titulo: "🏷️ Preço concorrente", d: D.concorrente,
+    kpis() {
+      return [["", esc(this.d.rotulo || "—"), "semana da revisão"]];
+    },
+    cab: [], linha: null,   // sem tabela: quadrante e so card + link
+    corpo() {
+      if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
+      return TV ? '<p style="color:var(--mut)">Revisão ' + esc(this.d.rotulo) +
+                  " disponível — abra no PC para o detalhe.</p>"
+                : '<p><a href="' + esc(this.d.arquivo) +
+                  '" target="_blank">abrir a revisão de preços ' + esc(this.d.rotulo) + "</a></p>";
+    },
+  },
+};
+
+/* ---- visao geral (grade 2x2, top-8 por quadrante) ---- */
+function tabela(q, itens) {
+  if (!q.cab.length) return q.corpo ? q.corpo() : "";
+  const linhas = itens.map((i) => "<tr>" + q.linha(i).map(
+    (c) => String(c).startsWith("<td") ? c : "<td>" + c + "</td>").join("") + "</tr>");
+  return '<div style="overflow:auto"><table><tr>' +
+    q.cab.map((h) => "<th>" + h + "</th>").join("") + "</tr>" +
+    linhas.join("") + "</table></div>";
+}
+function cartao(id) {
+  const q = Q[id], d = q.d;
+  let h = '<h2>' + q.titulo + '<span class="carimbo">' + esc(d.carimbo || "—") + "</span></h2>";
+  if (d.erro) h += '<div class="erro">indisponível: ' + esc(d.erro) + "</div>";
+  h += '<div class="kpis">' + q.kpis().map(
+    ([cls, v, rot]) => '<div class="kpi ' + cls + '"><b>' + v + "</b><span>" +
+                       rot + "</span></div>").join("") + "</div>";
+  h += q.cab.length ? tabela(q, d.itens.slice(0, 8)) : (q.corpo ? q.corpo() : "");
+  h += (q.rodape && q.rodape()) || "";
+  return h;
+}
+function pintarGrade() {
+  const g = document.getElementById("grade");
+  g.innerHTML = "";
+  for (const id of Object.keys(Q)) {
+    const el = document.createElement("div");
+    el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
+    el.addEventListener("click", (ev) => { if (ev.target.closest("a")) return;
+      if (TV) return;
+      if (id === "concorrente") { if (Q.concorrente.d.arquivo) window.open(Q.concorrente.d.arquivo); return; }
+      abrirDetalhe(id);
+    });
+    g.appendChild(el);
+  }
+}
+
+/* ---- detalhe (tabela completa + filtro; na TV entra no rodizio) ---- */
+function abrirDetalhe(id, filtro) {
+  const q = Q[id], det = document.getElementById("detalhe");
+  const itens = filtro
+    ? q.d.itens.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
+    : q.d.itens;
+  det.innerHTML = '<div class="topo"><h2>' + q.titulo +
+    '<span class="carimbo">' + esc(q.d.carimbo || "—") + "</span></h2>" +
+    '<input id="filtro" placeholder="filtrar… (código, produto, fornecedor)">' +
+    '<button id="voltar">← voltar (Esc)</button></div>' +
+    (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
+    tabela(q, itens);
+  det.classList.add("aberto");
+  const inp = document.getElementById("filtro");
+  if (inp) { inp.value = filtro || ""; if (!TV) inp.focus();
+    inp.addEventListener("input", () => abrirDetalhe(id, inp.value.trim().toLowerCase())); }
+  const btn = document.getElementById("voltar");
+  if (btn) btn.addEventListener("click", fecharDetalhe);
+}
+function fecharDetalhe() { document.getElementById("detalhe").classList.remove("aberto"); }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharDetalhe(); });
+
+/* ---- modo TV: rodizio automatico + recarga periodica ---- */
+pintarGrade();
+if (TV) {
+  const ordem = [null, "validade_relampago", null, "ruptura", null, "cobranca"];
+  let i = 0;
+  setInterval(() => {
+    i = (i + 1) % ordem.length;
+    if (ordem[i] === null) fecharDetalhe(); else abrirDetalhe(ordem[i]);
+  }, (C.rodizio_segundos || 20) * 1000);
+  setTimeout(() => location.reload(), (C.reload_minutos || 5) * 60000);
+}
+</script>
+</body>
+</html>
