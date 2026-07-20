@@ -51,9 +51,16 @@ SELECT
     -- promocao (tbPromocao, relampago, etc.) ja chega materializada —
     -- validado 13/07: 90% das vendas do dia batem ao centavo; a view e
     -- so o fallback p/ item fora do PDV
-    CAST(COALESCE(CASE WHEN pdv.AtacadoQtde > 0 AND pdv.AtacadoPreco > 0
-                       THEN pdv.AtacadoPreco END,
-                  pr.preco_atacado) AS decimal(14,2)) AS preco_atacado,
+    -- atacado: quando o item TEM linha no caixa, so ela decide — relampago
+    -- vigente e tier inativo SUSPENDEM o degrau (AtacadoQtde/Preco zerados)
+    -- e o fallback antigo da view ressuscitava um atacado que o caixa nao
+    -- cobra (4 itens em 20/07, ex. atacado da view MENOR que a relampago
+    -- vigente -> cotacao prometia preco abaixo do cobrado). A view so vale
+    -- para item SEM linha no PDV.
+    CAST(CASE WHEN pdv.cdSuperProduto IS NOT NULL
+              THEN CASE WHEN pdv.AtacadoQtde > 0 AND pdv.AtacadoPreco > 0
+                        THEN pdv.AtacadoPreco END
+              ELSE pr.preco_atacado END AS decimal(14,2)) AS preco_atacado,
     CAST(COALESCE(NULLIF(pdv.vlVenda, 0),
                   pr.preco_varejo) AS decimal(14,2))  AS preco_varejo,
     -- promocao efetiva = menor positivo entre a da view e a VIGENTE hoje em

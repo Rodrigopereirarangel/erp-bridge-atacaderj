@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (4ª rodada): **fix CATALOGO — atacado não ressuscita pela view**
+  quando o item tem linha no caixa (relâmpago vigente/tier inativo suspendem o
+  degrau; auditoria achou 4 itens em que a cotação prometia atacado MENOR que
+  a relâmpago cobrada). Regra do dono registrada: *o preço de maior hierarquia
+  sempre vale*. View segue como fallback só de item SEM linha no PDV (hoje: 0
+  itens). +3 testes (134 no total). Do mesmo dia, no pricing: relatório de
+  concorrência re-lê o caixa na geração (caso Piraquê 15985: 3,49 congelado
+  na extração de 17/07 vs 2,99 no caixa).
 - 2026-07-20 (3ª rodada): **Painel de Compras NO AR no ponte** — 9 tasks
   executadas via subagentes (fixes de review em 3/6/7/8 + 3 Important do
   review final: servidor no logon sem limite 72h, firewall TCP 8477,
