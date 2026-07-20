@@ -84,13 +84,12 @@ def coletar(cfg, usar_demo, alvo="all"):
         if leve:
             hc = demo_data.historico_cliente() if quer_hc else []
             cat = demo_data.catalogo() if quer_exp else []
-            return cat, [], [], [], [], [], hc, vc, [], []
+            return cat, [], [], [], [], [], hc, vc, []
         return (demo_data.catalogo(), demo_data.vendas(janela),
                 demo_data.entradas(janela_ent), demo_data.pedidos(), [],
                 demo_data.vendas_mensal(),
                 demo_data.historico_cliente() if quer_hc else [], vc,
-                demo_data.validades() if hasattr(demo_data, "validades") else [],
-                [])
+                demo_data.validades() if hasattr(demo_data, "validades") else [])
 
     import db
     conn = db.conectar(cfg["db"])
@@ -127,15 +126,12 @@ def coletar(cfg, usar_demo, alvo="all"):
                   janela_exposicao=int(janela_exp),
                   pdvs_atacado=", ".join(str(int(p)) for p in pdvs_atacado)))
               if quer_exp else [])
-        # testemunhas de caixa-mae (nota/pedido/nfe/emb) p/ preencher a caixa
-        # APROXIMADA dos itens sem QUANTIDADE_CAIXA (dono, 18/07)
-        cmt = db.consultar(conn, queries.CAIXA_MAE_TESTEMUNHAS) if quer_exp else []
     finally:
         conn.close()
-    return cat, ven, ent, ped, pv, vm, hc, vc, val, cmt
+    return cat, ven, ent, ped, pv, vm, hc, vc, val
 
 
-def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo, val=None, cmt=None):
+def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo, val=None):
     saida = cfg["saida"]
     salao = saida["detector_salao_dir"]
     estoque = saida["detector_estoque_dir"]
@@ -236,7 +232,7 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo, val=None, cmt=None):
         n = projections.vendas_canal_csv(vc, os.path.join(exp_dir, "vendas_canal.csv"))
         rel.append(f"exposicao/vendas_canal.csv: {n}")
         n = projections.catalogo_exposicao_csv(
-            cat, os.path.join(exp_dir, "catalogo_exposicao.csv"), cmt)
+            cat, os.path.join(exp_dir, "catalogo_exposicao.csv"))
         rel.append(f"exposicao/catalogo_exposicao.csv: {n}")
 
     if alvo in ("all", "movimentos", "vendas-mensal"):
@@ -262,8 +258,8 @@ def main():
     try:
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
-        cat, ven, ent, ped, pv, vm, hc, vc, val, cmt = coletar(cfg, args.demo, args.only)
-        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val, cmt)
+        cat, ven, ent, ped, pv, vm, hc, vc, val = coletar(cfg, args.demo, args.only)
+        relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val)
     except Exception as e:  # loga ao lado, util quando roda pelo Agendador
         with open(os.path.join(RAIZ, "bridge_erros.log"), "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  ERRO: {e}\n")

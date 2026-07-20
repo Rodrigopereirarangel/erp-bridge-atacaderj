@@ -329,53 +329,27 @@ def vendas_canal_csv(vendas_canal, caminho):
     return len(linhas)
 
 
-def _caixa_aproximada(testemunhas):
-    """{codigo: fator} SO onde os votos concordam (dono, 18/07: sem presuncao
-    ousada — qualquer discordancia entre fontes = fica sem, ajuste manual).
-    Cada linha de `testemunhas` (query CAIXA_MAE_TESTEMUNHAS) ja e o voto
-    unanime de UMA fonte; aqui cruzamos as fontes entre si."""
-    votos = {}
-    for t in testemunhas or []:
-        votos.setdefault(t["codigo"], set()).add(int(t["fator"]))
-    return {cod: fatores.pop() for cod, fatores in votos.items()
-            if len(fatores) == 1}
-
-
-def catalogo_exposicao_csv(catalogo, caminho, testemunhas=None):
+def catalogo_exposicao_csv(catalogo, caminho):
     """Atributos que o calculo de exposicao precisa do cadastro.
 
     caixa_mae = catalogo["embalagem"] = VW_NEOGRID_PRODUTO_PRECO.QUANTIDADE_CAIXA.
     E o CADASTRO — nunca a nota de entrada (decisao do dono, spec D7): o
     calculo roda todo em unidades e so converte para caixa no ultimo passo.
-
-    caixa_origem (dono, 18/07): para item NAO-peso em que o cadastro nao tem
-    caixa (QUANTIDADE_CAIXA<=1), as fontes medidas da CAIXA_MAE_TESTEMUNHAS
-    podem preencher uma caixa APROXIMADA — o relatorio marca com emoji proprio
-    para o dono conferir. Valores: 'cadastro' (veio do Neogrid, ou peso),
-    'aproximada' (testemunhas concordam), 'verificar' (ninguem confiavel
-    opinou — ajuste manual). O cadastro com caixa NUNCA e sobrescrito.
+    Item sem caixa-mae nenhuma (embalagem NULL/0) fica de fora; caixa=1
+    entra e o relatorio marca p/ ajuste manual. (A "caixa aproximada" por
+    testemunhas de 18-20/07 foi REMOVIDA a pedido do dono em 20/07.)
 
     Tres degraus da classificacao (dono, 17/07): setor > corredor >
-    prateleira (ex.: PERFUMARIA > CORREDOR 20 > PRATELEIRA 21). Nivel
-    faltando desce na cascata (corredor vazio vira a prateleira; setor
-    vazio vira o corredor efetivo) — nunca sai celula vazia no filtro."""
-    aprox = _caixa_aproximada(testemunhas)
+    prateleira (ex.: PERFUMARIA > CORREDOR 20 > PRATELEIRA 21)."""
     cab = ["codigo", "descricao", "caixa_mae", "setor", "corredor",
-           "prateleira", "curva", "peso", "caixa_origem"]
+           "prateleira", "curva", "peso"]
     linhas = []
     for r in catalogo:
         emb = r.get("embalagem")
         peso = 1 if r.get("peso") else 0
         caixa = int(float(emb)) if emb and float(emb) > 0 else 0
-        origem = "cadastro"
-        if caixa <= 1 and not peso:
-            proposta = aprox.get(r["codigo"])
-            if proposta:
-                caixa, origem = proposta, "aproximada"
-            elif caixa == 1:
-                origem = "verificar"
         if caixa <= 0:
-            # nem cadastro nem testemunha: sem caixa nao da para arredondar
+            # sem caixa nao da para arredondar
             continue
         # SO produto ATIVO ganha min/max de prateleira (dono, 18/07):
         # inAtivo=0 do cadastro fora; classificacao 'INATIVOS OU FORA DO MIX'
@@ -410,7 +384,6 @@ def catalogo_exposicao_csv(catalogo, caminho, testemunhas=None):
             prateleira,
             r.get("curva"),
             peso,
-            origem,
         ])
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
