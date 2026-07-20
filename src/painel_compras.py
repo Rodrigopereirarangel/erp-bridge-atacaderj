@@ -220,7 +220,10 @@ def rodar(cfg, usar_demo=False):
                     cobranca_max_dias=max_d), "cobranca", erros)
                 aband = int(ab[0]["n"]) if ab else 0
             finally:
-                conn.close()
+                try:
+                    conn.close()
+                except Exception:  # noqa: BLE001 — conexao ja caida nao pode abortar a geracao
+                    pass
 
     q_validade = {"carimbo": gerado_em, "erro": erros.get("validade_relampago"),
                   "itens": []}
