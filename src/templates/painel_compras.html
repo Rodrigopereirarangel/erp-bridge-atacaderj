@@ -28,8 +28,8 @@
             display:flex; flex-direction:column; min-width:0;
             transition:border-color .15s;
             /* a grade 2x2 cabe na janela: cada card = metade da altura util,
-               e o conteudo rola por dentro (.rolagem) */
-            height:calc(50vh - 3.1rem); min-height:15rem }
+               e o conteudo rola por dentro (.rolagem); sem h1, sobra mais */
+            height:calc(50vh - 1.6rem); min-height:15rem }
   .quadro:hover { border-color:#31405a }
   .quadro .rolagem { flex:1 1 auto; overflow:auto; min-height:0 }
   .nota-previa { color:var(--fraco); font-size:.74rem; margin:-.25rem 0 .45rem;
@@ -44,19 +44,19 @@
              font-variant-numeric:tabular-nums }
   .erro { background:#2d1618; border:1px solid #542426; color:#f0857e;
           padding:.4rem .65rem; border-radius:9px; margin:.4rem 0; font-size:.88rem }
-  .kpis { display:flex; gap:.7rem; margin:.4rem 0 .7rem; flex-wrap:wrap }
-  .kpi { background:var(--card2); border:1px solid var(--linha); border-radius:11px;
-         padding:.45rem .95rem .5rem; text-align:center; min-width:5.2rem }
-  .kpi b { display:block; font-size:1.7rem; font-weight:750; letter-spacing:-.02em;
-           font-variant-numeric:tabular-nums; line-height:1.15 }
-  .kpi span { color:var(--mut); font-size:.72rem }
-  .kpi.warn b { color:var(--warn) } .kpi.bad b { color:var(--bad) } .kpi.ok b { color:var(--ok) }
-  .kpi[data-k] { cursor:pointer; transition:border-color .15s, transform .1s }
-  .kpi[data-k]:hover { border-color:#3a5a8c }
-  .kpi[data-k]:active { transform:scale(.97) }
-  .abrir-dica { color:var(--acc); font-size:.72rem; font-weight:400; margin-left:.6rem;
-                opacity:0; transition:opacity .15s }
-  .quadro:hover .abrir-dica { opacity:1 }
+  /* chips compactos na linha do titulo (dono, 20/07: sem caixas de resumo) */
+  .chip { display:inline-block; background:var(--card2); border:1px solid var(--linha);
+          border-radius:999px; padding:.02rem .55rem .08rem; margin-left:.5rem;
+          font-size:.72rem; font-weight:650; color:var(--mut);
+          font-variant-numeric:tabular-nums; vertical-align:.12rem }
+  .chip.warn { color:var(--warn) } .chip.bad { color:var(--bad) } .chip.ok { color:var(--ok) }
+  .chip[data-k] { cursor:pointer; transition:border-color .15s }
+  .chip[data-k]:hover { border-color:#3a5a8c }
+  /* botoes de faceta (curva A/B/C+) na lista aberta */
+  .facetas { display:flex; gap:.5rem; margin:0 0 .8rem }
+  .faceta { padding:.3rem .9rem; font-size:.85rem; color:var(--mut);
+            background:var(--card2); border:1px solid var(--borda); border-radius:999px }
+  .faceta.on { background:#1c3050; border-color:#3a5a8c; color:var(--txt) }
   table { width:100%; border-collapse:collapse; font-size:.89rem }
   th { text-align:left; color:var(--fraco); font-size:.72rem; font-weight:650;
        text-transform:uppercase; letter-spacing:.07em; padding:.3rem .55rem .35rem;
@@ -126,7 +126,6 @@
 </style>
 </head>
 <body>
-<h1>🛒 Painel de Compras <small id="cab"></small></h1>
 <div class="grade" id="grade"></div>
 <div id="detalhe"></div>
 <script>
@@ -145,20 +144,8 @@ const dbr = (s) => {
   if (!m) return esc(String(s));
   return m[3] + "/" + m[2] + "/" + m[1] + (m[4] ? " " + m[4] + ":" + m[5] : "");
 };
-// cabecalho com idade relativa ("ha Xmin"), atualizada a cada minuto
-function pintarCab() {
-  let rel = "";
-  const m = String(D.gerado_em).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
-  if (m) {
-    const t = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
-    const min = Math.max(0, Math.round((Date.now() - t.getTime()) / 60000));
-    rel = " · há " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
-  }
-  document.getElementById("cab").textContent =
-    "gerado em " + dbr(D.gerado_em) + rel + (TV ? " · modo TV" : "");
-}
-pintarCab();
-setInterval(pintarCab, 60000);
+// sem cabecalho de pagina (dono, 20/07): o espaco e todo das listas;
+// a idade do dado vive no carimbo de cada card
 
 function diasTag(d) {
   if (d == null) return '<span class="tag mut">sem validade registrada</span>';
@@ -179,10 +166,10 @@ const Q = {
       const it = this.d.itens, urg = it.filter(
         (i) => i.dias_ate_vencer != null && i.dias_ate_vencer <= C.validade_urgente_dias);
       const sem = it.filter((i) => i.dias_ate_vencer == null);
-      return [["", it.length, "em relâmpago", null],
+      return [["", it.length, "⚡", null],
               [urg.length ? "warn" : "ok", urg.length,
-               "vencendo ≤" + C.validade_urgente_dias + "d", {k: "dias_ate_vencer", dir: 1}],
-              [sem.length ? "warn" : "ok", sem.length, "sem validade", null]];
+               "≤" + C.validade_urgente_dias + "d", {k: "dias_ate_vencer", dir: 1}],
+              [sem.length ? "warn" : "ok", sem.length, "s/ validade", null]];
     },
     // lista aberta (dono, 20/07): sem codigo/curva; UMA coluna de vencimento
     // (o badge ja carrega os dias corridos — numero + urgencia juntos).
@@ -210,11 +197,15 @@ const Q = {
     // ("chance de ter zerado de fato"); abaixo disso e ruido do gate frio
     corte: (i) => (i.probabilidade || 0) > 0.75,
     filtroDica: "filtrar… produto ou código",
+    // botoes da lista aberta (dono, 20/07): escolher quais curvas aparecem
+    facetas: [{rot: "A", f: (i) => i.curva === "A"},
+              {rot: "B", f: (i) => i.curva === "B"},
+              {rot: "C+", f: (i) => i.curva !== "A" && i.curva !== "B"}],
     kpis() {
       const it = this.d.itens.filter(this.corte);
       const sem = it.filter((i) => !i.tem_pedido);
-      return [["", it.length, "prováveis rupturas (>75%)", null],
-              [sem.length ? "bad" : "ok", sem.length, "sem pedido",
+      return [["", it.length, ">75%", null],
+              [sem.length ? "bad" : "ok", sem.length, "s/ pedido",
                {k: "tem_pedido", dir: 1}]];
     },
     // previa do card (dono, 20/07): so curva A com prob. > 85%, maior R$
@@ -223,7 +214,7 @@ const Q = {
         (i) => i.curva === "A" && (i.probabilidade || 0) > 0.85)
       .sort((a, b) => (b.rs_hist || 0) - (a.rs_hist || 0)),
     previaMax: 20,
-    notaPrevia: "prévia: curva A · prob. >85% · maior R$ primeiro",
+    notaPrevia: "prévia: curva A · prob. >85% · maior R$ primeiro",   // vira tooltip do card
     cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
            {t: "Prob.", k: "probabilidade", num: 1}, {t: "Un/mês", k: "un_mes", num: 1},
            {t: "R$ hist.", k: "rs_hist", num: 1}, {t: "Parado", k: "dias_parado", num: 1},
@@ -251,9 +242,6 @@ const Q = {
                    i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
                                 : '<span class="tag bad">🛒 sem pedido</span>',
                    '<td class="num">' + (i.pedido_dias != null ? i.pedido_dias + "d" : "—") + "</td>"],
-    rodape: () => D.cfg.detector_dashboard_url && !TV
-      ? '<p style="margin-top:.6rem"><a href="' + esc(D.cfg.detector_dashboard_url) +
-        '">abrir o dashboard do detector (feedback 🔴/🟢)</a></p>' : "",
   },
   cobranca: {
     titulo: "📞 Cobrança de fornecedor", d: D.cobranca,
@@ -261,7 +249,7 @@ const Q = {
     // dono (20/07): so o contador de pedidos — R$ total e abandonados sairam
     kpis() {
       const it = this.d.itens;
-      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar", null]];
+      return [[it.length ? "warn" : "ok", it.length, "p/ cobrar", null]];
     },
     cols: [{t: "Fornecedor", k: "fornecedor"}, {t: "Pedido", k: "pedido", num: 1},
            {t: "Data", k: "data_pedido"}, {t: "Dias", k: "dias_aberto", num: 1},
@@ -308,6 +296,7 @@ const Q = {
 
 /* ---- ordenacao por coluna (clique no cabecalho: asc -> desc -> original) ---- */
 const SORT = {};   // por quadrante: {k, dir: 1|-1}
+const FACETA = {}; // por quadrante: Set de indices de facetas ligadas
 function alternarOrdem(id, k) {
   const s = SORT[id];
   if (s && s.k === k && s.dir === 1) SORT[id] = {k, dir: -1};
@@ -351,24 +340,20 @@ function conjunto(q) {   // universo de trabalho do quadrante (corte aplicado)
 }
 function cartao(id) {
   const q = Q[id], d = q.d;
+  // linha unica de titulo: emoji + nome + chips compactos + carimbo (direita)
   let h = '<h2>' + q.titulo +
-    (TV ? "" : '<span class="abrir-dica">abrir lista ⤢</span>') +
-    '<span class="carimbo">' + dbr(d.carimbo) + "</span></h2>";
-  if (d.erro) h += '<div class="erro">indisponível: ' + esc(d.erro) + "</div>";
-  const ks = q.kpis();
-  if (ks.length) h += '<div class="kpis">' + ks.map(
-    ([cls, v, rot, ord]) => '<div class="kpi ' + cls + '"' +
+    q.kpis().map(([cls, v, rot, ord]) => '<span class="chip ' + cls + '"' +
       (ord && !TV ? ' data-k="' + ord.k + '" data-dir="' + ord.dir +
         '" title="abrir a lista ordenada por isto"' : "") +
-      "><b>" + v + "</b><span>" + rot + "</span></div>").join("") + "</div>";
-  if (q.notaPrevia) h += '<div class="nota-previa">' + q.notaPrevia + "</div>";
+      ">" + v + " " + rot + "</span>").join("") +
+    '<span class="carimbo">' + dbr(d.carimbo) + "</span></h2>";
+  if (d.erro) h += '<div class="erro">indisponível: ' + esc(d.erro) + "</div>";
   if (q.cols.length) {
     const base = q.previa ? q.previa(conjunto(q)) : conjunto(q);
     h += tabela(q, id, ordenar(q, id, base).slice(0, q.previaMax || 20), true);
   } else {
     h += q.corpo ? q.corpo() : "";
   }
-  h += (q.rodape && q.rodape()) || "";
   return h;
 }
 /* poda a revisao do pricing DENTRO da previa (mesma origem): esconde titulo,
@@ -379,7 +364,7 @@ function podarRevisao(fr) {
     const doc = fr.contentDocument;
     if (!doc || !doc.head) return;
     const st = doc.createElement("style");
-    st.textContent = "h1,#descricao,.controles,#aviso-pendentes,#totais,p.rodape" +
+    st.textContent = "h1,#descricao,.controles,#aviso-pendentes,#totais,p.rodape,p.nota" +
       "{display:none!important}" +
       ".pagina{padding:0!important;margin:0!important;max-width:none!important}" +
       "body{padding:6px!important;margin:0!important}";
@@ -390,8 +375,11 @@ function pintarGrade() {
   const g = document.getElementById("grade");
   g.innerHTML = "";
   for (const id of Object.keys(Q)) {
+    const q = Q[id];
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
+    if (!TV) el.title = (q.notaPrevia ? q.notaPrevia + " — " : "") +
+      "clique para abrir a lista completa";
     el.querySelectorAll("iframe").forEach((f) => {
       f.addEventListener("load", () => podarRevisao(f));
       if (f.contentDocument && f.contentDocument.readyState === "complete") podarRevisao(f);
@@ -408,10 +396,10 @@ function pintarGrade() {
       // clique/arrasto NA BARRA de rolagem interna: o alvo e o proprio
       // .rolagem (filhos recebem os cliques no conteudo) — nao abre detalhe
       if (ev.target.classList && ev.target.classList.contains("rolagem")) return;
-      // KPI com ordenacao propria: abre a lista JA ordenada por esse aspecto
-      const kpi = ev.target.closest(".kpi[data-k]");
-      if (kpi && id !== "concorrente") {
-        SORT[id] = {k: kpi.dataset.k, dir: Number(kpi.dataset.dir) || 1};
+      // chip com ordenacao propria: abre a lista JA ordenada por esse aspecto
+      const chip = ev.target.closest(".chip[data-k]");
+      if (chip && id !== "concorrente") {
+        SORT[id] = {k: chip.dataset.k, dir: Number(chip.dataset.dir) || 1};
         pintarGrade(); abrirDetalhe(id); return;
       }
       const th = ev.target.closest("th.ord");
@@ -438,7 +426,18 @@ function abrirDetalhe(id, filtro) {
   detalheAtual = id; filtroAtual = filtro || "";
   // TV: rodizio em tela cheia mostra a PREVIA curada (nao ha como rolar 1000
   // linhas sem mouse); PC: universo completo do quadrante, com filtro
-  const universo = (TV && q.previa) ? q.previa(conjunto(q)) : conjunto(q);
+  let universo = (TV && q.previa) ? q.previa(conjunto(q)) : conjunto(q);
+  // facetas (ex.: curvas A/B/C+ na ruptura): multi-selecao, padrao tudo ligado
+  const fs = (!TV && q.facetas) || null;
+  let sel = null, botoes = "";
+  if (fs) {
+    sel = FACETA[id] || (FACETA[id] = new Set(fs.map((_, ix) => ix)));
+    botoes = '<div class="facetas">' + fs.map((fc, ix) =>
+      '<button class="faceta' + (sel.has(ix) ? " on" : "") + '" data-fx="' + ix +
+      '">' + fc.rot + " · " + universo.filter(fc.f).length + "</button>").join("") + "</div>";
+    if (sel.size < fs.length)
+      universo = universo.filter((i) => [...sel].some((ix) => fs[ix].f(i)));
+  }
   const base = ordenar(q, id, universo);
   const itens = (filtro
     ? base.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
@@ -447,7 +446,7 @@ function abrirDetalhe(id, filtro) {
   det.innerHTML = '<div class="topo"><h2>' + q.titulo +
     '<span class="carimbo">' + dbr(q.d.carimbo) + " · " + qtd + "</span></h2>" +
     '<input id="filtro" placeholder="' + esc(q.filtroDica || "filtrar…") + '">' +
-    '<button id="voltar">← voltar (Esc)</button></div>' +
+    '<button id="voltar">← voltar (Esc)</button></div>' + botoes +
     (TV && q.notaPrevia ? '<div class="nota-previa">' + q.notaPrevia + "</div>" : "") +
     (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
     tabela(q, id, itens, TV);
@@ -463,8 +462,16 @@ function fecharDetalhe() {
   document.getElementById("detalhe").classList.remove("aberto");
 }
 document.getElementById("detalhe").addEventListener("click", (ev) => {
+  if (!detalheAtual || TV) return;
+  const fx = ev.target.closest("button.faceta");
+  if (fx) {
+    const sel = FACETA[detalheAtual], ix = Number(fx.dataset.fx);
+    if (sel.has(ix)) sel.delete(ix); else sel.add(ix);
+    abrirDetalhe(detalheAtual, filtroAtual);
+    return;
+  }
   const th = ev.target.closest("th.ord");
-  if (th && detalheAtual && !TV) {
+  if (th) {
     alternarOrdem(detalheAtual, th.dataset.k);
     abrirDetalhe(detalheAtual, filtroAtual);
     pintarGrade();          // o card da visao geral acompanha a ordem escolhida
