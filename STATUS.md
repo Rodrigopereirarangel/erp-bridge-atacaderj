@@ -183,6 +183,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (7ª rodada): **Painel: lapidação com o dono ao vivo** (commits
+  10a1d58..8407fa5): coluna "Pedido há Xd" na ruptura (idade do pedido de
+  compra, do round do detector); prévias sem Código/Prob./Validades; box S29 e
+  KPIs de R$ total/abandonados removidos; lista aberta da validade sem
+  código/curva + coluna dias corridos p/ vencer; grade 2×2 cabe exata na
+  janela (minmax(0,1fr) corrigiu estouro horizontal); FIX: arrasto na barra de
+  rolagem interna não abre mais o detalhe; passe de design com as skills
+  dataviz+frontend-design (tipografia hierárquica, scrollbars escuras, zebra,
+  pílulas); modo TV otimizado p/ 55" (27px, rodízio mostra prévia curada).
+  Tudo verificado ao vivo em 1920×1080 e #tv.
 - 2026-07-20 (6ª rodada): **Painel: prévias de verdade (feedback do dono)** —
   ruptura agora trabalha só com prob. >75% (contadores 1.009/630; lista aberta
   idem); prévia do card = curva A + prob. >85%, maior R$ primeiro, sem Un/mês,
