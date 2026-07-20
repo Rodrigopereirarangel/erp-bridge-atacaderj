@@ -183,6 +183,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (4ª rodada): **Painel: ajustes do dono após 1ª olhada na TV** —
+  colunas ordenáveis (clique no cabeçalho: ▲/▼/original, visão geral e
+  detalhe), estado-vazio "nenhum item para mostrar" (o "não abre" da ruptura
+  era detalhe vazio idêntico ao card — diagnosticado no navegador via CDP),
+  fallback de popup no concorrente, cobrança em ordem CRESCENTE com badge
+  amarela ≤21d/vermelha >21d e janela 45d (202 p/ cobrar +220 abandonados na
+  rodada real). Commit b2f5ce5, redeployado e verificado ao vivo no ponte.
 - 2026-07-20 (4ª rodada): **fix CATALOGO — atacado não ressuscita pela view**
   quando o item tem linha no caixa (relâmpago vigente/tier inativo suspendem o
   degrau; auditoria achou 4 itens em que a cotação prometia atacado MENOR que
