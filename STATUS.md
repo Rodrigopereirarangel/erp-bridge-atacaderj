@@ -183,6 +183,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20: **Painel de Compras (TV + PC): design aprovado** — spec em
+  `docs/superpowers/specs/2026-07-20-painel-compras-design.md`. Tela única com 4
+  quadrantes (validade×relâmpago, ruptura via detector-estoque, cobrança de
+  fornecedor ≥7 dias, concorrente = reuso do revisao_Sxx.html do pricing), modo
+  TV sem interação (rodízio) + modo PC interativo, gerador novo
+  `src/painel_compras.py` na bridge. Próximo: writing-plans (pendem 3
+  investigações de schema no ponte — spec §10).
 - 2026-07-17 (3ª rodada): **Decisão final do quadro: 11 operadoras (mín 10) com
   BANCO DE HORAS, zero parciais** — o banco (já vigente na loja) dissolve a
   rigidez dos turnos fixos: sábado com 8 pessoas em jornadas 5h30-9h (era 12
