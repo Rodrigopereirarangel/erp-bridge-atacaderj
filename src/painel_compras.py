@@ -133,3 +133,25 @@ def carregar_ruptura(rounds_dir):
         "cobertura_esgotada": bool(i.get("coberturaEsgotada")),
     } for i in rodada.get("items", [])]
     return {"ref": rodada.get("refDate") or rodada.get("id"), "itens": itens}
+
+
+def copiar_revisao_pricing(dados_dir, dir_saida):
+    """Copia o revisao_<AAAA>-S<ww>.html MAIS NOVO do pricing para a pasta do
+    painel (nome fixo revisao_pricing.html -> link estavel no HTML).
+    Ordena por (ano, int(semana)): lexicografico faria S9 > S10."""
+    if not dados_dir or not os.path.isdir(dados_dir):
+        return None
+    padrao = re.compile(r"revisao_(\d{4})-S(\d+)\.html$")
+    candidatos = []
+    for arq in glob.glob(os.path.join(dados_dir, "revisao_*.html")):
+        m = padrao.search(os.path.basename(arq))
+        if m:
+            candidatos.append((int(m.group(1)), int(m.group(2)), arq))
+    if not candidatos:
+        return None
+    ano, sem, origem = max(candidatos)
+    os.makedirs(dir_saida, exist_ok=True)
+    shutil.copyfile(origem, os.path.join(dir_saida, "revisao_pricing.html"))
+    mtime = datetime.fromtimestamp(os.path.getmtime(origem))
+    return {"rotulo": f"{ano}-S{sem}", "arquivo": "revisao_pricing.html",
+            "modificado_em": mtime.strftime("%Y-%m-%d %H:%M")}
