@@ -285,10 +285,9 @@ const Q = {
     cols: [], linha: null,   // sem tabela: previa e a propria revisao embutida
     corpo() {
       if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
-      const link = TV ? "" : '<p style="margin:.1rem 0 .5rem"><a href="' + esc(this.d.arquivo) +
-        '" target="_blank">abrir a revisão ' + esc(this.d.rotulo) + " em tela cheia</a></p>";
-      // pointer-events:none no iframe: o clique continua sendo do card
-      return link + '<div class="rolagem previa-frame"><iframe src="' +
+      // sem link (dono, 20/07): clicar em QUALQUER ponto do card ja abre a
+      // revisao em tela cheia (pointer-events:none no iframe -> clique e do card)
+      return '<div class="rolagem previa-frame"><iframe src="' +
         esc(this.d.arquivo) + '" title="revisão de preços"></iframe></div>';
     },
   },
@@ -367,7 +366,11 @@ function podarRevisao(fr) {
     st.textContent = "h1,#descricao,.controles,#aviso-pendentes,#totais,p.rodape,p.nota" +
       "{display:none!important}" +
       ".pagina{padding:0!important;margin:0!important;max-width:none!important}" +
-      "body{padding:6px!important;margin:0!important}";
+      "body{padding:4px!important;margin:0!important;font-size:12px!important}" +
+      // densidade igual as outras abas (dono, 20/07): fonte e celulas compactas
+      "table{font-size:12px!important;width:100%!important}" +
+      "td,th{padding:3px 6px!important}" +
+      "td *,th *{font-size:12px!important;line-height:1.3!important}";
     doc.head.appendChild(st);
   } catch (e) {}  // noqa: cross-origin ou doc ainda nao pronto
 }
@@ -378,8 +381,9 @@ function pintarGrade() {
     const q = Q[id];
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
-    if (!TV) el.title = (q.notaPrevia ? q.notaPrevia + " — " : "") +
-      "clique para abrir a lista completa";
+    if (!TV) el.title = id === "concorrente"
+      ? "clique para abrir a revisão de preços em tela cheia"
+      : (q.notaPrevia ? q.notaPrevia + " — " : "") + "clique para abrir a lista completa";
     el.querySelectorAll("iframe").forEach((f) => {
       f.addEventListener("load", () => podarRevisao(f));
       if (f.contentDocument && f.contentDocument.readyState === "complete") podarRevisao(f);
