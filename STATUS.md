@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (8ª rodada): **Painel: rodada de UX com ui-ux-pro-max** (903dbbc)
+  — datas dd/mm/aaaa em tudo; validade com UMA coluna de vencimento (badge com
+  dias corridos; era dobrada); KPIs "vencendo ≤30d" e "sem pedido" clicáveis
+  (abrem a lista já ordenada); RODA do mouse atravessa p/ dentro da prévia da
+  revisão (scrollBy no contentWindow — era a rolagem "bugada"); detalhe com uma
+  barra só + contagem "N itens"/"N de M" + placeholder por aba; cabeçalho com
+  idade relativa (há X min); PC auto-recarrega ocioso na visão geral. Tudo
+  verificado ao vivo (KPI→lista ordenada ▲, dd/mm, scroll 0→400 no iframe).
 - 2026-07-20 (7ª rodada): **Painel: lapidação com o dono ao vivo** (commits
   10a1d58..8407fa5): coluna "Pedido há Xd" na ruptura (idade do pedido de
   compra, do round do detector); prévias sem Código/Prob./Validades; box S29 e
