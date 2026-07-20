@@ -15,7 +15,8 @@ def _cfg(tmp_path, **painel):
     return {"painel": base}
 
 
-def test_demo_gera_index_e_json(tmp_path):
+def test_demo_gera_index_e_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
     rel = pc.rodar(_cfg(tmp_path), usar_demo=True)
     assert any("painel/index.html" in l for l in rel)
     html = (tmp_path / "painel" / "index.html").read_text(encoding="utf-8")
@@ -30,7 +31,8 @@ def test_demo_gera_index_e_json(tmp_path):
     assert peds == {101, 102}
 
 
-def test_fontes_ausentes_nao_derrubam_a_geracao(tmp_path):
+def test_fontes_ausentes_nao_derrubam_a_geracao(tmp_path, monkeypatch):
+    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
     cfg = _cfg(tmp_path,
                detector_rounds_dir=str(tmp_path / "nao-existe"),
                pricing_dados_dir=str(tmp_path / "tambem-nao"))
@@ -41,7 +43,8 @@ def test_fontes_ausentes_nao_derrubam_a_geracao(tmp_path):
     assert dados["concorrente"]["erro"]
 
 
-def test_ruptura_e_concorrente_entram_quando_existem(tmp_path):
+def test_ruptura_e_concorrente_entram_quando_existem(tmp_path, monkeypatch):
+    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
     rounds = tmp_path / "rounds"; rounds.mkdir()
     (rounds / "2026-07-19.json").write_text(json.dumps(
         {"id": "2026-07-19", "refDate": "2026-07-19",
@@ -99,6 +102,7 @@ def test_banco_fora_do_ar_nao_derruba_a_geracao(tmp_path, monkeypatch):
 
 
 def test_close_quebrado_e_queries_falhando_nao_derrubam(tmp_path, monkeypatch):
+    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
     monkeypatch.setitem(sys.modules, "db", _DbTudoQuebra)
     cfg = {"db": {}, "painel": {"dir_saida": str(tmp_path / "painel")}}
     pc.rodar(cfg, usar_demo=False)          # nem consultar nem close derrubam
