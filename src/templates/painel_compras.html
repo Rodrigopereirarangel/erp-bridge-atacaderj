@@ -116,14 +116,20 @@ const Q = {
               [urg.length ? "warn" : "ok", urg.length, "vencendo ≤" + C.validade_urgente_dias + "d"],
               [sem.length ? "warn" : "ok", sem.length, "sem validade"]];
     },
-    cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
-           {t: "Curva", k: "curva"}, {t: "Preço ⚡", k: "preco_relampago", num: 1},
+    // lista aberta (dono, 20/07): sem codigo/curva; dias CORRIDOS p/ vencer
+    // como numero (negativo = ja vencida). O filtro ainda acha por codigo
+    // (busca no item inteiro), mesmo sem a coluna.
+    cols: [{t: "Produto", k: "descricao"},
+           {t: "Preço ⚡", k: "preco_relampago", num: 1},
            {t: "Fim promo", k: "promo_fim"},
            {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
-           {t: "Urgência", k: "dias_ate_vencer", num: 1}],
-    linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
-                   esc(i.curva || "—"), '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   esc(i.promo_fim), esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
+           {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1},
+           {t: "Urgência", k: "urgencia", num: 1, v: (i) => i.dias_ate_vencer}],
+    linha: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
+                   '<td class="num">' + rs(i.preco_relampago) + "</td>",
+                   esc(i.promo_fim), esc(i.validades.join(", ") || "—"),
+                   '<td class="num">' + (i.dias_ate_vencer != null ? i.dias_ate_vencer + "d" : "—") + "</td>",
+                   diasTag(i.dias_ate_vencer)],
     // previa enxuta: so o que decide acao; codigo/curva/datas ficam no detalhe
     colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "Preço ⚡", k: "preco_relampago", num: 1},
