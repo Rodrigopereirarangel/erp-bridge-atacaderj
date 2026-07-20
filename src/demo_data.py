@@ -157,6 +157,44 @@ def pedidos():
     ]
 
 
+def promo_relampago():
+    """Relampagos vigentes (forma da query PROMO_RELAMPAGO). 2411 casa com a
+    validade de 19 dias do validades() -> exercita o alerta; 3905 esta no
+    catalogo mas SEM validade registrada; 9999 nao existe no catalogo."""
+    hoje = date.today()
+    return [
+        {"codigo": "2411", "promo_inicio": (hoje - timedelta(days=2)).isoformat(),
+         "promo_fim": (hoje + timedelta(days=5)).isoformat(), "preco_relampago": 15.90},
+        {"codigo": "3905", "promo_inicio": hoje.isoformat(),
+         "promo_fim": (hoje + timedelta(days=3)).isoformat(), "preco_relampago": 2.99},
+        {"codigo": "9999", "promo_inicio": hoje.isoformat(),
+         "promo_fim": (hoje + timedelta(days=1)).isoformat(), "preco_relampago": 2.00},
+    ]
+
+
+def pedidos_cobranca():
+    """Pedidos de compra abertos (forma da query PEDIDOS_COBRANCA).
+    101: 12 dias aberto + previsao vencida (entra). 102: 8 dias, sem previsao
+    (entra pelo limiar). 103: 2 dias, previsao futura (o filtro deixa FORA)."""
+    hoje = date.today()
+    return [
+        {"pedido": 101, "data_pedido": (hoje - timedelta(days=12)).isoformat(),
+         "fornecedor": "DISTRIBUIDORA DEMO LTDA",
+         "previsao_entrega": (hoje - timedelta(days=4)).isoformat(),
+         "ddd": "21", "telefone": "33334444", "contato": "SR. DEMO",
+         "itens_pendentes": 8, "valor_pendente": 4321.50},
+        {"pedido": 102, "data_pedido": (hoje - timedelta(days=8)).isoformat(),
+         "fornecedor": "ATACADO FAKE SA", "previsao_entrega": None,
+         "ddd": "", "telefone": "", "contato": "",
+         "itens_pendentes": 3, "valor_pendente": 980.00},
+        {"pedido": 103, "data_pedido": (hoje - timedelta(days=2)).isoformat(),
+         "fornecedor": "NOVO FORNECEDOR",
+         "previsao_entrega": (hoje + timedelta(days=3)).isoformat(),
+         "ddd": "21", "telefone": "00000000", "contato": "",
+         "itens_pendentes": 5, "valor_pendente": 1500.00},
+    ]
+
+
 def vendas_canal(janela_dias=400):
     """Venda por item/dia/canal falsa. Sabado pesa ~2,3x a segunda (como na loja
     real) e domingo nao vende — assim o --demo exercita o calendario e o fator

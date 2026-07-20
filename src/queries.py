@@ -472,3 +472,69 @@ GROUP BY COALESCE(pv.cdProduto, i.cdProduto),
               THEN 'atacado' ELSE 'salao' END
 ORDER BY codigo, data, canal
 """
+
+# PROMO_RELAMPAGO: produtos com promocao relampago VIGENTE agora — quadrante
+# validade x relampago do Painel de Compras.
+# FONTE (schema confirmado 2026-07-20): dbo.tbPromocaoRelampago
+# (cdProduto, dtInicio, dtFim, vlVenda). Medido: 371 linhas, 247 vigentes.
+# tbPromocaoTipo.inRelampago existe, mas cdTipoPromocao vem NULL nas linhas
+# vivas — o marcador REAL de "relampago" e estar NESTA tabela, vigente.
+PROMO_RELAMPAGO = """
+SELECT pr.cdProduto                              AS codigo,
+       CAST(pr.dtInicio AS date)                 AS promo_inicio,
+       CAST(pr.dtFim AS date)                    AS promo_fim,
+       CAST(pr.vlVenda AS decimal(14,2))         AS preco_relampago
+FROM dbo.tbPromocaoRelampago pr
+WHERE GETDATE() BETWEEN pr.dtInicio AND pr.dtFim
+ORDER BY pr.cdProduto
+"""
+
+# PEDIDOS_COBRANCA: pedidos de compra ABERTOS, por pedido x fornecedor —
+# quadrante de cobranca do Painel de Compras.
+# FATOS (2026-07-20): fornecedor NAO esta em tbPedido; vem de
+# tbPedidoCompra.cdPessoaComercial -> tbPessoa. Telefone em tbTelefone
+# (cdPessoa, DDD, Numero, Contato; cdTelefone=1 = principal). vlPedidoItem e
+# POR VOLUME (convencao igual ao PEDIDOS_VENDA) -> valor pendente =
+# (qtPedidoItem - qtAtendida) * vlPedidoItem.
+# JANELA {cobranca_max_dias}: medido 534 abertos, 494 com 7+ dias — a loja NAO
+# encerra pedido morto no ERP (ha pedidos de janeiro "abertos"). Sem a janela o
+# quadrante nasceria inutil; os fora dela viram o contador de "abandonados".
+PEDIDOS_COBRANCA = """
+SELECT p.cdPedido                                AS pedido,
+       CAST(p.dtPedido AS date)                  AS data_pedido,
+       LTRIM(RTRIM(ps.nmPessoa))                 AS fornecedor,
+       CAST(pc.dtEntregaPrevista AS date)        AS previsao_entrega,
+       COALESCE(RTRIM(t.DDD), '')                AS ddd,
+       COALESCE(RTRIM(t.Numero), '')             AS telefone,
+       COALESCE(RTRIM(t.Contato), '')            AS contato,
+       COUNT(*)                                  AS itens_pendentes,
+       CAST(SUM((i.qtPedidoItem - COALESCE(i.qtAtendida, 0)) * i.vlPedidoItem)
+            AS decimal(14,2))                    AS valor_pendente
+FROM dbo.tbPedido p
+JOIN dbo.tbPedidoCompra pc
+  ON pc.cdPedidoCompra = p.cdPedido AND pc.cdPessoaFilial = p.cdPessoaFilial
+JOIN dbo.tbPessoa ps       ON ps.cdPessoa = pc.cdPessoaComercial
+LEFT JOIN dbo.tbTelefone t ON t.cdPessoa = pc.cdPessoaComercial AND t.cdTelefone = 1
+JOIN dbo.tbPedidoItem i
+  ON i.cdPedido = p.cdPedido AND i.cdPessoaFilial = p.cdPessoaFilial
+WHERE p.inEntrada = 1
+  AND p.dtAtendido IS NULL
+  AND COALESCE(i.inAtendido, 0) = 0
+  AND i.qtPedidoItem > 0
+  AND p.dtPedido >= DATEADD(day, -{cobranca_max_dias}, CAST(GETDATE() AS date))
+GROUP BY p.cdPedido, CAST(p.dtPedido AS date), ps.nmPessoa,
+         CAST(pc.dtEntregaPrevista AS date), t.DDD, t.Numero, t.Contato
+HAVING SUM((i.qtPedidoItem - COALESCE(i.qtAtendida, 0)) * i.qtEmbalagem) > 0
+ORDER BY data_pedido
+"""
+
+# PEDIDOS_ABANDONADOS: quantos pedidos abertos ficaram FORA da janela de
+# cobranca (lixo historico que ninguem encerrou). So um contador honesto no
+# quadrante — nenhum corte silencioso.
+PEDIDOS_ABANDONADOS = """
+SELECT COUNT(*) AS n
+FROM dbo.tbPedido p
+WHERE p.inEntrada = 1
+  AND p.dtAtendido IS NULL
+  AND p.dtPedido < DATEADD(day, -{cobranca_max_dias}, CAST(GETDATE() AS date))
+"""
