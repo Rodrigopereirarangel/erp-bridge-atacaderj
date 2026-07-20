@@ -183,6 +183,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (9ª rodada): **Painel: espaço máximo + facetas de curva** (96790ab)
+  — dono pediu tela só de listas: saíram o cabeçalho da página, as caixas de
+  resumo (viraram chips clicáveis na linha do título), o link do detector e a
+  caixa verde da revisão (p.nota podada no iframe); nota da prévia virou
+  tooltip. Lista aberta da ruptura ganhou botões multi-seleção de curva
+  A/B/C+ com contagem (verificado ao vivo: A·109/B·293/C+·607=1009; desligar
+  A → 900). Cards agora usam calc(50vh-1.6rem).
 - 2026-07-20 (8ª rodada): **Painel: rodada de UX com ui-ux-pro-max** (903dbbc)
   — datas dd/mm/aaaa em tudo; validade com UMA coluna de vencimento (badge com
   dias corridos; era dobrada); KPIs "vencendo ≤30d" e "sem pedido" clicáveis
