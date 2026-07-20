@@ -76,3 +76,34 @@ def cruzar_validade_relampago(relampago, validades, catalogo, hoje):
     itens.sort(key=lambda i: (i["dias_ate_vencer"] is None,
                               i["dias_ate_vencer"], i["codigo"]))
     return itens
+
+
+def montar_cobranca(pedidos, hoje, limiar_dias=7):
+    """Pedidos que merecem cobranca: abertos ha >= limiar OU previsao vencida.
+    A query ja cortou na janela maxima (cobranca_max_dias); os mais velhos que
+    ela viram so o contador de 'abandonados' (fora daqui)."""
+    itens = []
+    for r in pedidos or []:
+        dias = _dias(r["data_pedido"], hoje)
+        prev = str(r["previsao_entrega"])[:10] if r.get("previsao_entrega") else None
+        atraso = _dias(prev, hoje) if prev else 0
+        atraso = atraso if atraso > 0 else 0
+        if dias < limiar_dias and atraso == 0:
+            continue
+        num = (r.get("telefone") or "").strip()
+        ddd = (r.get("ddd") or "").strip()
+        tel = f"({ddd}) {num}" if num and set(num) != {"0"} else ""
+        itens.append({
+            "pedido": r["pedido"],
+            "fornecedor": r["fornecedor"],
+            "data_pedido": str(r["data_pedido"])[:10],
+            "dias_aberto": dias,
+            "previsao_entrega": prev,
+            "atraso_previsao": atraso,
+            "itens_pendentes": int(r.get("itens_pendentes") or 0),
+            "valor_pendente": float(r.get("valor_pendente") or 0),
+            "telefone": tel,
+            "contato": (r.get("contato") or "").strip(),
+        })
+    itens.sort(key=lambda i: (-i["dias_aberto"], -i["valor_pendente"]))
+    return itens
