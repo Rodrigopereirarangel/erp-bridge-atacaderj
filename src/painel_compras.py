@@ -113,7 +113,20 @@ def montar_cobranca(pedidos, hoje, limiar_dias=7):
     return itens
 
 
-def carregar_ruptura(rounds_dir):
+def _pedido_dias(item, hoje):
+    """Dias desde a data do pedido de compra do item (None se nao ha pedido
+    ou a data vier ilegivel — round e arquivo externo, nunca derruba)."""
+    ped = item.get("pedido") or {}
+    data = str(ped.get("dataPedido") or "")[:10]
+    if not item.get("temPedido") or not data:
+        return None
+    try:
+        return _dias(data, hoje)
+    except ValueError:
+        return None
+
+
+def carregar_ruptura(rounds_dir, hoje=None):
     """Rodada mais recente do detector-estoque, traduzida para o painel.
     Items ja vem ordenados por scorePrioridade desc (detectAll.js)."""
     if not rounds_dir or not os.path.isdir(rounds_dir):
@@ -121,6 +134,7 @@ def carregar_ruptura(rounds_dir):
     arquivos = sorted(glob.glob(os.path.join(rounds_dir, "*.json")))
     if not arquivos:
         return None
+    hoje = hoje or date.today().isoformat()
     with open(arquivos[-1], encoding="utf-8") as f:
         rodada = json.load(f)
     itens = [{
@@ -129,6 +143,7 @@ def carregar_ruptura(rounds_dir):
         "prioridade": i.get("scorePrioridade"),
         "probabilidade": i.get("probabilidade"),
         "tem_pedido": bool(i.get("temPedido")),
+        "pedido_dias": _pedido_dias(i, hoje),
         "curva": i.get("curvaABC"),
         "un_mes": i.get("unMes"),
         "rs_hist": i.get("rsHist"),
@@ -241,7 +256,7 @@ def rodar(cfg, usar_demo=False):
 
     q_ruptura = {"carimbo": None, "erro": None, "itens": []}
     try:
-        r = carregar_ruptura(cfgp.get("detector_rounds_dir"))
+        r = carregar_ruptura(cfgp.get("detector_rounds_dir"), hoje)
         if r is None:
             q_ruptura["erro"] = "nenhuma rodada do detector encontrada"
         else:

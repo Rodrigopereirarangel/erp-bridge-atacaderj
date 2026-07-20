@@ -14,8 +14,11 @@
   h1 small { color:var(--mut); font-weight:400; font-size:.85rem; margin-left:.6rem }
   .grade { display:grid; grid-template-columns:1fr 1fr; gap:1rem }
   .quadro { background:var(--card); border:1px solid var(--borda); border-radius:12px;
-            padding:1rem; cursor:pointer; min-height:15rem;
-            display:flex; flex-direction:column }
+            padding:1rem; cursor:pointer;
+            display:flex; flex-direction:column;
+            /* a grade 2x2 cabe na janela: cada card = metade da altura util,
+               e o conteudo rola por dentro (.rolagem) */
+            height:calc(50vh - 3.1rem); min-height:15rem }
   .quadro .rolagem { flex:1 1 auto; overflow:auto; min-height:0 }
   .nota-previa { color:var(--mut); font-size:.78rem; margin:-.3rem 0 .4rem }
   .previa-frame { min-height:14rem; overflow:hidden; border-radius:8px }
@@ -119,14 +122,13 @@ const Q = {
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    esc(i.curva || "—"), '<td class="num">' + rs(i.preco_relampago) + "</td>",
                    esc(i.promo_fim), esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
-    // previa enxuta: so o que decide acao; curva/fim promo ficam no detalhe
-    colsPrevia: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+    // previa enxuta: so o que decide acao; codigo/curva/datas ficam no detalhe
+    colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "Preço ⚡", k: "preco_relampago", num: 1},
-                 {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
                  {t: "Urgência", k: "dias_ate_vencer", num: 1}],
-    linhaPrevia: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
+                   diasTag(i.dias_ate_vencer)],
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,
@@ -150,7 +152,8 @@ const Q = {
            {t: "Prob.", k: "probabilidade", num: 1}, {t: "Un/mês", k: "un_mes", num: 1},
            {t: "R$ hist.", k: "rs_hist", num: 1}, {t: "Parado", k: "dias_parado", num: 1},
            {t: "Curva", k: "curva"},
-           {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0}],
+           {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0},
+           {t: "Pedido há", k: "pedido_dias", num: 1}],
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + (i.probabilidade == null ? "—" :
                      Math.round(i.probabilidade * 100) + "%") + "</td>",
@@ -159,19 +162,19 @@ const Q = {
                    '<td class="num">' + (i.dias_parado ?? "—") + "d</td>",
                    esc(i.curva || "—"),
                    i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
-                                : '<span class="tag bad">🛒 sem pedido</span>'],
-    colsPrevia: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
-                 {t: "Prob.", k: "probabilidade", num: 1},
+                                : '<span class="tag bad">🛒 sem pedido</span>',
+                   '<td class="num">' + (i.pedido_dias != null ? i.pedido_dias + "d" : "—") + "</td>"],
+    colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "R$ hist.", k: "rs_hist", num: 1},
                  {t: "Parado", k: "dias_parado", num: 1},
-                 {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0}],
-    linhaPrevia: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
-                   '<td class="num">' + (i.probabilidade == null ? "—" :
-                     Math.round(i.probabilidade * 100) + "%") + "</td>",
+                 {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0},
+                 {t: "Pedido há", k: "pedido_dias", num: 1}],
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.rs_hist) + "</td>",
                    '<td class="num">' + (i.dias_parado ?? "—") + "d</td>",
                    i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
-                                : '<span class="tag bad">🛒 sem pedido</span>'],
+                                : '<span class="tag bad">🛒 sem pedido</span>',
+                   '<td class="num">' + (i.pedido_dias != null ? i.pedido_dias + "d" : "—") + "</td>"],
     rodape: () => D.cfg.detector_dashboard_url && !TV
       ? '<p style="margin-top:.6rem"><a href="' + esc(D.cfg.detector_dashboard_url) +
         '">abrir o dashboard do detector (feedback 🔴/🟢)</a></p>' : "",
@@ -216,9 +219,7 @@ const Q = {
   },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
-    kpis() {
-      return [["", esc(this.d.rotulo || "—"), "semana da revisão"]];
-    },
+    kpis() { return []; },   // sem box da semana (dono, 20/07): o rotulo vive no link
     cols: [], linha: null,   // sem tabela: previa e a propria revisao embutida
     corpo() {
       if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
@@ -278,7 +279,8 @@ function cartao(id) {
   const q = Q[id], d = q.d;
   let h = '<h2>' + q.titulo + '<span class="carimbo">' + esc(d.carimbo || "—") + "</span></h2>";
   if (d.erro) h += '<div class="erro">indisponível: ' + esc(d.erro) + "</div>";
-  h += '<div class="kpis">' + q.kpis().map(
+  const ks = q.kpis();
+  if (ks.length) h += '<div class="kpis">' + ks.map(
     ([cls, v, rot]) => '<div class="kpi ' + cls + '"><b>' + v + "</b><span>" +
                        rot + "</span></div>").join("") + "</div>";
   if (q.notaPrevia) h += '<div class="nota-previa">' + q.notaPrevia + "</div>";
