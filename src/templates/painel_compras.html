@@ -55,9 +55,21 @@
                    border-radius:8px; padding:.45rem .7rem; font-size:1rem; flex:1 }
   button { background:var(--borda); color:var(--txt); border:1px solid #30363d;
            border-radius:8px; padding:.45rem 1rem; font-size:1rem; cursor:pointer }
-  body.tv { font-size:21px; cursor:none }
+  /* modo TV: pensado para 55" vista a metros (fonte grande, sem scrollbar,
+     sem links — nao ha mouse; o rodizio mostra a PREVIA curada em tela cheia) */
+  body.tv { font-size:27px; cursor:none; padding:1.2rem }
   body.tv .quadro { cursor:default }
-  body.tv .kpi b { font-size:2.4rem }
+  body.tv h1 { font-size:1.5rem }
+  body.tv .quadro h2, body.tv #detalhe h2 { font-size:1.25rem }
+  body.tv .kpi b { font-size:3rem }
+  body.tv .kpi span { font-size:.8rem }
+  body.tv table { font-size:.92rem }
+  body.tv td { padding:.4rem .6rem }
+  body.tv .carimbo { font-size:.7rem }
+  body.tv .nota-previa { font-size:.8rem }
+  body.tv a { display:none }
+  body.tv .rolagem { scrollbar-width:none }
+  body.tv .rolagem::-webkit-scrollbar { display:none }
   body.tv #detalhe .topo input, body.tv #detalhe .topo button { display:none }
   @media (max-width:900px){ .grade { grid-template-columns:1fr } }
 </style>
@@ -107,6 +119,14 @@ const Q = {
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    esc(i.curva || "—"), '<td class="num">' + rs(i.preco_relampago) + "</td>",
                    esc(i.promo_fim), esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
+    // previa enxuta: so o que decide acao; curva/fim promo ficam no detalhe
+    colsPrevia: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+                 {t: "Preço ⚡", k: "preco_relampago", num: 1},
+                 {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
+                 {t: "Urgência", k: "dias_ate_vencer", num: 1}],
+    linhaPrevia: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
+                   '<td class="num">' + rs(i.preco_relampago) + "</td>",
+                   esc(i.validades.join(", ") || "—"), diasTag(i.dias_ate_vencer)],
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,
@@ -171,6 +191,17 @@ const Q = {
            {t: "Previsão", k: "previsao_entrega"}, {t: "Atraso", k: "atraso_previsao", num: 1},
            {t: "Itens", k: "itens_pendentes", num: 1},
            {t: "R$ pendente", k: "valor_pendente", num: 1}, {t: "Telefone", k: "telefone"}],
+    // previa enxuta: fornecedor, pedido, dias, R$ e telefone (o resto no detalhe)
+    colsPrevia: [{t: "Fornecedor", k: "fornecedor"}, {t: "Pedido", k: "pedido", num: 1},
+                 {t: "Dias", k: "dias_aberto", num: 1},
+                 {t: "R$ pendente", k: "valor_pendente", num: 1},
+                 {t: "Telefone", k: "telefone"}],
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.fornecedor) + "</td>", esc(i.pedido),
+                   '<td class="num"><span class="tag ' +
+                     (i.dias_aberto > (C.cobranca_alerta_dias || 21) ? "bad" : "warn") +
+                     '">' + i.dias_aberto + "d</span></td>",
+                   '<td class="num">' + rs(i.valor_pendente) + "</td>",
+                   esc(i.telefone ? i.telefone + (i.contato ? " (" + i.contato + ")" : "") : "—")],
     // amarelo ate cobranca_alerta_dias (21), vermelho dali em diante
     linha: (i) => ['<td class="desc">' + esc(i.fornecedor) + "</td>", esc(i.pedido),
                    esc(i.data_pedido),
@@ -253,12 +284,27 @@ function cartao(id) {
   if (q.notaPrevia) h += '<div class="nota-previa">' + q.notaPrevia + "</div>";
   if (q.cols.length) {
     const base = q.previa ? q.previa(conjunto(q)) : conjunto(q);
-    h += tabela(q, id, ordenar(q, id, base).slice(0, q.previaMax || 8), true);
+    h += tabela(q, id, ordenar(q, id, base).slice(0, q.previaMax || 20), true);
   } else {
     h += q.corpo ? q.corpo() : "";
   }
   h += (q.rodape && q.rodape()) || "";
   return h;
+}
+/* poda a revisao do pricing DENTRO da previa (mesma origem): esconde titulo,
+   descricao, controles e totais — sobra so a tabela de produtos. Se o HTML do
+   pricing mudar e algo falhar, fica a pagina inteira (inofensivo). */
+function podarRevisao(fr) {
+  try {
+    const doc = fr.contentDocument;
+    if (!doc || !doc.head) return;
+    const st = doc.createElement("style");
+    st.textContent = "h1,#descricao,.controles,#aviso-pendentes,#totais,p.rodape" +
+      "{display:none!important}" +
+      ".pagina{padding:0!important;margin:0!important;max-width:none!important}" +
+      "body{padding:6px!important;margin:0!important}";
+    doc.head.appendChild(st);
+  } catch (e) {}  // noqa: cross-origin ou doc ainda nao pronto
 }
 function pintarGrade() {
   const g = document.getElementById("grade");
@@ -266,6 +312,10 @@ function pintarGrade() {
   for (const id of Object.keys(Q)) {
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
+    el.querySelectorAll("iframe").forEach((f) => {
+      f.addEventListener("load", () => podarRevisao(f));
+      if (f.contentDocument && f.contentDocument.readyState === "complete") podarRevisao(f);
+    });
     el.addEventListener("click", (ev) => {
       if (TV) return;
       const th = ev.target.closest("th.ord");
@@ -290,16 +340,20 @@ let detalheAtual = null, filtroAtual = "";
 function abrirDetalhe(id, filtro) {
   const q = Q[id], det = document.getElementById("detalhe");
   detalheAtual = id; filtroAtual = filtro || "";
-  const base = ordenar(q, id, conjunto(q));
-  const itens = filtro
+  // TV: rodizio em tela cheia mostra a PREVIA curada (nao ha como rolar 1000
+  // linhas sem mouse); PC: universo completo do quadrante, com filtro
+  const universo = (TV && q.previa) ? q.previa(conjunto(q)) : conjunto(q);
+  const base = ordenar(q, id, universo);
+  const itens = (filtro
     ? base.filter((i) => JSON.stringify(i).toLowerCase().includes(filtro))
-    : base;
+    : base).slice(0, TV ? (q.previaMax || 20) : Infinity);
   det.innerHTML = '<div class="topo"><h2>' + q.titulo +
     '<span class="carimbo">' + esc(q.d.carimbo || "—") + "</span></h2>" +
     '<input id="filtro" placeholder="filtrar… (código, produto, fornecedor)">' +
     '<button id="voltar">← voltar (Esc)</button></div>' +
+    (TV && q.notaPrevia ? '<div class="nota-previa">' + q.notaPrevia + "</div>" : "") +
     (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
-    tabela(q, id, itens);
+    tabela(q, id, itens, TV);
   det.classList.add("aberto");
   const inp = document.getElementById("filtro");
   if (inp) { inp.value = filtro || ""; if (!TV) inp.focus();
