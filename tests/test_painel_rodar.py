@@ -85,6 +85,7 @@ class _DbTudoQuebra:
 
 def test_banco_fora_do_ar_nao_derruba_a_geracao(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "db", _DbConectarQuebra)
+    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
     cfg = {"db": {}, "painel": {"dir_saida": str(tmp_path / "painel")}}
     pc.rodar(cfg, usar_demo=False)          # nao pode levantar
     dados = json.loads((tmp_path / "painel" / "dados_painel.json").read_text(
@@ -92,6 +93,9 @@ def test_banco_fora_do_ar_nao_derruba_a_geracao(tmp_path, monkeypatch):
     assert "banco inacessivel" in dados["validade_relampago"]["erro"]
     assert "banco inacessivel" in dados["cobranca"]["erro"]
     assert (tmp_path / "painel" / "index.html").exists()
+    # o aviso precisa deixar trilha no bridge_erros.log (spec §8)
+    log = tmp_path / "bridge_erros.log"
+    assert log.exists() and "PAINEL validade" in log.read_text(encoding="utf-8")
 
 
 def test_close_quebrado_e_queries_falhando_nao_derrubam(tmp_path, monkeypatch):

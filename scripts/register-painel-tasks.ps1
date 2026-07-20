@@ -1,7 +1,7 @@
 # Registra as 2 tarefas do Painel de Compras (Windows Task Scheduler).
 # Rode em PowerShell (Admin), dentro da pasta do repo: ./scripts/register-painel-tasks.ps1
 # Geracao: 06:00 (apos bridge 05:00 + detector 05:30) e ~10min apos cada
-# rodada de catalogo (08/12/15/18h). Servidor HTTP: no boot, porta/pasta do
+# rodada de catalogo (08/12/15/18h). Servidor HTTP: no logon, porta/pasta do
 # config.local.json > painel.
 
 $ErrorActionPreference = "Stop"
@@ -36,11 +36,22 @@ Register-ScheduledTask -TaskName "AtacadeRJ - Painel Compras" -Action $acaoGer `
 Write-Host "OK: 'AtacadeRJ - Painel Compras' (06:00/08:10/12:10/15:10/18:10)"
 
 # --- Tarefa 2: SERVIDOR HTTP (rede local) ---
+
+# libera a porta na rede local (sem isso o listener iniciado pelo Agendador
+# fica bloqueado para os outros PCs e a TV — e o prompt do Windows nunca
+# aparece numa sessao que ninguem esta olhando)
+if (-not (Get-NetFirewallRule -DisplayName "AtacadeRJ Painel Compras" -ErrorAction SilentlyContinue)) {
+  New-NetFirewallRule -DisplayName "AtacadeRJ Painel Compras" -Direction Inbound `
+    -Protocol TCP -LocalPort $porta -Profile Private,Domain -Action Allow | Out-Null
+  Write-Host "OK: regra de firewall (TCP $porta, Private/Domain)"
+}
+
 $acaoSrv = New-ScheduledTaskAction -Execute $python `
   -Argument "-m http.server $porta --directory `"$dir`" --bind 0.0.0.0"
-$gatSrv = New-ScheduledTaskTrigger -AtStartup
+$gatSrv = New-ScheduledTaskTrigger -AtLogOn
+$setSrv = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero)
 Register-ScheduledTask -TaskName "AtacadeRJ - Painel Compras Servidor" `
-  -Action $acaoSrv -Trigger $gatSrv -RunLevel Limited -Force | Out-Null
+  -Action $acaoSrv -Trigger $gatSrv -Settings $setSrv -RunLevel Limited -Force | Out-Null
 Start-ScheduledTask -TaskName "AtacadeRJ - Painel Compras Servidor"
-Write-Host "OK: 'AtacadeRJ - Painel Compras Servidor' (boot; ja iniciado agora)"
+Write-Host "OK: 'AtacadeRJ - Painel Compras Servidor' (no logon; ja iniciado agora)"
 Write-Host "`nPainel: http://<ip-do-ponte>:$porta/  (TV: acrescente #tv)"

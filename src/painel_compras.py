@@ -278,6 +278,23 @@ def rodar(cfg, usar_demo=False):
                              ("ruptura", q_ruptura["erro"]),
                              ("cobranca", q_cobranca["erro"]),
                              ("concorrente", q_conc["erro"])) if e]
+
+    # spec §8: falha de fonte nao aborta, mas deixa trilha no log do bridge —
+    # sob o Agendador o stdout se perde, e "quadrante fora ha 3 dias" precisa
+    # ser depuravel. Falha do proprio log nunca derruba a geracao.
+    if avisos:
+        try:
+            with open(os.path.join(RAIZ, "bridge_erros.log"), "a",
+                      encoding="utf-8") as f:
+                for quad, e in (("validade", q_validade["erro"]),
+                                ("ruptura", q_ruptura["erro"]),
+                                ("cobranca", q_cobranca["erro"]),
+                                ("concorrente", q_conc["erro"])):
+                    if e:
+                        f.write(f"{gerado_em}  PAINEL {quad}: {e}\n")
+        except OSError:
+            pass
+
     resumo = (f"painel/index.html: {len(q_validade['itens'])} relampago, "
               f"{len(q_ruptura['itens'])} ruptura, "
               f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados)"
