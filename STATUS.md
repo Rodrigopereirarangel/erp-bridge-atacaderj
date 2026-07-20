@@ -183,6 +183,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (10ª rodada): **Painel: concorrente compacto** (b975bdb+d4d6c15)
+  — link "abrir em tela cheia" removido (o clique do card já abre; tooltip
+  explica); revisão embutida na densidade das outras abas via injeção no
+  iframe: fonte 12px, células 3×6px, chip da zona inline com o nome e linha
+  de código oculta → 1 linha/produto (6 visíveis onde cabiam 4).
 - 2026-07-20 (9ª rodada): **Painel: espaço máximo + facetas de curva** (96790ab)
   — dono pediu tela só de listas: saíram o cabeçalho da página, as caixas de
   resumo (viraram chips clicáveis na linha do título), o link do detector e a
