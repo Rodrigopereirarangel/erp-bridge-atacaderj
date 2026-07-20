@@ -22,6 +22,7 @@ ERP SQL Server ──(SELECT apenas)──►  │  vendas       (diário)  │�
 | **vendas** | `vendas.csv` (salão) + `vendas.csv` (estoque, com R$ e `custo_venda`) | os 2 detectores; pricing (giro deriva daqui) |
 | **entradas** | `entradas.csv` (todas as entregas ~6 meses) + `recebimentos.csv` (última, derivada) | detector de estoque (proxy de estoque); detector de salão |
 | **pedidos** | `pedidos.csv` (pedidos de compra abertos) | detector de estoque (cruzamento "já comprei?") |
+| **painel** | `painel/index.html` (Painel de Compras TV+PC: validade×relampago, ruptura, cobranca, concorrente) | setor de compras (TV da sala + PCs) |
 
 ## Começar (2 minutos, sem banco)
 
@@ -43,6 +44,15 @@ tocar no ERP. Os arquivos vão para os caminhos de `config.example.json > saida`
 3. Teste: `python src/bridge.py --only catalogo`
 4. Agende: em PowerShell (Admin), `./scripts/register-tasks.ps1`
    (catálogo 08/12/15/18h; movimentos 05:00, antes do detector das 05:30).
+
+## Painel de Compras (TV + PC)
+
+Gerado por `python src/bridge.py --only painel` (agendado 06:00 + pos-catalogo;
+`./scripts/register-painel-tasks.ps1` registra geracao + servidor HTTP).
+Acesso: `http://<ip-do-ponte>:8477/` — nos PCs e interativo (clique abre o
+detalhe com filtro); na TV use `http://<ip-do-ponte>:8477/#tv` em tela cheia
+(rodizio automatico, recarrega sozinho). Fontes e regras: spec
+`docs/superpowers/specs/2026-07-20-painel-compras-design.md`.
 
 ## Onde roda (topologia segura)
 
