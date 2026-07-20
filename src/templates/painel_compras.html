@@ -183,13 +183,10 @@ const Q = {
   },
   cobranca: {
     titulo: "📞 Cobrança de fornecedor", d: D.cobranca,
+    // dono (20/07): so o contador de pedidos — R$ total e abandonados sairam
     kpis() {
       const it = this.d.itens;
-      const total = it.reduce((s, i) => s + (i.valor_pendente || 0), 0);
-      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar"],
-              ["", rs(total), "pendente"],
-              [this.d.abandonados ? "bad" : "ok", this.d.abandonados || 0,
-               "abandonados (fora da janela)"]];
+      return [[it.length ? "warn" : "ok", it.length, "pedidos p/ cobrar"]];
     },
     cols: [{t: "Fornecedor", k: "fornecedor"}, {t: "Pedido", k: "pedido", num: 1},
            {t: "Data", k: "data_pedido"}, {t: "Dias", k: "dias_aberto", num: 1},
