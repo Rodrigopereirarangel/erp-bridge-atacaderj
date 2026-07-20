@@ -47,3 +47,22 @@ def test_ordena_pior_primeiro_e_formata_telefone():
     assert [i["pedido"] for i in itens] == [2, 1]
     assert itens[1]["telefone"] == "(21) 33334444" and itens[1]["contato"] == "ANA"
     assert itens[0]["telefone"] == ""   # 00/00000000 = lixo, nao mostrar
+
+
+def test_telefone_so_zeros_com_separador_e_escondido():
+    itens = pc.montar_cobranca([
+        _p(pedido=1, data_pedido="2026-07-01", ddd="21", telefone="0000-0000"),
+        _p(pedido=2, data_pedido="2026-07-01", ddd="21", telefone="0000 0000"),
+    ], HOJE, 7)
+    assert len(itens) == 2
+    assert itens[0]["telefone"] == "" and itens[1]["telefone"] == ""
+
+
+def test_fronteira_do_limiar_e_desempate_por_valor():
+    itens = pc.montar_cobranca([
+        _p(pedido=1, data_pedido="2026-07-13", valor_pendente=100.0),
+        _p(pedido=2, data_pedido="2026-07-13", valor_pendente=900.0),
+    ], HOJE, 7)
+    assert len(itens) == 2
+    assert itens[0]["dias_aberto"] == 7
+    assert [i["pedido"] for i in itens] == [2, 1]

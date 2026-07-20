@@ -92,7 +92,8 @@ def montar_cobranca(pedidos, hoje, limiar_dias=7):
             continue
         num = (r.get("telefone") or "").strip()
         ddd = (r.get("ddd") or "").strip()
-        tel = f"({ddd}) {num}" if num and set(num) != {"0"} else ""
+        dig = re.sub(r"\D", "", num)
+        tel = f"({ddd}) {num}" if dig and set(dig) != {"0"} else ""
         itens.append({
             "pedido": r["pedido"],
             "fornecedor": r["fornecedor"],
