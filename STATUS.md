@@ -183,6 +183,12 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (6ª rodada): **Painel: prévias de verdade (feedback do dono)** —
+  ruptura agora trabalha só com prob. >75% (contadores 1.009/630; lista aberta
+  idem); prévia do card = curva A + prob. >85%, maior R$ primeiro, sem Un/mês,
+  até 20 linhas preenchendo o card (flex + rolagem interna); concorrente ganhou
+  a revisão do pricing EMBUTIDA no card (iframe, clique abre em tela cheia).
+  Commit 9bbe070, redeployado e verificado ao vivo (screenshot full-page).
 - 2026-07-20 (5ª rodada): **Detector-ESTOQUE IMPLANTADO no ponte — quadrante
   Ruptura do painel ACESO.** Causa de "não dava relatório": o repo (pronto,
   53 testes) nunca tinha sido publicado no GitHub nem clonado no ponte.
