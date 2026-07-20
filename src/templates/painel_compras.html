@@ -367,10 +367,15 @@ function podarRevisao(fr) {
       "{display:none!important}" +
       ".pagina{padding:0!important;margin:0!important;max-width:none!important}" +
       "body{padding:4px!important;margin:0!important;font-size:12px!important}" +
-      // densidade igual as outras abas (dono, 20/07): fonte e celulas compactas
+      // densidade igual as outras abas (dono, 20/07): fonte e celulas compactas,
+      // chip da zona na MESMA linha do nome e sem a linha de codigo (1 linha/produto)
       "table{font-size:12px!important;width:100%!important}" +
       "td,th{padding:3px 6px!important}" +
-      "td *,th *{font-size:12px!important;line-height:1.3!important}";
+      "td *,th *{font-size:12px!important;line-height:1.3!important}" +
+      "#corpo .zona{display:inline-block!important;font-size:10px!important;" +
+        "padding:0 5px!important;margin:0 5px 0 0!important;vertical-align:1px}" +
+      "#corpo .nome{display:inline!important}" +
+      "#corpo .cod{display:none!important}";
     doc.head.appendChild(st);
   } catch (e) {}  // noqa: cross-origin ou doc ainda nao pronto
 }
