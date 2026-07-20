@@ -183,6 +183,17 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-20 (5ª rodada): **Detector-ESTOQUE IMPLANTADO no ponte — quadrante
+  Ruptura do painel ACESO.** Causa de "não dava relatório": o repo (pronto,
+  53 testes) nunca tinha sido publicado no GitHub nem clonado no ponte.
+  Feito: repo publicado (privado, 96c5c39), clone + config no ponte,
+  `detector_estoque_dir` da bridge religado p/ o data/input dele,
+  1ª rodada real: **1.601 prováveis rupturas (1.051 sem pedido)**, painel
+  regenerado sem aviso. Tarefas: "Detector Estoque Diario" 05:40 +
+  "Detector Estoque Dashboard" (logon, sem limite, porta 5173 no firewall;
+  respondendo 200). detector_dashboard_url = http://192.168.0.164:5173.
+  Nota: 1.601 é o gate frio (minProbabilidade 0.5, sem feedback ainda) — o
+  ciclo de marcação 🔴/🟢 no dashboard do detector calibra daqui pra frente.
 - 2026-07-20 (4ª rodada): **Painel: ajustes do dono após 1ª olhada na TV** —
   colunas ordenáveis (clique no cabeçalho: ▲/▼/original, visão geral e
   detalhe), estado-vazio "nenhum item para mostrar" (o "não abre" da ruptura
