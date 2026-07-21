@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (10ª): **Histórico semanal por aba** (5d5c196+4dc322c) — ao abrir
+  uma aba, o último terço da tela mostra barras semanais (SVG puro) da medida
+  do chip, desde 06/04. 4 séries exatas point-in-time (SQL); abaixo-custo =
+  realizado da semana; ruptura = REPLAY do motor do detector (16 semanas,
+  CSVs cortados no refDate). Validação ao vivo: sellout bate AO CENTAVO com
+  o quadrante (R$ 5.023,07); cobrança 154 vs 151 (aprox. documentada);
+  ruptura 463 (abr) → 1030 (hoje) — TENDÊNCIA DE ALTA visível. Geração do
+  painel foi de 4s → ~20s (séries históricas; ok para 5x/dia). 154 testes.
 - 2026-07-21 (9ª): **6ª e 7ª janelas do painel** (124bfd0) — 🩸 **Vendendo
   abaixo do custo**: preço vigente pela hierarquia do caixa (promo manda,
   senão varejo; reusa CATALOGO) < custo, só com venda nos últimos 5 dias
