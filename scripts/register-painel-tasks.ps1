@@ -1,8 +1,11 @@
 # Registra as 2 tarefas do Painel de Compras (Windows Task Scheduler).
 # Rode em PowerShell (Admin), dentro da pasta do repo: ./scripts/register-painel-tasks.ps1
 # Geracao: 06:00 (apos bridge 05:00 + detector 05:30) e ~10min apos cada
-# rodada de catalogo (08/12/15/18h). Servidor HTTP: no logon, porta/pasta do
-# config.local.json > painel.
+# rodada de catalogo (08/12/15/18h). Servidor HTTP: como SYSTEM, no BOOT,
+# SEM janela — em 20/07 o servidor rodava na sessao interativa, abria console
+# preto e alguem na loja fechou a janela (exit 0xC000013A = CTRL_C). Como
+# SYSTEM nao ha janela para fechar, nao depende de logon e sobrevive a
+# logoff; auto-reinicia em falha.
 
 $ErrorActionPreference = "Stop"
 $raiz   = Split-Path -Parent $PSScriptRoot
@@ -48,10 +51,12 @@ if (-not (Get-NetFirewallRule -DisplayName "AtacadeRJ Painel Compras" -ErrorActi
 
 $acaoSrv = New-ScheduledTaskAction -Execute $python `
   -Argument "-m http.server $porta --directory `"$dir`" --bind 0.0.0.0"
-$gatSrv = New-ScheduledTaskTrigger -AtLogOn
-$setSrv = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero)
+$gatSrv = New-ScheduledTaskTrigger -AtStartup
+$setSrv = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) `
+  -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 Register-ScheduledTask -TaskName "AtacadeRJ - Painel Compras Servidor" `
-  -Action $acaoSrv -Trigger $gatSrv -Settings $setSrv -RunLevel Limited -Force | Out-Null
+  -Action $acaoSrv -Trigger $gatSrv -Settings $setSrv `
+  -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 Start-ScheduledTask -TaskName "AtacadeRJ - Painel Compras Servidor"
-Write-Host "OK: 'AtacadeRJ - Painel Compras Servidor' (no logon; ja iniciado agora)"
+Write-Host "OK: 'AtacadeRJ - Painel Compras Servidor' (SYSTEM, boot, sem janela; ja iniciado)"
 Write-Host "`nPainel: http://<ip-do-ponte>:$porta/  (TV: acrescente #tv)"
