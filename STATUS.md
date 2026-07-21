@@ -183,6 +183,12 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (8ª): **SellOut = EM ABERTO (Status Pag.), não "vencidas"**
+  (d251b6f) — dono corrigiu o critério com o relatório na mão: universo é
+  tudo com Status Pag. em aberto (e como promoção não tem baixa no
+  financeiro, tudo está em aberto); corte = total > 0; vencimento virou cor
+  (vermelho passou · amarelo ≤7d · verde). NO AR: **158 em aberto ·
+  R$ 5.023,07**. Rótulo do [OK] alinhado ("sellout em aberto").
 - 2026-07-21 (7ª): **SellOut: limite aceito pelo dono** (só em abertos; fechado
   não precisa aparecer). Sondagem extra: VW_MLP_CONTAS_A_RECEBER tem verbas de
   NF (Sell In) COM status/baixa — mas SellOut de promoção não vira conta no

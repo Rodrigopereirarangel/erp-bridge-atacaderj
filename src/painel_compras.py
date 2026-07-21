@@ -384,11 +384,10 @@ def rodar(cfg, usar_demo=False):
         except OSError:
             pass
 
-    vencidas = [i for i in q_sellout["itens"]
-                if (i.get("dias_vencida") or 0) > 0 and (i.get("total") or 0) > 0]
+    so_abertas = [i for i in q_sellout["itens"] if (i.get("total") or 0) > 0]
     resumo = (f"painel/index.html: {len(q_validade['itens'])} relampago, "
               f"{len(q_ruptura['itens'])} ruptura, "
               f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados), "
-              f"{len(vencidas)} sellout vencidas"
+              f"{len(so_abertas)} sellout em aberto"
               + (f" — AVISO em: {', '.join(avisos)}" if avisos else ""))
     return [resumo]
