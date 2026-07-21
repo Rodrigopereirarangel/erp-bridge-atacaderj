@@ -183,6 +183,12 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (2ª rodada): **Gaveta de janelas + página rolante** (302b6d8 +
+  e7c0c4a) — gaveta lateral ESQUERDA (☰) escolhe quais janelas aparecem e a
+  ordem (checkbox + setas), salvo por navegador (PC e TV com arranjos
+  próprios; janela futura entra sozinha no fim); fecha por ☰/✕/Esc. PC virou
+  página rolante (cards 82vh); TV mantém 4-na-tela e o rodízio respeita a
+  escolha. Verificado ao vivo (toggle/ordem/persistência + 3 jeitos de fechar).
 - 2026-07-21: **Queda dos servidores diagnosticada e BLINDADA** (3f668ee) —
   painel (8477) e dashboard do detector (5173) morreram em 20/07 à noite com
   0xC000013A: rodavam na sessão interativa, abriam console preto e alguém na
