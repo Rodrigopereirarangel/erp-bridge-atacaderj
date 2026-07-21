@@ -222,9 +222,10 @@ const Q = {
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,
-    // decisao do dono (20/07): o quadrante trabalha so com prob. > 75%
-    // ("chance de ter zerado de fato"); abaixo disso e ruido do gate frio
-    corte: (i) => (i.probabilidade || 0) > 0.75,
+    // decisao do dono (20-21/07): o quadrante trabalha so com prob. > 75%
+    // ("chance de ter zerado de fato") E mais de 1 dia sem giro — item parado
+    // ha 1d ainda pode ser so o ciclo normal de reposicao
+    corte: (i) => (i.probabilidade || 0) > 0.75 && (i.dias_parado || 0) > 1,
     filtroDica: "filtrar… produto ou código",
     // botoes da lista aberta (dono, 20/07): escolher quais curvas aparecem
     facetas: [{rot: "A", f: (i) => i.curva === "A"},
@@ -233,7 +234,7 @@ const Q = {
     kpis() {
       const it = this.d.itens.filter(this.corte);
       const sem = it.filter((i) => !i.tem_pedido);
-      return [["", it.length, ">75%", null],
+      return [["", it.length, ">75% · >1d", null],
               [sem.length ? "bad" : "ok", sem.length, "s/ pedido",
                {k: "tem_pedido", dir: 1}]];
     },
