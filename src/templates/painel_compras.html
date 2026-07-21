@@ -182,6 +182,24 @@ function diasTag(d) {
   const txt = d < 0 ? ("vencida ha " + (-d) + "d") : ("vence em " + d + "d");
   return '<span class="tag ' + cls + '">' + txt + "</span>";
 }
+// pedido com mais de 20 dias = como se nao tivesse (dono, 21/07): o ERP
+// guarda pedido morto como "aberto" — badge vermelho com a idade denuncia
+function pedidoTag(i) {
+  if (i.tem_pedido && !(i.pedido_dias != null && i.pedido_dias > 20))
+    return '<span class="tag ok">✅ lançado</span>';
+  if (i.tem_pedido)
+    return '<span class="tag bad">🛒 pedido há ' + i.pedido_dias + "d</span>";
+  return '<span class="tag bad">🛒 sem pedido</span>';
+}
+// referencia = FIM DA PROMO (dono, 21/07): sobra de validade quando a
+// promocao acabar; negativo = o produto vence ANTES de a promo terminar
+function posPromoTag(d) {
+  if (d == null) return '<span class="tag mut">sem validade registrada</span>';
+  if (d < 0) return '<span class="tag bad">vence ' + (-d) + "d antes do fim</span>";
+  if (d === 0) return '<span class="tag warn">vence no fim da promo</span>';
+  const cls = d <= 7 ? "warn" : "ok";
+  return '<span class="tag ' + cls + '">sobra ' + d + "d pós-promo</span>";
+}
 
 /* ---- definicao dos quadrantes: kpis(), cols[], linha(item), dados ----
    cols: t = titulo do cabecalho; k = chave do item p/ ordenar; num = compara
@@ -192,40 +210,50 @@ const Q = {
     filtroDica: "filtrar… produto ou código",
     // 4o campo: clique no KPI abre a lista ja ordenada por esse aspecto
     kpis() {
-      const it = this.d.itens, urg = it.filter(
-        (i) => i.dias_ate_vencer != null && i.dias_ate_vencer <= C.validade_urgente_dias);
+      const it = this.d.itens;
       const sem = it.filter((i) => i.dias_ate_vencer == null);
+      const naPromo = it.filter(
+        (i) => i.dias_pos_promo != null && i.dias_pos_promo < 0);
       return [["", it.length, "⚡", null],
-              [urg.length ? "warn" : "ok", urg.length,
-               "≤" + C.validade_urgente_dias + "d", {k: "dias_ate_vencer", dir: 1}],
+              [naPromo.length ? "bad" : "ok", naPromo.length,
+               "vencem na promo", {k: "dias_pos_promo", dir: 1}],
               [sem.length ? "warn" : "ok", sem.length, "s/ validade", null]];
     },
     // lista aberta (dono, 20/07): sem codigo/curva; UMA coluna de vencimento
     // (o badge ja carrega os dias corridos — numero + urgencia juntos).
     // O filtro ainda acha por codigo (busca no item inteiro), mesmo sem a coluna.
+    // dono (21/07): sem a coluna Validades; "Dias p/ vencer" agora tem o FIM
+    // DA PROMO como referencia (sobra de validade quando a promocao acabar)
     cols: [{t: "Produto", k: "descricao"},
            {t: "Preço ⚡", k: "preco_relampago", num: 1},
            {t: "Fim promo", k: "promo_fim"},
-           {t: "Validades", k: "validades", v: (i) => i.validades.length ? i.validades[0] : null},
-           {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1}],
+           {t: "Dias p/ vencer", k: "dias_pos_promo", num: 1}],
     linha: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   dbr(i.promo_fim), (i.validades.map(dbr).join(", ") || "—"),
-                   '<td class="num">' + diasTag(i.dias_ate_vencer) + "</td>"],
+                   dbr(i.promo_fim),
+                   '<td class="num">' + posPromoTag(i.dias_pos_promo) + "</td>"],
     // previa enxuta: so o que decide acao; codigo/curva/datas ficam no detalhe
     colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "Preço ⚡", k: "preco_relampago", num: 1},
-                 {t: "Dias p/ vencer", k: "dias_ate_vencer", num: 1}],
+                 {t: "Dias p/ vencer", k: "dias_pos_promo", num: 1}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   '<td class="num">' + diasTag(i.dias_ate_vencer) + "</td>"],
+                   '<td class="num">' + posPromoTag(i.dias_pos_promo) + "</td>"],
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,
     // decisao do dono (20-21/07): o quadrante trabalha so com prob. > 75%
     // ("chance de ter zerado de fato") E mais de 1 dia sem giro — item parado
-    // ha 1d ainda pode ser so o ciclo normal de reposicao
-    corte: (i) => (i.probabilidade || 0) > 0.75 && (i.dias_parado || 0) > 1,
+    // ha 1d ainda pode ser so o ciclo normal de reposicao.
+    // GUARDRAIL (21/07, validado nos 4 exemplos rotulados do dono): entrega
+    // ha <=30d com cobertura ainda sobrando = quase certeza de que ha estoque
+    // (ex.: chegaram 1000un ha 11d e girou menos) -> fora do quadrante.
+    // PASSATEMPO (ruptura real, entrega ha 47d) escapa da janela e FICA.
+    corte: (i) => (i.probabilidade || 0) > 0.75 && (i.dias_parado || 0) > 1 &&
+      !(i.entrega_dias != null && i.entrega_dias <= 30 &&
+        (i.cobertura_restante || 0) > 0),
+    // pedido com mais de 20 dias = como se nao tivesse pedido (dono, 21/07)
+    pedidoVale: (i) => i.tem_pedido && !(i.pedido_dias != null && i.pedido_dias > 20),
     filtroDica: "filtrar… produto ou código",
     // botoes da lista aberta (dono, 20/07): escolher quais curvas aparecem
     facetas: [{rot: "A", f: (i) => i.curva === "A"},
@@ -233,7 +261,7 @@ const Q = {
               {rot: "C+", f: (i) => i.curva !== "A" && i.curva !== "B"}],
     kpis() {
       const it = this.d.itens.filter(this.corte);
-      const sem = it.filter((i) => !i.tem_pedido);
+      const sem = it.filter((i) => !this.pedidoVale(i));
       return [["", it.length, ">75% · >1d", null],
               [sem.length ? "bad" : "ok", sem.length, "s/ pedido",
                {k: "tem_pedido", dir: 1}]];
@@ -249,7 +277,8 @@ const Q = {
            {t: "Prob.", k: "probabilidade", num: 1}, {t: "Un/mês", k: "un_mes", num: 1},
            {t: "R$ hist.", k: "rs_hist", num: 1}, {t: "Parado", k: "dias_parado", num: 1},
            {t: "Curva", k: "curva"},
-           {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0},
+           {t: "Pedido", k: "tem_pedido", num: 1,
+            v: (i) => (i.tem_pedido && !(i.pedido_dias > 20)) ? 1 : 0},
            {t: "Pedido há", k: "pedido_dias", num: 1}],
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + (i.probabilidade == null ? "—" :
@@ -258,19 +287,18 @@ const Q = {
                    '<td class="num">' + rs(i.rs_hist) + "</td>",
                    '<td class="num">' + (i.dias_parado ?? "—") + "d</td>",
                    esc(i.curva || "—"),
-                   i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
-                                : '<span class="tag bad">🛒 sem pedido</span>',
+                   pedidoTag(i),
                    '<td class="num">' + (i.pedido_dias != null ? i.pedido_dias + "d" : "—") + "</td>"],
     colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "R$ hist.", k: "rs_hist", num: 1},
                  {t: "Parado", k: "dias_parado", num: 1},
-                 {t: "Pedido", k: "tem_pedido", num: 1, v: (i) => i.tem_pedido ? 1 : 0},
+                 {t: "Pedido", k: "tem_pedido", num: 1,
+                  v: (i) => (i.tem_pedido && !(i.pedido_dias > 20)) ? 1 : 0},
                  {t: "Pedido há", k: "pedido_dias", num: 1}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.rs_hist) + "</td>",
                    '<td class="num">' + (i.dias_parado ?? "—") + "d</td>",
-                   i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
-                                : '<span class="tag bad">🛒 sem pedido</span>',
+                   pedidoTag(i),
                    '<td class="num">' + (i.pedido_dias != null ? i.pedido_dias + "d" : "—") + "</td>"],
   },
   cobranca: {
@@ -411,7 +439,19 @@ function podarRevisao(fr) {
   try {
     const doc = fr.contentDocument;
     if (!doc || !doc.head) return;
+    // dono (21/07): so vale preco de concorrencia coletado ha ATE 10 dias —
+    // linha cuja coleta mais recente for mais velha que isso sai da previa
+    const agora = Date.now();
+    doc.querySelectorAll("#corpo tr").forEach((tr) => {
+      const datas = (tr.textContent.match(/\b\d{2}\/\d{2}\/\d{4}\b/g) || [])
+        .map((s) => { const p = s.split("/"); return new Date(+p[2], p[1] - 1, +p[0]).getTime(); });
+      if (!datas.length) return;
+      const idadeDias = (agora - Math.max.apply(null, datas)) / 86400000;
+      tr.style.display = idadeDias > 10 ? "none" : "";
+    });
+    if (doc.getElementById("poda-painel")) return;   // estilo ja injetado
     const st = doc.createElement("style");
+    st.id = "poda-painel";
     st.textContent = "h1,#descricao,.controles,#aviso-pendentes,#totais,p.rodape,p.nota" +
       "{display:none!important}" +
       ".pagina{padding:0!important;margin:0!important;max-width:none!important}" +
@@ -443,6 +483,7 @@ function pintarGrade() {
     el.querySelectorAll("iframe").forEach((f) => {
       f.addEventListener("load", () => podarRevisao(f));
       if (f.contentDocument && f.contentDocument.readyState === "complete") podarRevisao(f);
+      setTimeout(() => podarRevisao(f), 1500);   // rede lenta/render tardio
       // o iframe tem pointer-events:none (o clique e do card) — a RODA do
       // mouse e repassada por JS para rolar a revisao por dentro (mesma origem)
       const moldura = f.closest(".previa-frame");

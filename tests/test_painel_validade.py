@@ -56,6 +56,19 @@ def test_validade_ja_vencida_da_dias_negativos():
     assert itens[0]["dias_ate_vencer"] == -5
 
 
+def test_dias_pos_promo_usa_o_fim_da_promo_como_referencia():
+    # 2411: promo_fim 2026-07-25; validades 08/08 e 01/10 -> menor validade
+    # sobra 14 dias APOS o fim da promo. 3905 sem validade -> None.
+    itens = pc.cruzar_validade_relampago(RELAMPAGO, VALIDADES, CATALOGO, "2026-07-20")
+    por_cod = {i["codigo"]: i for i in itens}
+    assert por_cod["2411"]["dias_pos_promo"] == 14
+    assert por_cod["3905"]["dias_pos_promo"] is None
+    # validade ANTES do fim da promo -> negativo (vence durante a promocao)
+    val = [{"codigo": "2411", "validade": "2026-07-22"}]
+    so_2411 = pc.cruzar_validade_relampago(RELAMPAGO[:1], val, CATALOGO, "2026-07-20")
+    assert so_2411[0]["dias_pos_promo"] == -3
+
+
 def test_normalizador_de_codigo():
     assert pc._cod(18464) == "18464"
     assert pc._cod("18464.0") == "18464"

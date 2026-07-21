@@ -73,9 +73,13 @@ def cruzar_validade_relampago(relampago, validades, catalogo, hoje):
             "promo_fim": str(r.get("promo_fim"))[:10],
             "validades": vs,
             "dias_ate_vencer": _dias(hoje, vs[0]) if vs else None,
+            # referencia = FIM DA PROMO (dono, 21/07): quantos dias de validade
+            # sobram quando a promocao acabar; negativo = vence ANTES do fim
+            "dias_pos_promo": (_dias(str(r.get("promo_fim"))[:10], vs[0])
+                               if vs and r.get("promo_fim") else None),
         })
-    itens.sort(key=lambda i: (i["dias_ate_vencer"] is None,
-                              i["dias_ate_vencer"], i["codigo"]))
+    itens.sort(key=lambda i: (i["dias_pos_promo"] is None,
+                              i["dias_pos_promo"], i["codigo"]))
     return itens
 
 
@@ -137,6 +141,17 @@ def carregar_ruptura(rounds_dir, hoje=None):
     hoje = hoje or date.today().isoformat()
     with open(arquivos[-1], encoding="utf-8") as f:
         rodada = json.load(f)
+
+    def _entrega_dias(i):
+        """Dias desde a ULTIMA entrega (None se sem entrega/data ilegivel)."""
+        data = str((i.get("receipt") or {}).get("date") or "")[:10]
+        if not data:
+            return None
+        try:
+            return _dias(data, hoje)
+        except ValueError:
+            return None
+
     itens = [{
         "codigo": _cod(i.get("codigo")),
         "descricao": i.get("descricao"),
@@ -149,6 +164,10 @@ def carregar_ruptura(rounds_dir, hoje=None):
         "rs_hist": i.get("rsHist"),
         "dias_parado": i.get("diasParado"),
         "cobertura_esgotada": bool(i.get("coberturaEsgotada")),
+        # guardrail do dono (21/07): entrega recente com cobertura sobrando
+        "entrega_dias": _entrega_dias(i),
+        "entrega_qtd": (i.get("receipt") or {}).get("qty"),
+        "cobertura_restante": i.get("coverageRemaining"),
     } for i in rodada.get("items", [])]
     return {"ref": rodada.get("refDate") or rodada.get("id"), "itens": itens}
 

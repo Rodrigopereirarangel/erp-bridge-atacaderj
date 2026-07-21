@@ -18,6 +18,8 @@ ITEM_COM_PEDIDO = {"codigo": "2411", "descricao": "SUCRILHOS", "scorePrioridade"
                    "probabilidade": 0.9, "temPedido": True, "curvaABC": "A",
                    "unMes": 50.0, "rsHist": 900.0, "diasParado": 3,
                    "coberturaEsgotada": False,
+                   "receipt": {"date": "2026-07-09", "qty": 1000},
+                   "coverageRemaining": 18.8,
                    "pedido": {"codigo": "2411", "dataPedido": "2026-07-14",
                               "qtdPedida": 10, "status": "aberto",
                               "previsaoEntrega": "2026-07-25"}}
@@ -49,6 +51,18 @@ def test_pedido_dias_conta_desde_a_data_do_pedido(tmp_path):
     por_cod = {i["codigo"]: i for i in r["itens"]}
     assert por_cod["2411"]["pedido_dias"] == 6   # pedido de 14/07, hoje 20/07
     assert por_cod["3905"]["pedido_dias"] is None
+
+
+def test_entrega_e_cobertura_viram_campos_do_guardrail(tmp_path):
+    _grava(tmp_path, "2026-07-19.json", {"id": "2026-07-19", "refDate": "2026-07-19",
+                                         "items": [ITEM, ITEM_COM_PEDIDO]})
+    r = pc.carregar_ruptura(str(tmp_path), hoje="2026-07-20")
+    por_cod = {i["codigo"]: i for i in r["itens"]}
+    assert por_cod["2411"]["entrega_dias"] == 11      # entrega 09/07, hoje 20/07
+    assert por_cod["2411"]["entrega_qtd"] == 1000
+    assert por_cod["2411"]["cobertura_restante"] == 18.8
+    assert por_cod["3905"]["entrega_dias"] is None    # sem receipt no round
+    assert por_cod["3905"]["cobertura_restante"] is None
 
 
 def test_pedido_com_data_invalida_nao_quebra(tmp_path):
