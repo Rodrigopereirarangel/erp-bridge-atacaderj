@@ -183,6 +183,15 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (4ª): **Ajustes finais do dono no painel** (6b9d249..30f1da6) —
+  (1) "dias p/ vencer" na Validade = dias p/ FINALIZAR A REBAIXA ("termina em
+  Xd"; KPI "34 terminam ≤7d"; a leitura anterior sobra-de-validade-pós-promo
+  gerava badges sem sentido); (2) pedido >20d aparece IGUAL ao sem pedido
+  (LEITE QUATA 97d → "🛒 sem pedido"; idade fica na coluna Pedido há);
+  (3) roda sobre a prévia da revisão não prende mais o scroll da página
+  (passthrough no limite). DESCOBERTA operacional: o dono estava navegando
+  no Chrome de AUTOMAÇÃO (--no-sandbox, banner amarelo, rendering instável —
+  causa do "buraco preto" ao rolar); automação agora roda headless.
 - 2026-07-21 (3ª): **Guardrails do dono no painel** (fb29419) — (1) RUPTURA:
   entrega ≤30d com cobertura sobrando = tem estoque → fora (validado nos 4
   exemplos rotulados: CANJICA/GUARAVITON/CHOKITO saem, PASSATEMPO — ruptura
