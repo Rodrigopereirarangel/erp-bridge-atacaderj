@@ -172,6 +172,38 @@ def promo_relampago():
     ]
 
 
+def receita_sellout():
+    """Verbas sell-out (forma da query REC_SELLOUT). Casos: vencida com total
+    (entra no quadrante), vencida com total 0 (fora), a vencer (fora)."""
+    hoje = date.today()
+    return [
+        {"produto": "GRELHADITOS 24G C60", "promocao": "VALIDADE DEMO",
+         "tipo_promocao": "Rebaixa", "fornecedor": "SANTA HELENA",
+         "inicio": (hoje - timedelta(days=40)).isoformat(),
+         "fim": (hoje - timedelta(days=30)).isoformat(),
+         "vencimento": (hoje - timedelta(days=21)).isoformat(),
+         "verba_un": 15.0, "total": 5925.0},
+        {"produto": "AGUA SANITARIA INFLUX 1L", "promocao": "ENCARTE DEMO",
+         "tipo_promocao": "Encarte", "fornecedor": "SMELL",
+         "inicio": (hoje - timedelta(days=20)).isoformat(),
+         "fim": (hoje - timedelta(days=15)).isoformat(),
+         "vencimento": (hoje - timedelta(days=5)).isoformat(),
+         "verba_un": 0.49, "total": 160.72},
+        {"produto": "SEM GIRO DEMO 1KG", "promocao": "REBAIXA DEMO",
+         "tipo_promocao": "Rebaixa", "fornecedor": "",
+         "inicio": (hoje - timedelta(days=20)).isoformat(),
+         "fim": (hoje - timedelta(days=10)).isoformat(),
+         "vencimento": (hoje - timedelta(days=3)).isoformat(),
+         "verba_un": 2.0, "total": 0.0},
+        {"produto": "AINDA NO PRAZO 500G", "promocao": "RELAMPAGO DEMO",
+         "tipo_promocao": "Rebaixa", "fornecedor": "PARATI SA",
+         "inicio": (hoje - timedelta(days=5)).isoformat(),
+         "fim": hoje.isoformat(),
+         "vencimento": (hoje + timedelta(days=9)).isoformat(),
+         "verba_un": 1.3, "total": 88.4},
+    ]
+
+
 def pedidos_cobranca():
     """Pedidos de compra abertos (forma da query PEDIDOS_COBRANCA).
     101: 12 dias aberto + previsao vencida (entra). 102: 8 dias, sem previsao

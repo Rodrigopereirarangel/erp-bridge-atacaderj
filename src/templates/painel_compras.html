@@ -328,6 +328,37 @@ const Q = {
                    '<td class="num">' + rs(i.valor_pendente) + "</td>",
                    esc(i.telefone ? i.telefone + (i.contato ? " (" + i.contato + ")" : "") : "—")],
   },
+  sellout: {
+    titulo: "💰 Verba SellOut", d: D.sellout,
+    filtroDica: "filtrar… produto, fornecedor ou promoção",
+    // dono (21/07, do rptReceitaSellOutDetalhe): mostrar o que ja PASSOU do
+    // vencimento e tem valor acumulado a cobrar do fornecedor
+    corte: (i) => (i.dias_vencida || 0) > 0 && (i.total || 0) > 0,
+    kpis() {
+      const it = this.d.itens.filter(this.corte);
+      const soma = it.reduce((s, i) => s + (i.total || 0), 0);
+      return [[it.length ? "bad" : "ok", it.length, "vencidas · " + rs(soma), null]];
+    },
+    cols: [{t: "Produto", k: "produto"},
+           {t: "Início", k: "inicio"}, {t: "Fim", k: "fim"},
+           {t: "Vencimento", k: "vencimento"},
+           {t: "Total", k: "total", num: 1},
+           {t: "Fornecedor", k: "fornecedor"},
+           {t: "Tipo promoção", k: "tipo_promocao"}],
+    linha: (i) => ['<td class="desc">' + esc(i.produto) + "</td>",
+                   dbr(i.inicio), dbr(i.fim),
+                   '<td class="num"><span class="tag bad">' + dbr(i.vencimento) +
+                     " · há " + i.dias_vencida + "d</span></td>",
+                   '<td class="num">' + rs(i.total) + "</td>",
+                   '<td class="desc">' + esc(i.fornecedor || "—") + "</td>",
+                   esc(i.tipo_promocao || "—")],
+    colsPrevia: [{t: "Produto", k: "produto"},
+                 {t: "Início", k: "inicio"}, {t: "Fim", k: "fim"},
+                 {t: "Vencimento", k: "vencimento"}],
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.produto) + "</td>",
+                   dbr(i.inicio), dbr(i.fim),
+                   '<td class="num"><span class="tag bad">' + dbr(i.vencimento) + "</span></td>"],
+  },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
     kpis() { return []; },   // sem box da semana (dono, 20/07): o rotulo vive no link

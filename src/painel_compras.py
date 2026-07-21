@@ -132,6 +132,35 @@ def _pedido_dias(item, hoje):
         return None
 
 
+def montar_sellout(linhas, hoje):
+    """Verbas sell-out normalizadas p/ o quadrante: dias_vencida (positivo =
+    vencimento ja passou) e ordenacao vencidas-com-valor primeiro, maior R$
+    no topo. O corte visual (so vencidas com total > 0) e do template."""
+    itens = []
+    for r in linhas or []:
+        venc = str(r.get("vencimento") or "")[:10]
+        try:
+            dias = _dias(venc, hoje) if venc else None
+        except ValueError:
+            dias = None
+        itens.append({
+            "produto": r.get("produto"),
+            "promocao": r.get("promocao"),
+            "tipo_promocao": r.get("tipo_promocao") or "",
+            "fornecedor": r.get("fornecedor") or "",
+            "inicio": str(r.get("inicio"))[:10],
+            "fim": str(r.get("fim"))[:10],
+            "vencimento": venc or None,
+            "verba_un": float(r["verba_un"]) if r.get("verba_un") is not None else None,
+            "total": float(r.get("total") or 0),
+            "dias_vencida": dias,
+        })
+    itens.sort(key=lambda i: (
+        not ((i["dias_vencida"] or 0) > 0 and i["total"] > 0),   # vencidas c/ R$ 1o
+        -i["total"]))
+    return itens
+
+
 def carregar_ruptura(rounds_dir, hoje=None):
     """Rodada mais recente do detector-estoque, traduzida para o painel.
     Items ja vem ordenados por scorePrioridade desc (detectAll.js)."""
@@ -240,11 +269,12 @@ def rodar(cfg, usar_demo=False):
 
     # --- fontes SQL (cada quadrante falha sozinho) ---
     erros = {}
-    cat = val = relamp = cob = None
+    cat = val = relamp = cob = sellout = None
     aband = 0
     if usar_demo:
         cat, val = demo_data.catalogo(), demo_data.validades()
         relamp, cob = demo_data.promo_relampago(), demo_data.pedidos_cobranca()
+        sellout = demo_data.receita_sellout()
         aband = 2
     else:
         import db
@@ -252,7 +282,8 @@ def rodar(cfg, usar_demo=False):
         try:
             conn = db.conectar(cfg["db"])
         except Exception as e:  # noqa: BLE001
-            erros["validade_relampago"] = erros["cobranca"] = f"banco inacessivel: {e}"
+            erros["validade_relampago"] = erros["cobranca"] = \
+                erros["sellout"] = f"banco inacessivel: {e}"
         else:
             try:
                 jan = int(cfg.get("janela_entradas_dias", 180))
@@ -267,6 +298,7 @@ def rodar(cfg, usar_demo=False):
                 ab = _consulta(conn, queries.PEDIDOS_ABANDONADOS.format(
                     cobranca_max_dias=max_d), "cobranca", erros)
                 aband = int(ab[0]["n"]) if ab else 0
+                sellout = _consulta(conn, queries.REC_SELLOUT, "sellout", erros)
             finally:
                 try:
                     conn.close()
@@ -294,6 +326,10 @@ def rodar(cfg, usar_demo=False):
     except Exception as e:  # noqa: BLE001
         q_ruptura["erro"] = f"falha lendo a rodada do detector: {e}"
 
+    q_sellout = {"carimbo": gerado_em, "erro": erros.get("sellout"), "itens": []}
+    if sellout is not None:
+        q_sellout["itens"] = montar_sellout(sellout, hoje)
+
     q_conc = {"carimbo": None, "erro": None, "rotulo": None, "arquivo": None}
     try:
         rv = copiar_revisao_pricing(cfgp.get("pricing_dados_dir"), destino)
@@ -315,6 +351,7 @@ def rodar(cfg, usar_demo=False):
         "validade_relampago": q_validade,
         "ruptura": q_ruptura,
         "cobranca": q_cobranca,
+        "sellout": q_sellout,
         "concorrente": q_conc,
     }
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
@@ -326,6 +363,7 @@ def rodar(cfg, usar_demo=False):
     avisos = [q for q, e in (("validade", q_validade["erro"]),
                              ("ruptura", q_ruptura["erro"]),
                              ("cobranca", q_cobranca["erro"]),
+                             ("sellout", q_sellout["erro"]),
                              ("concorrente", q_conc["erro"])) if e]
 
     # spec §8: falha de fonte nao aborta, mas deixa trilha no log do bridge —
@@ -338,14 +376,18 @@ def rodar(cfg, usar_demo=False):
                 for quad, e in (("validade", q_validade["erro"]),
                                 ("ruptura", q_ruptura["erro"]),
                                 ("cobranca", q_cobranca["erro"]),
+                                ("sellout", q_sellout["erro"]),
                                 ("concorrente", q_conc["erro"])):
                     if e:
                         f.write(f"{gerado_em}  PAINEL {quad}: {e}\n")
         except OSError:
             pass
 
+    vencidas = [i for i in q_sellout["itens"]
+                if (i.get("dias_vencida") or 0) > 0 and (i.get("total") or 0) > 0]
     resumo = (f"painel/index.html: {len(q_validade['itens'])} relampago, "
               f"{len(q_ruptura['itens'])} ruptura, "
-              f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados)"
+              f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados), "
+              f"{len(vencidas)} sellout vencidas"
               + (f" — AVISO em: {', '.join(avisos)}" if avisos else ""))
     return [resumo]

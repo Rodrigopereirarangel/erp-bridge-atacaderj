@@ -545,3 +545,43 @@ WHERE p.inEntrada = 1
   AND p.dtAtendido IS NULL
   AND p.dtPedido < DATEADD(day, -{cobranca_max_dias}, CAST(GETDATE() AS date))
 """
+
+# REC_SELLOUT: verbas de sell-out por promocao x produto — replica o
+# rptReceitaSellOutDetalhe do ERP p/ o quadrante "Verba SellOut" do painel.
+# FONTE (medida 2026-07-21): tbPromocaoItem.vlVerbaComercial = verba UNITARIA
+# ("SellOut" do relatorio); dtPagamentoReceitaSellOut = VENCIMENTO da receita;
+# cdPessoaPagaSellOut -> tbPessoa = fornecedor pagador. O TOTAL acumula em
+# tbVendaPDV.vlSellOut a cada cupom vendido na vigencia (medido: 1.119 cupons
+# desde 02/2026; ensaio da query = 218 linhas, 193 vencidas, R$ 4.823,81).
+# STATUS DE PAGAMENTO (baixa do financeiro) nao foi encontrado no schema —
+# o painel mostra vencidas com total > 0; refinamento fica p/ quando a conta
+# de baixa for localizada.
+REC_SELLOUT = """
+WITH verba AS (
+    SELECT v.cdPromocao, pr.cdSuperProduto,
+           CAST(SUM(v.vlSellOut) AS decimal(14,2)) AS total
+    FROM dbo.tbVendaPDV v
+    JOIN dbo.tbProduto pr ON pr.cdProduto = v.cdProduto
+    WHERE v.vlSellOut > 0
+    GROUP BY v.cdPromocao, pr.cdSuperProduto
+)
+SELECT sp.nmProdutoPai                                 AS produto,
+       p.nmPromocao                                    AS promocao,
+       RTRIM(COALESCE(tp.nmTipoPromocao, ''))          AS tipo_promocao,
+       LTRIM(RTRIM(COALESCE(ps.nmPessoa, '')))         AS fornecedor,
+       CAST(p.dtInicio AS date)                        AS inicio,
+       CAST(p.dtFim AS date)                           AS fim,
+       CAST(pi.dtPagamentoReceitaSellOut AS date)      AS vencimento,
+       CAST(pi.vlVerbaComercial AS decimal(14,2))      AS verba_un,
+       COALESCE(ve.total, 0)                           AS total
+FROM dbo.tbPromocaoItem pi
+JOIN dbo.tbPromocao p
+  ON p.cdPromocao = pi.cdPromocao AND p.cdEmpresa = pi.cdEmpresa
+LEFT JOIN dbo.tbPromocaoTipo tp ON tp.cdTipoPromocao = p.cdTipoPromocao
+LEFT JOIN dbo.tbPessoa ps ON ps.cdPessoa = pi.cdPessoaPagaSellOut
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = pi.cdSuperProduto
+LEFT JOIN verba ve
+  ON ve.cdPromocao = pi.cdPromocao AND ve.cdSuperProduto = pi.cdSuperProduto
+WHERE pi.dtPagamentoReceitaSellOut IS NOT NULL
+ORDER BY vencimento, produto
+"""
