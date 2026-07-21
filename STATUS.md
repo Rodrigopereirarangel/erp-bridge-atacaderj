@@ -183,6 +183,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (11ª): **Rodada de ajustes do dono no histórico** (0f5211a+c7a2557)
+  — Cobrança e Pré-pedidos sem gráfico; SellOut = itens vigentes início–fim;
+  Ruptura EMPILHADA só A+B (hoje A:106+B:325, bate com as facetas; replay
+  refeito c/ curva_abc); Concorrente: cópia podada (nota verde/descrição
+  fora, KVI → "Itens acima de concorrência") + rodapé na tela cheia com 2
+  gráficos (acima: 5, abaixo: 53, frescor ≤10d); mini-gráfico ~1/5 em cada
+  card; mescla poda dias soltos (só segundas + último). DIAGNÓSTICO da
+  tendência (replay janela fixa 30d): nível real estável ~550-650 mai-jun
+  (subida de abril era artefato de janela curta), salto RECENTE real:
+  747 em 20/07 vs ~546 nas 2 semanas antes (+35%%). 158 testes.
 - 2026-07-21 (10ª): **Histórico semanal por aba** (5d5c196+4dc322c) — ao abrir
   uma aba, o último terço da tela mostra barras semanais (SVG puro) da medida
   do chip, desde 06/04. 4 séries exatas point-in-time (SQL); abaixo-custo =
