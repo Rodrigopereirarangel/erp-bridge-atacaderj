@@ -193,7 +193,7 @@ def historico_series(dias):
         return [{"s": d, "v": round(base + (i % 5) * passo + i, 1)}
                 for i, d in enumerate(dias)]
     return {"validade_relampago": serie(120, 8), "cobranca": serie(9, 2),
-            "sellout": serie(4000, 900), "prepedidos": serie(0, 1)}
+            "sellout": serie(140, 6), "prepedidos": serie(0, 1)}
 
 
 def receita_sellout():

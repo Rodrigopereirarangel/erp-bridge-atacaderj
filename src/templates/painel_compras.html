@@ -645,8 +645,8 @@ let detalheAtual = null, filtroAtual = "";
 const GRAFICO_ROTULO = {
   validade_relampago: "itens em relâmpago vigente · amostras semanais",
   ruptura: "itens em falta pela régua atual (replay do detector) · semanais",
-  cobranca: "pedidos p/ cobrar · amostras semanais",
-  sellout: "R$ de sell-out em aberto · amostras semanais",
+  // cobranca SEM grafico (pedido do dono 21/07); a serie segue sendo gravada
+  sellout: "itens com sell-out vigente (início–fim) · amostras semanais",
   abaixo_custo: "itens VENDIDOS abaixo do custo na semana",
   prepedidos: "pré-pedidos abertos · amostras semanais",
 };
@@ -655,10 +655,8 @@ function grafico(id) {
   if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
   const W = 1600, H = 280, MT = 24, MB = 22;
   const max = Math.max.apply(null, s.map((p) => p.v).concat([1]));
-  const bw = W / s.length, rs = id === "sellout";
-  const fv = (v) => rs
-    ? (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : String(Math.round(v)))
-    : String(Math.round(v));
+  const bw = W / s.length;
+  const fv = (v) => String(Math.round(v));
   let b = "";
   for (let i = 0; i < s.length; i++) {
     const h = Math.max((s[i].v / max) * (H - MT - MB), s[i].v > 0 ? 2 : 0);
@@ -666,7 +664,7 @@ function grafico(id) {
     b += '<rect class="gbar' + (i === s.length - 1 ? " atual" : "") +
       '" x="' + (i * bw + bw * 0.12).toFixed(1) + '" y="' + y.toFixed(1) +
       '" width="' + (bw * 0.76).toFixed(1) + '" height="' + h.toFixed(1) +
-      '"><title>' + dbr(s[i].s) + " — " + (rs ? "R$ " : "") +
+      '"><title>' + dbr(s[i].s) + " — " +
       Math.round(s[i].v).toLocaleString("pt-BR") + "</title></rect>" +
       '<text class="gval" x="' + xc + '" y="' + (y - 6).toFixed(1) + '">' +
       fv(s[i].v) + "</text>";

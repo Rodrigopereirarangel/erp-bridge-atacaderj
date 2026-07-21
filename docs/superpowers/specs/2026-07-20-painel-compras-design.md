@@ -209,15 +209,18 @@ c. **Round do detector-estoque:** `data/rounds/<YYYY-MM-DD>.json` =
 Ao abrir a lista de uma aba, o ÚLTIMO TERÇO da tela mostra um gráfico de
 barras (SVG puro, offline) com amostras SEMANAIS (toda segunda desde 06/04 +
 o ponto de hoje) da mesma medida do chip do título. Concorrente fica sem
-(relatório embutido do pricing, sem lista própria).
+(relatório embutido do pricing, sem lista própria) e a Cobrança também
+(pedido do dono, 21/07 — a série continua sendo gravada no historico.json).
 
 - **Fonte**: `painel/historico.json` — mantido por `src/historico_painel.py`
   e embutido no payload (`historico`). Merge preservador: mesma data
   substitui, pontos que saíram da janela do ERP são PRESERVADOS (a história
   nunca encolhe).
 - **Séries exatas (recomputadas a cada geração, point-in-time)**: relâmpago
-  (vigências), cobrança (dtPedido/dtAtendido + regra vigente), sell-out (R$
-  acumulado por data de venda, venc. definido), pré-pedidos (criação ≤ dia <
+  (vigências), cobrança (dtPedido/dtAtendido + regra vigente), sell-out (nº
+  de itens com sell-out VIGENTE — dia entre início e fim da promoção; medida
+  trocada de R$ em aberto para contagem a pedido do dono em 21/07),
+  pré-pedidos (criação ≤ dia <
   criação+21d, não atendidos até o dia; aproximação: `inEncerrado` não tem
   data, usa-se `dtPrePedidoAtendido`).
 - **Abaixo do custo**: nº de itens que VENDERAM abaixo do custo na semana

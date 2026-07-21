@@ -75,13 +75,13 @@ SELECT s.dia, (SELECT COUNT(DISTINCT p.cdPedido)
            OR pc.dtEntregaPrevista < CAST(s.dia AS date))) AS v
 FROM {v}""",
         "sellout": f"""
-SELECT s.dia, (SELECT CAST(COALESCE(SUM(vd.vlSellOut), 0) AS decimal(14,2))
-    FROM dbo.tbVendaPDV vd
-    JOIN dbo.tbProduto pr2 ON pr2.cdProduto = vd.cdProduto
-    JOIN dbo.tbPromocaoItem pi
-      ON pi.cdPromocao = vd.cdPromocao AND pi.cdSuperProduto = pr2.cdSuperProduto
-    WHERE vd.vlSellOut > 0 AND vd.dtVenda <= CAST(s.dia AS date)
-      AND pi.dtPagamentoReceitaSellOut IS NOT NULL) AS v
+SELECT s.dia, (SELECT COUNT(*)
+    FROM dbo.tbPromocaoItem pi
+    JOIN dbo.tbPromocao p
+      ON p.cdPromocao = pi.cdPromocao AND p.cdEmpresa = pi.cdEmpresa
+    WHERE pi.dtPagamentoReceitaSellOut IS NOT NULL
+      AND CAST(s.dia AS date) BETWEEN CAST(p.dtInicio AS date)
+                                  AND CAST(p.dtFim AS date)) AS v
 FROM {v}""",
         "prepedidos": f"""
 SELECT s.dia, (SELECT COUNT(*) FROM dbo.tbPrePedido pp
