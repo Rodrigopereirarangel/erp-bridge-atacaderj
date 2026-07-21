@@ -44,10 +44,10 @@ def test_montar_sellout_calcula_dias_vencida_e_ordena():
          "vencimento": "2026-07-30", "verba_un": 1.0, "total": 50.0},
     ]
     itens = pc.montar_sellout(linhas, HOJE)
-    # vencidas com R$ primeiro, maior total no topo
-    assert [i["produto"] for i in itens[:2]] == ["A", "B"]
-    assert itens[0]["dias_vencida"] == 20      # venc 01/07, hoje 21/07
-    assert itens[1]["dias_vencida"] == 21
+    # universo EM ABERTO ordenado pelo maior valor a receber (dono, 21/07)
+    assert [i["produto"] for i in itens] == ["A", "B", "NO PRAZO", "SEM GIRO"]
     por = {i["produto"]: i for i in itens}
+    assert por["A"]["dias_vencida"] == 20          # venc 01/07, hoje 21/07
+    assert por["B"]["dias_vencida"] == 21
     assert por["NO PRAZO"]["dias_vencida"] == -9   # ainda nao venceu
     assert por["SEM GIRO"]["total"] == 0.0

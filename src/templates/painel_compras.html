@@ -188,6 +188,15 @@ function pedidoTag(i) {
   return i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
                       : '<span class="tag bad">🛒 sem pedido</span>';
 }
+// vencimento da verba sellout: vermelho se ja passou, amarelo se vence em
+// ate 7d, verde caso contrario — o universo inteiro e "em aberto"
+function vencSellTag(i) {
+  if (!i.vencimento) return '<span class="tag mut">sem data</span>';
+  const d = i.dias_vencida;   // positivo = ja passou do vencimento
+  const cls = d > 0 ? "bad" : (d >= -7 ? "warn" : "ok");
+  const suf = d > 0 ? " · há " + d + "d" : "";
+  return '<span class="tag ' + cls + '">' + dbr(i.vencimento) + suf + "</span>";
+}
 // dono (21/07): "dias para vencer" = dias para FINALIZAR A REBAIXA
 function fimPromoTag(d) {
   if (d == null) return '<span class="tag mut">sem data</span>';
@@ -331,13 +340,14 @@ const Q = {
   sellout: {
     titulo: "💰 Verba SellOut", d: D.sellout,
     filtroDica: "filtrar… produto, fornecedor ou promoção",
-    // dono (21/07, do rptReceitaSellOutDetalhe): mostrar o que ja PASSOU do
-    // vencimento e tem valor acumulado a cobrar do fornecedor
-    corte: (i) => (i.dias_vencida || 0) > 0 && (i.total || 0) > 0,
+    // dono (21/07, do rptReceitaSellOutDetalhe): universo = Status Pag. EM
+    // ABERTO com valor acumulado (sellout de promocao nao tem baixa no
+    // financeiro, entao tudo aqui esta em aberto); vencido e so cor
+    corte: (i) => (i.total || 0) > 0,
     kpis() {
       const it = this.d.itens.filter(this.corte);
       const soma = it.reduce((s, i) => s + (i.total || 0), 0);
-      return [[it.length ? "bad" : "ok", it.length, "vencidas · " + rs(soma), null]];
+      return [[it.length ? "warn" : "ok", it.length, "em aberto · " + rs(soma), null]];
     },
     cols: [{t: "Produto", k: "produto"},
            {t: "Início", k: "inicio"}, {t: "Fim", k: "fim"},
@@ -347,8 +357,7 @@ const Q = {
            {t: "Tipo promoção", k: "tipo_promocao"}],
     linha: (i) => ['<td class="desc">' + esc(i.produto) + "</td>",
                    dbr(i.inicio), dbr(i.fim),
-                   '<td class="num"><span class="tag bad">' + dbr(i.vencimento) +
-                     " · há " + i.dias_vencida + "d</span></td>",
+                   '<td class="num">' + vencSellTag(i) + "</td>",
                    '<td class="num">' + rs(i.total) + "</td>",
                    '<td class="desc">' + esc(i.fornecedor || "—") + "</td>",
                    esc(i.tipo_promocao || "—")],
@@ -357,7 +366,7 @@ const Q = {
                  {t: "Vencimento", k: "vencimento"}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.produto) + "</td>",
                    dbr(i.inicio), dbr(i.fim),
-                   '<td class="num"><span class="tag bad">' + dbr(i.vencimento) + "</span></td>"],
+                   '<td class="num">' + vencSellTag(i) + "</td>"],
   },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,

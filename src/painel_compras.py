@@ -155,9 +155,10 @@ def montar_sellout(linhas, hoje):
             "total": float(r.get("total") or 0),
             "dias_vencida": dias,
         })
-    itens.sort(key=lambda i: (
-        not ((i["dias_vencida"] or 0) > 0 and i["total"] > 0),   # vencidas c/ R$ 1o
-        -i["total"]))
+    # dono (21/07): universo = EM ABERTO (Status Pag.) — e como o sellout de
+    # promocao nao tem baixa no financeiro, tudo aqui esta em aberto;
+    # ordena pelo maior valor a receber
+    itens.sort(key=lambda i: -i["total"])
     return itens
 
 
