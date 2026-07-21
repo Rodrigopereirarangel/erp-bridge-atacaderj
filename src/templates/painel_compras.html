@@ -191,14 +191,13 @@ function pedidoTag(i) {
     return '<span class="tag bad">🛒 pedido há ' + i.pedido_dias + "d</span>";
   return '<span class="tag bad">🛒 sem pedido</span>';
 }
-// referencia = FIM DA PROMO (dono, 21/07): sobra de validade quando a
-// promocao acabar; negativo = o produto vence ANTES de a promo terminar
-function posPromoTag(d) {
-  if (d == null) return '<span class="tag mut">sem validade registrada</span>';
-  if (d < 0) return '<span class="tag bad">vence ' + (-d) + "d antes do fim</span>";
-  if (d === 0) return '<span class="tag warn">vence no fim da promo</span>';
-  const cls = d <= 7 ? "warn" : "ok";
-  return '<span class="tag ' + cls + '">sobra ' + d + "d pós-promo</span>";
+// dono (21/07): "dias para vencer" = dias para FINALIZAR A REBAIXA
+function fimPromoTag(d) {
+  if (d == null) return '<span class="tag mut">sem data</span>';
+  if (d < 0) return '<span class="tag mut">terminou</span>';
+  if (d === 0) return '<span class="tag bad">termina hoje</span>';
+  const cls = d <= 2 ? "bad" : (d <= 7 ? "warn" : "ok");
+  return '<span class="tag ' + cls + '">termina em ' + d + "d</span>";
 }
 
 /* ---- definicao dos quadrantes: kpis(), cols[], linha(item), dados ----
@@ -211,34 +210,31 @@ const Q = {
     // 4o campo: clique no KPI abre a lista ja ordenada por esse aspecto
     kpis() {
       const it = this.d.itens;
-      const sem = it.filter((i) => i.dias_ate_vencer == null);
-      const naPromo = it.filter(
-        (i) => i.dias_pos_promo != null && i.dias_pos_promo < 0);
+      const semana = it.filter(
+        (i) => i.dias_fim_promo != null && i.dias_fim_promo <= 7);
       return [["", it.length, "⚡", null],
-              [naPromo.length ? "bad" : "ok", naPromo.length,
-               "vencem na promo", {k: "dias_pos_promo", dir: 1}],
-              [sem.length ? "warn" : "ok", sem.length, "s/ validade", null]];
+              [semana.length ? "warn" : "ok", semana.length,
+               "terminam ≤7d", {k: "dias_fim_promo", dir: 1}]];
     },
     // lista aberta (dono, 20/07): sem codigo/curva; UMA coluna de vencimento
     // (o badge ja carrega os dias corridos — numero + urgencia juntos).
     // O filtro ainda acha por codigo (busca no item inteiro), mesmo sem a coluna.
-    // dono (21/07): sem a coluna Validades; "Dias p/ vencer" agora tem o FIM
-    // DA PROMO como referencia (sobra de validade quando a promocao acabar)
+    // dono (21/07): "dias para vencer" = dias para FINALIZAR A REBAIXA;
+    // a previa (visao geral) mostra a mesma coluna junto com o preco
     cols: [{t: "Produto", k: "descricao"},
            {t: "Preço ⚡", k: "preco_relampago", num: 1},
            {t: "Fim promo", k: "promo_fim"},
-           {t: "Dias p/ vencer", k: "dias_pos_promo", num: 1}],
+           {t: "Fim da rebaixa", k: "dias_fim_promo", num: 1}],
     linha: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
                    dbr(i.promo_fim),
-                   '<td class="num">' + posPromoTag(i.dias_pos_promo) + "</td>"],
-    // previa enxuta: so o que decide acao; codigo/curva/datas ficam no detalhe
+                   '<td class="num">' + fimPromoTag(i.dias_fim_promo) + "</td>"],
     colsPrevia: [{t: "Produto", k: "descricao"},
                  {t: "Preço ⚡", k: "preco_relampago", num: 1},
-                 {t: "Dias p/ vencer", k: "dias_pos_promo", num: 1}],
+                 {t: "Fim da rebaixa", k: "dias_fim_promo", num: 1}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco_relampago) + "</td>",
-                   '<td class="num">' + posPromoTag(i.dias_pos_promo) + "</td>"],
+                   '<td class="num">' + fimPromoTag(i.dias_fim_promo) + "</td>"],
   },
   ruptura: {
     titulo: "📉 Ruptura de estoque", d: D.ruptura,

@@ -73,13 +73,15 @@ def cruzar_validade_relampago(relampago, validades, catalogo, hoje):
             "promo_fim": str(r.get("promo_fim"))[:10],
             "validades": vs,
             "dias_ate_vencer": _dias(hoje, vs[0]) if vs else None,
-            # referencia = FIM DA PROMO (dono, 21/07): quantos dias de validade
-            # sobram quando a promocao acabar; negativo = vence ANTES do fim
+            # sobra de validade quando a promocao acabar (negativo = vence antes)
             "dias_pos_promo": (_dias(str(r.get("promo_fim"))[:10], vs[0])
                                if vs and r.get("promo_fim") else None),
+            # dono (21/07): "dias para vencer" = dias para FINALIZAR A REBAIXA
+            "dias_fim_promo": (_dias(hoje, str(r.get("promo_fim"))[:10])
+                               if r.get("promo_fim") else None),
         })
-    itens.sort(key=lambda i: (i["dias_pos_promo"] is None,
-                              i["dias_pos_promo"], i["codigo"]))
+    itens.sort(key=lambda i: (i["dias_fim_promo"] is None,
+                              i["dias_fim_promo"], i["codigo"]))
     return itens
 
 

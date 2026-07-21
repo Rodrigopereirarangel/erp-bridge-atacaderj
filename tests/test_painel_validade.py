@@ -25,13 +25,16 @@ RELAMPAGO = [
 ]
 
 
-def test_cruza_validade_e_ordena_por_urgencia():
+def test_cruza_validade_e_ordena_pelo_fim_da_rebaixa():
+    # ordem = quem TERMINA a rebaixa primeiro (dono, 21/07):
+    # 9999 fim 21/07 (1d), 3905 fim 23/07 (3d), 2411 fim 25/07 (5d)
     itens = pc.cruzar_validade_relampago(RELAMPAGO, VALIDADES, CATALOGO, "2026-07-20")
-    assert [i["codigo"] for i in itens] == ["2411", "3905", "9999"]
-    i0 = itens[0]
-    assert i0["descricao"] == "SUCRILHOS 240G" and i0["curva"] == "A"
-    assert i0["validades"] == ["2026-08-08", "2026-10-01"]  # menor primeiro
-    assert i0["dias_ate_vencer"] == 19
+    assert [i["codigo"] for i in itens] == ["9999", "3905", "2411"]
+    assert [i["dias_fim_promo"] for i in itens] == [1, 3, 5]
+    i2411 = itens[2]
+    assert i2411["descricao"] == "SUCRILHOS 240G" and i2411["curva"] == "A"
+    assert i2411["validades"] == ["2026-08-08", "2026-10-01"]  # menor primeiro
+    assert i2411["dias_ate_vencer"] == 19
 
 
 def test_sem_validade_e_fora_do_catalogo_nao_somem():
