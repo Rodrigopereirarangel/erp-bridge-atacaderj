@@ -102,6 +102,19 @@
   #detalhe input { background:var(--card2); color:var(--txt); border:1px solid var(--borda);
                    border-radius:9px; padding:.45rem .75rem; font-size:1rem; flex:1 }
   #detalhe input:focus { outline:none; border-color:#3a5a8c }
+  /* grafico historico semanal (spec §13): fixo no ultimo terco da tela;
+     a tabela rola SOZINHA acima dele (o th continua grudando no topo) */
+  #detalhe.com-grafico.aberto { display:flex; flex-direction:column; overflow:hidden }
+  #detalhe.com-grafico .rolagem { overflow:auto; flex:1 1 auto; min-height:0 }
+  #detalhe .grafico { flex:0 0 30vh; border-top:1px solid var(--borda);
+                      margin-top:.5rem; padding:.55rem .2rem 0;
+                      display:flex; flex-direction:column }
+  #detalhe .grafico .glabel { font-size:.72rem; color:var(--fraco);
+      text-transform:uppercase; letter-spacing:.06em; margin:0 0 .25rem .35rem }
+  #detalhe .grafico svg { flex:1 1 auto; width:100%; min-height:0 }
+  .gbar { fill:#2e4a74 } .gbar.atual { fill:var(--acc) } .gbar:hover { fill:#4a6ea8 }
+  .gval { fill:var(--mut); font-size:13px; text-anchor:middle }
+  .gdata { fill:var(--fraco); font-size:13px; text-anchor:middle }
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
@@ -627,6 +640,44 @@ function pintarGrade() {
 
 /* ---- detalhe (tabela completa + filtro; na TV entra no rodizio) ---- */
 let detalheAtual = null, filtroAtual = "";
+// Grafico historico semanal (spec §13): barras SVG puras (offline), uma medida
+// por aba — a mesma do chip do titulo (abaixo_custo e o REALIZADO da semana).
+const GRAFICO_ROTULO = {
+  validade_relampago: "itens em relâmpago vigente · amostras semanais",
+  ruptura: "itens em falta pela régua atual (replay do detector) · semanais",
+  cobranca: "pedidos p/ cobrar · amostras semanais",
+  sellout: "R$ de sell-out em aberto · amostras semanais",
+  abaixo_custo: "itens VENDIDOS abaixo do custo na semana",
+  prepedidos: "pré-pedidos abertos · amostras semanais",
+};
+function grafico(id) {
+  const s = (D.historico || {})[id];
+  if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
+  const W = 1600, H = 280, MT = 24, MB = 22;
+  const max = Math.max.apply(null, s.map((p) => p.v).concat([1]));
+  const bw = W / s.length, rs = id === "sellout";
+  const fv = (v) => rs
+    ? (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : String(Math.round(v)))
+    : String(Math.round(v));
+  let b = "";
+  for (let i = 0; i < s.length; i++) {
+    const h = Math.max((s[i].v / max) * (H - MT - MB), s[i].v > 0 ? 2 : 0);
+    const y = H - MB - h, xc = (i * bw + bw / 2).toFixed(1);
+    b += '<rect class="gbar' + (i === s.length - 1 ? " atual" : "") +
+      '" x="' + (i * bw + bw * 0.12).toFixed(1) + '" y="' + y.toFixed(1) +
+      '" width="' + (bw * 0.76).toFixed(1) + '" height="' + h.toFixed(1) +
+      '"><title>' + dbr(s[i].s) + " — " + (rs ? "R$ " : "") +
+      Math.round(s[i].v).toLocaleString("pt-BR") + "</title></rect>" +
+      '<text class="gval" x="' + xc + '" y="' + (y - 6).toFixed(1) + '">' +
+      fv(s[i].v) + "</text>";
+    if (i === 0 || i === s.length - 1 || i % 4 === 0)
+      b += '<text class="gdata" x="' + xc + '" y="' + (H - 6) + '">' +
+        dbr(s[i].s).slice(0, 5) + "</text>";
+  }
+  return '<div class="grafico"><div class="glabel">' + GRAFICO_ROTULO[id] +
+    " · desde 06/04</div><svg viewBox=\"0 0 " + W + " " + H +
+    '" preserveAspectRatio="none">' + b + "</svg></div>";
+}
 function abrirDetalhe(id, filtro) {
   const q = Q[id], det = document.getElementById("detalhe");
   detalheAtual = id; filtroAtual = filtro || "";
@@ -655,7 +706,9 @@ function abrirDetalhe(id, filtro) {
     '<button id="voltar">← voltar (Esc)</button></div>' + botoes +
     (TV && q.notaPrevia ? '<div class="nota-previa">' + q.notaPrevia + "</div>" : "") +
     (q.d.erro ? '<div class="erro">indisponível: ' + esc(q.d.erro) + "</div>" : "") +
-    tabela(q, id, itens, TV);
+    tabela(q, id, itens, TV) + grafico(id);
+  det.classList.toggle("com-grafico",
+    det.querySelector(".grafico") !== null);
   det.classList.add("aberto");
   const inp = document.getElementById("filtro");
   if (inp) { inp.value = filtro || ""; if (!TV) inp.focus();

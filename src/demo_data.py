@@ -186,6 +186,16 @@ def pre_pedidos():
     ]
 
 
+def historico_series(dias):
+    """Series semanais deterministicas (forma do sql_series do historico_painel)
+    para o grafico do painel funcionar no --demo."""
+    def serie(base, passo):
+        return [{"s": d, "v": round(base + (i % 5) * passo + i, 1)}
+                for i, d in enumerate(dias)]
+    return {"validade_relampago": serie(120, 8), "cobranca": serie(9, 2),
+            "sellout": serie(4000, 900), "prepedidos": serie(0, 1)}
+
+
 def receita_sellout():
     """Verbas sell-out (forma da query REC_SELLOUT). Casos: vencida com total
     (entra no quadrante), vencida com total 0 (fora), a vencer (fora)."""

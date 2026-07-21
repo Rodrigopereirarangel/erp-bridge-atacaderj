@@ -203,3 +203,33 @@ c. **Round do detector-estoque:** `data/rounds/<YYYY-MM-DD>.json` =
   modo PC.
 - O rodízio da TV mostra top-N por quadrante; a lista completa é sempre acessível
   no modo PC (nenhum corte silencioso: contadores mostram o total).
+
+## 13. Histórico semanal por aba (aprovado pelo dono em 21/07)
+
+Ao abrir a lista de uma aba, o ÚLTIMO TERÇO da tela mostra um gráfico de
+barras (SVG puro, offline) com amostras SEMANAIS (toda segunda desde 06/04 +
+o ponto de hoje) da mesma medida do chip do título. Concorrente fica sem
+(relatório embutido do pricing, sem lista própria).
+
+- **Fonte**: `painel/historico.json` — mantido por `src/historico_painel.py`
+  e embutido no payload (`historico`). Merge preservador: mesma data
+  substitui, pontos que saíram da janela do ERP são PRESERVADOS (a história
+  nunca encolhe).
+- **Séries exatas (recomputadas a cada geração, point-in-time)**: relâmpago
+  (vigências), cobrança (dtPedido/dtAtendido + regra vigente), sell-out (R$
+  acumulado por data de venda, venc. definido), pré-pedidos (criação ≤ dia <
+  criação+21d, não atendidos até o dia; aproximação: `inEncerrado` não tem
+  data, usa-se `dtPrePedidoAtendido`).
+- **Abaixo do custo**: nº de itens que VENDERAM abaixo do custo na semana
+  (realizado, das vendas com custo do dia) — irmã honesta da métrica do chip
+  (que é prospectiva, preço de prateleira).
+- **Ruptura**: replay do PRÓPRIO motor do detector com refDate em cada
+  segunda (`scripts/replay_ruptura.js`, chamado 1x por
+  `scripts/backfill_historico_ruptura.py` no ponte); CSVs cortados no
+  refDate (nada do futuro vaza). O ponto de cada dia vem da rodada real.
+  Régua do corte (>0.75 · >1d · guardrail) duplicada em TRÊS lugares —
+  template (`Q.ruptura.corte`), `historico_painel.corte_ruptura` e o wrapper
+  — manter em sincronia. Limitações honestas: replays mais antigos têm menos
+  histórico de vendas atrás de si (janela ~120d); pedidos/curva não entram
+  (o corte não os usa); se a régua mudar, o passado recalcula junto no
+  próximo backfill.

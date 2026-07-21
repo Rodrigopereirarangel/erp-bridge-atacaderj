@@ -14,6 +14,8 @@ import re
 import shutil
 from datetime import date, datetime
 
+import historico_painel
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 PADROES = {
@@ -335,6 +337,10 @@ def rodar(cfg, usar_demo=False):
     erros = {}
     cat = val = relamp = cob = sellout = ven5 = prep = None
     aband = 0
+    hist_sql = {}
+    ven_hist = None
+    dias_hist = historico_painel.segundas_desde(
+        historico_painel.INICIO_HISTORICO, hoje)
     if usar_demo:
         cat, val = demo_data.catalogo(), demo_data.validades()
         relamp, cob = demo_data.promo_relampago(), demo_data.pedidos_cobranca()
@@ -342,6 +348,8 @@ def rodar(cfg, usar_demo=False):
         ven5 = demo_data.vendas(5)
         prep = demo_data.pre_pedidos()
         aband = 2
+        ven_hist = demo_data.vendas(120)
+        hist_sql = demo_data.historico_series(dias_hist)
     else:
         import db
         import queries
@@ -372,6 +380,18 @@ def rodar(cfg, usar_demo=False):
                 prep = _consulta(conn, queries.PRE_PEDIDOS.format(
                     prepedido_dias=int(cfgp["prepedido_dias"])),
                     "prepedidos", erros)
+                # series historicas semanais (spec §13) — point-in-time
+                for nome, sql in historico_painel.sql_series(
+                        dias_hist, max_d, int(cfgp["cobranca_dias_limiar"]),
+                        int(cfgp["prepedido_dias"])).items():
+                    rs = _consulta(conn, sql, "historico", erros)
+                    if rs is not None:
+                        hist_sql[nome] = [{"s": str(r["dia"])[:10],
+                                           "v": float(r["v"] or 0)} for r in rs]
+                ven_hist = _consulta(
+                    conn, queries.VENDAS.format(
+                        janela=int(cfg.get("janela_dias", 120))),
+                    "historico", erros)
             finally:
                 try:
                     conn.close()
@@ -440,6 +460,26 @@ def rodar(cfg, usar_demo=False):
         "prepedidos": q_prep,
         "concorrente": q_conc,
     }
+
+    # historico semanal (spec §13): SQL point-in-time recomputado + realizado
+    # do abaixo-custo + ponto do dia da ruptura (o passado dela vem do
+    # backfill scripts/backfill_historico_ruptura.py). Mescla preservando
+    # pontos que ja sairam da janela do ERP.
+    novas = dict(hist_sql)
+    if ven_hist is not None:
+        novas["abaixo_custo"] = historico_painel.serie_abaixo_custo(
+            ven_hist, dias_hist)
+    if not q_ruptura["erro"]:
+        novas["ruptura"] = [{"s": hoje,
+                             "v": historico_painel.corte_ruptura(
+                                 q_ruptura["itens"])}]
+    try:
+        hist = historico_painel.mesclar_historico(destino, novas, gerado_em)
+        payload["historico"] = hist.get("series") or {}
+    except Exception as e:  # noqa: BLE001 — historico nunca derruba o painel
+        erros["historico"] = str(e)
+        payload["historico"] = {}
+
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
     projections._escrever_atomico(os.path.join(destino, "dados_painel.json"),
                                   dados.encode("utf-8"))
