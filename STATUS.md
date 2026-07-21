@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (3ª): **Guardrails do dono no painel** (fb29419) — (1) RUPTURA:
+  entrega ≤30d com cobertura sobrando = tem estoque → fora (validado nos 4
+  exemplos rotulados: CANJICA/GUARAVITON/CHOKITO saem, PASSATEMPO — ruptura
+  real, entrega há 47d — fica; 1.247→1.030 itens); (2) pedido >20d = como sem
+  pedido (badge vermelho com idade; s/ pedido 785→813); (3) VALIDADE: coluna
+  Validades removida, "Dias p/ vencer" agora é sobra de validade APÓS o fim
+  da promo (negativo = vence durante a promo; KPI "65 vencem na promo");
+  (4) CONCORRENTE: coleta >10 dias sai da prévia. Tudo verificado ao vivo.
 - 2026-07-21 (2ª): **Ruptura: corte >75% E >1 dia sem giro** (885ddb0) — item
   parado há 1d ainda pode ser ciclo normal de reposição; chip mostra
   "1.247 >75% · >1d" (rodada crua: 2.957). Verificado ao vivo (mínimo
