@@ -45,8 +45,12 @@ def sql_series(dias, cobranca_max_dias=30, cobranca_dias_limiar=7,
                prepedido_dias=21):
     """SQLs point-in-time (dia -> valor) das 4 series exatas. Cada subquery
     replica a regra VIGENTE da aba aplicada aquela data.
-    Aproximacao documentada: pre-pedidos usa dtPrePedidoAtendido como fim de
-    vida (inEncerrado nao tem data no schema)."""
+    Aproximacoes documentadas: pre-pedidos usa dtPrePedidoAtendido como fim
+    de vida (inEncerrado nao tem data no schema); na cobranca, o "tem item
+    pendente" usa o estado ATUAL dos itens (nao ha data de atendimento por
+    item) — hoje bate exato com o quadrante, no passado pode subcontar
+    pedidos parcialmente atendidos depois; no relampago a serie compara so
+    a DATA (a query do quadrante usa GETDATE() com hora — diferenca ~1%)."""
     v = _values_dias(dias)
     return {
         "validade_relampago": f"""
@@ -56,12 +60,17 @@ FROM {v}""",
         "cobranca": f"""
 SELECT s.dia, (SELECT COUNT(DISTINCT p.cdPedido)
     FROM dbo.tbPedido p
-    LEFT JOIN dbo.tbPedidoCompra pc
+    JOIN dbo.tbPedidoCompra pc
       ON pc.cdPedidoCompra = p.cdPedido AND pc.cdPessoaFilial = p.cdPessoaFilial
     WHERE p.inEntrada = 1
       AND p.dtPedido <= CAST(s.dia AS date)
       AND p.dtPedido > DATEADD(day, -{int(cobranca_max_dias)}, CAST(s.dia AS date))
       AND (p.dtAtendido IS NULL OR p.dtAtendido > CAST(s.dia AS date))
+      AND EXISTS (SELECT 1 FROM dbo.tbPedidoItem i
+                  WHERE i.cdPedido = p.cdPedido
+                    AND i.cdPessoaFilial = p.cdPessoaFilial
+                    AND COALESCE(i.inAtendido, 0) = 0
+                    AND i.qtPedidoItem > COALESCE(i.qtAtendida, 0))
       AND (DATEDIFF(day, p.dtPedido, CAST(s.dia AS date)) >= {int(cobranca_dias_limiar)}
            OR pc.dtEntregaPrevista < CAST(s.dia AS date))) AS v
 FROM {v}""",
