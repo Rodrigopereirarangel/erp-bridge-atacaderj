@@ -183,6 +183,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (5ª): **Pedido vencido some de vez + cobrança ≤30d** (b6284d3) —
+  pedido não entregue há >20d agora é normalizado NA CARGA (tem_pedido=False,
+  pedido_dias=None): LEITE QUATA aparece "🛒 sem pedido" com "Pedido há —",
+  idêntico aos demais; cobranca_max_dias 45→30 (config do ponte ajustado):
+  151 p/ cobrar (maior = 29d), 307 abandonados. Verificado ao vivo.
 - 2026-07-21 (4ª): **Ajustes finais do dono no painel** (6b9d249..30f1da6) —
   (1) "dias p/ vencer" na Validade = dias p/ FINALIZAR A REBAIXA ("termina em
   Xd"; KPI "34 terminam ≤7d"; a leitura anterior sobra-de-validade-pós-promo
