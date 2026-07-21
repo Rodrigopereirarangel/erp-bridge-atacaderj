@@ -183,6 +183,11 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (2ª): **Ruptura: corte >75% E >1 dia sem giro** (885ddb0) — item
+  parado há 1d ainda pode ser ciclo normal de reposição; chip mostra
+  "1.247 >75% · >1d" (rodada crua: 2.957). Verificado ao vivo (mínimo
+  visível: 2d). Link da loja divulgado ao dono: http://192.168.0.164:8477/
+  (TV: /#tv) — vale para dispositivos na rede 192.168.0.x.
 - 2026-07-21 (2ª rodada): **Gaveta de janelas + página rolante** (302b6d8 +
   e7c0c4a) — gaveta lateral ESQUERDA (☰) escolhe quais janelas aparecem e a
   ordem (checkbox + setas), salvo por navegador (PC e TV com arranjos
