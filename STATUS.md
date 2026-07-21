@@ -183,6 +183,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (9ª): **6ª e 7ª janelas do painel** (124bfd0) — 🩸 **Vendendo
+  abaixo do custo**: preço vigente pela hierarquia do caixa (promo manda,
+  senão varejo; reusa CATALOGO) < custo, só com venda nos últimos 5 dias
+  (VENDAS janela=5); NO AR: **19 itens · −R$ 356,62 em 5d** (top: CHESTER
+  R$ 10,99 promo vs custo R$ 41,25 = −73%!). 📝 **Pré-pedidos**: tbPrePedido
+  abertos <21d (fonte descoberta no schema; loja estreou o fluxo hoje);
+  NO AR: 1 aberto · R$ 500 (GRUPO PETROPOLIS). 147 testes. 7 janelas.
 - 2026-07-21 (8ª): **SellOut = EM ABERTO (Status Pag.), não "vencidas"**
   (d251b6f) — dono corrigiu o critério com o relatório na mão: universo é
   tudo com Status Pag. em aberto (e como promoção não tem baixa no
