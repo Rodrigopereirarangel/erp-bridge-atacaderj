@@ -183,6 +183,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21: **Queda dos servidores diagnosticada e BLINDADA** (3f668ee) —
+  painel (8477) e dashboard do detector (5173) morreram em 20/07 à noite com
+  0xC000013A: rodavam na sessão interativa, abriam console preto e alguém na
+  loja fechou as janelas. Re-registrados como **SYSTEM, no boot, sem janela,
+  auto-restart 3x/1min** (register-painel-tasks.ps1 atualizado; detector
+  idem). Verificado: 200/200 via Tailscale. Lição operacional: processo de
+  vida longa no ponte NUNCA na sessão interativa (janela fechável); a mesma
+  regra vale p/ futuros servidores. (Obs.: outra sessão implantou Exposicao
+  HTTP/SyncRepos/RecuperacaoItens-Servidor no mesmo ponte — conferir se
+  esses também precisam da blindagem.)
 - 2026-07-20 (10ª rodada): **Painel: concorrente compacto** (b975bdb+d4d6c15)
   — link "abrir em tela cheia" removido (o clique do card já abre; tooltip
   explica); revisão embutida na densidade das outras abas via injeção no
