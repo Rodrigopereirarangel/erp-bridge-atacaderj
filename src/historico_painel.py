@@ -123,8 +123,10 @@ def serie_abaixo_custo(vendas, dias):
 def corte_ruptura(itens):
     """MESMA regra do quadrante (Q.ruptura.corte do template e do wrapper
     scripts/replay_ruptura.js — manter os TRES em sincronia): prob > 0.75,
-    parado > 1 dia, e guardrail (entrega <=30d com cobertura sobrando)."""
-    n = 0
+    parado > 1 dia, e guardrail (entrega <=30d com cobertura sobrando).
+    Devolve contagem POR CURVA {"a", "b"} — o grafico da ruptura empilha
+    so A+B (dono, 21/07); C+ fica fora."""
+    cont = {"a": 0, "b": 0}
     for i in itens or []:
         if (i.get("probabilidade") or 0) <= 0.75:
             continue
@@ -134,8 +136,12 @@ def corte_ruptura(itens):
         if (ent is not None and ent <= 30
                 and (i.get("cobertura_restante") or 0) > 0):
             continue
-        n += 1
-    return n
+        curva = str(i.get("curva") or "").upper()
+        if curva == "A":
+            cont["a"] += 1
+        elif curva == "B":
+            cont["b"] += 1
+    return cont
 
 
 def mesclar_historico(destino, novas, carimbo):
@@ -155,7 +161,14 @@ def mesclar_historico(destino, novas, carimbo):
         por_data = {p["s"]: p for p in series.get(nome, [])}
         for p in pontos or []:
             por_data[p["s"]] = p
-        series[nome] = sorted(por_data.values(), key=lambda p: p["s"])
+        ordenados = sorted(por_data.values(), key=lambda p: p["s"])
+        # amostragem semanal de verdade: so SEGUNDAS + o ponto mais recente
+        # (senao o "hoje" de cada dia vira lixo diario acumulado na serie)
+        if ordenados:
+            ultimo = ordenados[-1]["s"]
+            ordenados = [p for p in ordenados if p["s"] == ultimo
+                         or date.fromisoformat(p["s"]).weekday() == 0]
+        series[nome] = ordenados
     out = {"gerado_em": carimbo, "series": series}
     tmp = arq + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

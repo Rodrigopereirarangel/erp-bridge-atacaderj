@@ -43,7 +43,8 @@ def main():
         print(f"[ERRO] replay: {(r.stderr or r.stdout).strip()[:400]}")
         return 1
     contagens = json.loads(r.stdout)
-    serie = [{"s": d, "v": contagens[d]} for d in dias if d in contagens]
+    serie = [{"s": d, "a": contagens[d]["a"], "b": contagens[d]["b"]}
+             for d in dias if d in contagens]
     os.makedirs(destino, exist_ok=True)
     historico_painel.mesclar_historico(destino, {"ruptura": serie}, hoje)
     print(f"[OK] ruptura: {len(serie)} semanas mescladas "

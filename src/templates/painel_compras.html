@@ -115,6 +115,10 @@
   .gbar { fill:#2e4a74 } .gbar.atual { fill:var(--acc) } .gbar:hover { fill:#4a6ea8 }
   .gval { fill:var(--mut); font-size:13px; text-anchor:middle }
   .gdata { fill:var(--fraco); font-size:13px; text-anchor:middle }
+  /* mini do card: ~1/5 da aba, so barras (hover mostra data+valor) */
+  .quadro .grafico-mini { flex:0 0 19%; min-height:0;
+      border-top:1px solid var(--borda); margin-top:2px; padding-top:2px }
+  .quadro .grafico-mini svg { width:100%; height:100% }
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
@@ -542,6 +546,7 @@ function cartao(id) {
   } else {
     h += q.corpo ? q.corpo() : "";
   }
+  h += graficoMini(id);
   return h;
 }
 /* poda a revisao do pricing DENTRO da previa (mesma origem): esconde titulo,
@@ -576,7 +581,10 @@ function podarRevisao(fr) {
       "#corpo .zona{display:inline-block!important;font-size:10px!important;" +
         "padding:0 5px!important;margin:0 5px 0 0!important;vertical-align:1px}" +
       "#corpo .nome{display:inline!important}" +
-      "#corpo .cod{display:none!important}";
+      "#corpo .cod{display:none!important}" +
+      // rodape com os graficos do historico e so da tela cheia — na previa
+      // do card ele roubaria o pouco espaco que ha
+      "#historico-concorrente{display:none!important}";
     doc.head.appendChild(st);
   } catch (e) {}  // noqa: cross-origin ou doc ainda nao pronto
 }
@@ -644,37 +652,68 @@ let detalheAtual = null, filtroAtual = "";
 // por aba — a mesma do chip do titulo (abaixo_custo e o REALIZADO da semana).
 const GRAFICO_ROTULO = {
   validade_relampago: "itens em relâmpago vigente · amostras semanais",
-  ruptura: "itens em falta pela régua atual (replay do detector) · semanais",
+  ruptura: "itens em falta · só curva A (azul) + curva B (âmbar) · semanais",
   // cobranca SEM grafico (pedido do dono 21/07); a serie segue sendo gravada
   sellout: "itens com sell-out vigente (início–fim) · amostras semanais",
   abaixo_custo: "itens VENDIDOS abaixo do custo na semana",
-  prepedidos: "pré-pedidos abertos · amostras semanais",
+  // prepedidos e cobranca SEM grafico (dono, 21/07); series seguem gravadas
 };
-function grafico(id) {
-  const s = (D.historico || {})[id];
-  if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
-  const W = 1600, H = 280, MT = 24, MB = 22;
-  const max = Math.max.apply(null, s.map((p) => p.v).concat([1]));
+function barrasSVG(s, compacto) {
+  // compacto = mini do card (1/4-1/5 da aba, dono 21/07): so barras+hover
+  const W = 1600, H = 280, MT = compacto ? 10 : 24, MB = compacto ? 4 : 22;
+  const max = Math.max.apply(null, s.map((p) =>
+    (p.a != null || p.b != null) ? (p.a || 0) + (p.b || 0) : (p.v || 0)
+  ).concat([1]));
   const bw = W / s.length;
   const fv = (v) => String(Math.round(v));
   let b = "";
   for (let i = 0; i < s.length; i++) {
-    const h = Math.max((s[i].v / max) * (H - MT - MB), s[i].v > 0 ? 2 : 0);
-    const y = H - MB - h, xc = (i * bw + bw / 2).toFixed(1);
-    b += '<rect class="gbar' + (i === s.length - 1 ? " atual" : "") +
-      '" x="' + (i * bw + bw * 0.12).toFixed(1) + '" y="' + y.toFixed(1) +
-      '" width="' + (bw * 0.76).toFixed(1) + '" height="' + h.toFixed(1) +
-      '"><title>' + dbr(s[i].s) + " — " +
-      Math.round(s[i].v).toLocaleString("pt-BR") + "</title></rect>" +
-      '<text class="gval" x="' + xc + '" y="' + (y - 6).toFixed(1) + '">' +
-      fv(s[i].v) + "</text>";
-    if (i === 0 || i === s.length - 1 || i % 4 === 0)
-      b += '<text class="gdata" x="' + xc + '" y="' + (H - 6) + '">' +
-        dbr(s[i].s).slice(0, 5) + "</text>";
+    const ult = i === s.length - 1, x = (i * bw + bw * 0.12).toFixed(1);
+    const larg = (bw * 0.76).toFixed(1), xc = (i * bw + bw / 2).toFixed(1);
+    const empilhado = s[i].a != null || s[i].b != null;
+    const tot = empilhado ? (s[i].a || 0) + (s[i].b || 0) : s[i].v || 0;
+    const h = Math.max((tot / max) * (H - MT - MB), tot > 0 ? 2 : 0);
+    const y = H - MB - h;
+    if (empilhado) {
+      // barra A embaixo (azul) + B por cima (ambar); hover mostra cada curva
+      const hA = tot > 0 ? h * ((s[i].a || 0) / tot) : 0;
+      b += '<rect x="' + x + '" y="' + (H - MB - hA).toFixed(1) +
+        '" width="' + larg + '" height="' + hA.toFixed(1) +
+        '" fill="' + (ult ? "#58a6ff" : "#2e4a74") + '"><title>' +
+        dbr(s[i].s) + " — curva A: " + (s[i].a || 0) + "</title></rect>" +
+        '<rect x="' + x + '" y="' + y.toFixed(1) +
+        '" width="' + larg + '" height="' + (h - hA).toFixed(1) +
+        '" fill="' + (ult ? "#e3b341" : "#8a6a1f") + '"><title>' +
+        dbr(s[i].s) + " — curva B: " + (s[i].b || 0) + "</title></rect>";
+    } else {
+      b += '<rect class="gbar' + (ult ? " atual" : "") +
+        '" x="' + x + '" y="' + y.toFixed(1) +
+        '" width="' + larg + '" height="' + h.toFixed(1) +
+        '"><title>' + dbr(s[i].s) + " — " +
+        Math.round(tot).toLocaleString("pt-BR") + "</title></rect>";
+    }
+    if (!compacto) {
+      b += '<text class="gval" x="' + xc + '" y="' + (y - 6).toFixed(1) + '">' +
+        fv(tot) + "</text>";
+      if (i === 0 || i === s.length - 1 || i % 4 === 0)
+        b += '<text class="gdata" x="' + xc + '" y="' + (H - 6) + '">' +
+          dbr(s[i].s).slice(0, 5) + "</text>";
+    }
   }
+  return '<svg viewBox="0 0 ' + W + " " + H +
+    '" preserveAspectRatio="none">' + b + "</svg>";
+}
+function grafico(id) {
+  const s = (D.historico || {})[id];
+  if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
   return '<div class="grafico"><div class="glabel">' + GRAFICO_ROTULO[id] +
-    " · desde 06/04</div><svg viewBox=\"0 0 " + W + " " + H +
-    '" preserveAspectRatio="none">' + b + "</svg></div>";
+    " · desde 06/04</div>" + barrasSVG(s, false) + "</div>";
+}
+function graficoMini(id) {
+  const s = (D.historico || {})[id];
+  if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
+  return '<div class="grafico-mini" title="' + esc(GRAFICO_ROTULO[id]) +
+    '">' + barrasSVG(s, true) + "</div>";
 }
 function abrirDetalhe(id, filtro) {
   const q = Q[id], det = document.getElementById("detalhe");

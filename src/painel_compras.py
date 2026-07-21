@@ -294,10 +294,123 @@ def copiar_revisao_pricing(dados_dir, dir_saida):
         return None
     ano, sem, origem = max(candidatos)
     os.makedirs(dir_saida, exist_ok=True)
-    shutil.copyfile(origem, os.path.join(dir_saida, "revisao_pricing.html"))
+    destino_arq = os.path.join(dir_saida, "revisao_pricing.html")
+    shutil.copyfile(origem, destino_arq)
+    _podar_copia_revisao(destino_arq)
     mtime = datetime.fromtimestamp(os.path.getmtime(origem))
     return {"rotulo": f"{ano}-S{sem}", "arquivo": "revisao_pricing.html",
             "modificado_em": mtime.strftime("%Y-%m-%d %H:%M")}
+
+
+def _podar_copia_revisao(arquivo):
+    """Ajustes do dono (21/07) feitos NA COPIA (o original do pricing fica
+    intacto): esconde a nota verde de re-leitura e a descricao de zona
+    tambem na tela cheia, e renomeia KVI -> "Itens acima de concorrência"
+    (chip de filtro e selos das linhas)."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    html = html.replace('["kvi","KVI"]',
+                        '["kvi","Itens acima de concorrência"]')
+    html = html.replace('"r": "KVI no piso"', '"r": "Acima (no piso)"')
+    html = html.replace('"r": "KVI"', '"r": "Acima"')
+    html = html.replace(
+        "</head>",
+        '<style id="poda-copia">p.nota,#descricao{display:none!important}'
+        "</style></head>", 1)
+    with open(arquivo, "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+def contar_concorrente(arquivo, hoje, frescor_dias=10):
+    """Conta os itens da revisao copiada por zona — acima (g=kvi: estavam
+    mais caros que o vizinho) e abaixo (g=alinha: sobem ate empatar) — so
+    com pesquisa fresca (coleta mais recente <= frescor_dias, MESMA regra
+    da poda da previa). Devolve None se o HTML nao tiver os dados."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    m = re.search(r"const ITENS = (\[.*?\]);", html, re.S)
+    if not m:
+        return None
+    hoje_d = date.fromisoformat(hoje)
+    cont = {"kvi": 0, "alinha": 0}
+    for it in json.loads(m.group(1)):
+        datas = []
+        for vz in it.get("v") or []:
+            try:
+                dd, mm, aa = (vz.get("dt") or "").split("/")
+                datas.append(date(int(aa), int(mm), int(dd)))
+            except (ValueError, AttributeError):
+                pass
+        if not datas or (hoje_d - max(datas)).days > frescor_dias:
+            continue
+        g = it.get("g")
+        if g in cont:
+            cont[g] += 1
+    return {"acima": cont["kvi"], "abaixo": cont["alinha"]}
+
+
+RODAPE_CONCORRENTE = """
+<div id="historico-concorrente" style="position:fixed;left:0;right:0;bottom:0;
+height:30vh;background:#0b0e13;border-top:1px solid #232b38;display:flex;
+gap:12px;padding:8px 10px;z-index:50;box-sizing:border-box"></div>
+<script id="historico-concorrente-js">
+(function(){
+  var S = /*__SERIES__*/null;
+  var box = document.getElementById("historico-concorrente");
+  if (!S || !box) return;
+  document.body.style.paddingBottom = "32vh";
+  function um(titulo, s){
+    if (!s || !s.length) return;
+    var W=800,H=260,MT=24,MB=22,max=1,i;
+    for(i=0;i<s.length;i++) if(s[i].v>max) max=s[i].v;
+    var bw=W/s.length,b="";
+    for(i=0;i<s.length;i++){
+      var h=Math.max(s[i].v/max*(H-MT-MB), s[i].v>0?2:0), y=H-MB-h;
+      var xc=(i*bw+bw/2).toFixed(1);
+      b+='<rect x="'+(i*bw+bw*0.12).toFixed(1)+'" y="'+y.toFixed(1)+
+        '" width="'+(bw*0.76).toFixed(1)+'" height="'+h.toFixed(1)+
+        '" fill="'+(i===s.length-1?"#58a6ff":"#2e4a74")+'"><title>'+s[i].s+
+        " \\u2014 "+Math.round(s[i].v)+'</title></rect>'+
+        '<text x="'+xc+'" y="'+(y-6).toFixed(1)+
+        '" fill="#8e99a8" font-size="13" text-anchor="middle">'+
+        Math.round(s[i].v)+'</text>';
+      if(i===0||i===s.length-1||i%4===0){
+        var p=s[i].s.split("-");
+        b+='<text x="'+xc+'" y="'+(H-6)+
+          '" fill="#5c6572" font-size="13" text-anchor="middle">'+
+          p[2]+"/"+p[1]+'</text>';
+      }
+    }
+    var d=document.createElement("div");
+    d.style.cssText="flex:1;display:flex;flex-direction:column;min-width:0";
+    d.innerHTML='<div style="font-size:11px;color:#5c6572;'+
+      'text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px 4px">'+
+      titulo+" \\u00b7 amostras semanais</div>"+
+      '<svg style="flex:1;width:100%" viewBox="0 0 '+W+" "+H+
+      '" preserveAspectRatio="none">'+b+"</svg>";
+    box.appendChild(d);
+  }
+  um("Itens acima de concorr\\u00eancia", S.acima);
+  um("Itens abaixo de concorr\\u00eancia", S.abaixo);
+})();
+</script>
+"""
+
+
+def injetar_grafico_concorrente(arquivo, series):
+    """Anexa na COPIA da revisao o rodape fixo (ultimo terco da tela) com os
+    DOIS graficos semanais — itens acima e abaixo da concorrencia (dono,
+    21/07). A previa do painel esconde o rodape (poda do iframe)."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    if "historico-concorrente" in html:
+        return
+    dados = json.dumps(series, ensure_ascii=False).replace("</", "<\\/")
+    html = html.replace(
+        "</body>",
+        RODAPE_CONCORRENTE.replace("/*__SERIES__*/null", dados) + "</body>", 1)
+    with open(arquivo, "w", encoding="utf-8") as f:
+        f.write(html)
 
 
 def renderizar(payload):
@@ -470,15 +583,31 @@ def rodar(cfg, usar_demo=False):
         novas["abaixo_custo"] = historico_painel.serie_abaixo_custo(
             ven_hist, dias_hist)
     if not q_ruptura["erro"]:
-        novas["ruptura"] = [{"s": hoje,
-                             "v": historico_painel.corte_ruptura(
-                                 q_ruptura["itens"])}]
+        c = historico_painel.corte_ruptura(q_ruptura["itens"])
+        novas["ruptura"] = [{"s": hoje, "a": c["a"], "b": c["b"]}]
+    if q_conc.get("arquivo") and not q_conc["erro"]:
+        try:
+            cc = contar_concorrente(
+                os.path.join(destino, q_conc["arquivo"]), hoje)
+            if cc is not None:
+                novas["concorrente_acima"] = [{"s": hoje, "v": cc["acima"]}]
+                novas["concorrente_abaixo"] = [{"s": hoje, "v": cc["abaixo"]}]
+        except Exception as e:  # noqa: BLE001
+            erros["historico"] = f"contagem concorrente: {e}"
     try:
         hist = historico_painel.mesclar_historico(destino, novas, gerado_em)
         payload["historico"] = hist.get("series") or {}
     except Exception as e:  # noqa: BLE001 — historico nunca derruba o painel
         erros["historico"] = str(e)
         payload["historico"] = {}
+    if q_conc.get("arquivo") and not q_conc["erro"]:
+        try:
+            injetar_grafico_concorrente(
+                os.path.join(destino, q_conc["arquivo"]),
+                {"acima": payload["historico"].get("concorrente_acima") or [],
+                 "abaixo": payload["historico"].get("concorrente_abaixo") or []})
+        except Exception as e:  # noqa: BLE001
+            erros["historico"] = f"grafico concorrente: {e}"
 
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
     projections._escrever_atomico(os.path.join(destino, "dados_painel.json"),

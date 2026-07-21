@@ -20,6 +20,7 @@ if (!det || datas.length === 0) {
 }
 const req = (p) => require(path.join(det, p));
 const { importSales } = req("src/core/import/sales.js");
+const { importAbc } = req("src/core/import/abc.js");
 const { detectAll } = req("src/core/detect/detectAll.js");
 const cfgArq = ["config.local.json", "config.example.json"]
   .map((a) => path.join(det, a)).find((a) => fs.existsSync(a));
@@ -33,6 +34,9 @@ const iData = vendasCab.split(";").indexOf("data");
 const entradas = fs.readFileSync(path.join(inputDir, "entradas.csv"), "utf8")
   .split(/\r?\n/).slice(1).map((l) => l.split(";"))
   .filter((c) => c.length >= 3 && c[0] && c[1]);
+// curva ABC ATUAL aplicada ao passado (nao ha curva historica) — aproximacao
+// documentada; o grafico do painel usa so A+B (dono, 21/07)
+const abc = importAbc(fs.readFileSync(path.join(inputDir, "curva_abc.csv"), "utf8"));
 
 const saida = {};
 for (const ref of datas) {
@@ -47,8 +51,8 @@ for (const ref of datas) {
     const prev = receipts.get(cod);
     if (!prev || data > prev.date) receipts.set(cod, { date: data, qty: Number(qtd) || 0 });
   }
-  const itens = detectAll(importSales(vendasCsv), receipts, new Map(), new Map(), ref, cfg);
-  let n = 0;
+  const itens = detectAll(importSales(vendasCsv), receipts, new Map(), abc, ref, cfg);
+  const cont = { a: 0, b: 0 };
   for (const i of itens) {
     if ((i.probabilidade || 0) <= 0.75) continue;
     if ((i.diasParado || 0) <= 1) continue;
@@ -58,8 +62,9 @@ for (const ref of datas) {
         (Date.parse(ref) - Date.parse(String(r.date).slice(0, 10))) / 86400000);
       if (dias <= 30 && (i.coverageRemaining || 0) > 0) continue;
     }
-    n++;
+    if (i.curvaABC === "A") cont.a++;
+    else if (i.curvaABC === "B") cont.b++;
   }
-  saida[ref] = n;
+  saida[ref] = cont;
 }
 process.stdout.write(JSON.stringify(saida));

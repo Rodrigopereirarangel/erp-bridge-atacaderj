@@ -208,9 +208,17 @@ c. **Round do detector-estoque:** `data/rounds/<YYYY-MM-DD>.json` =
 
 Ao abrir a lista de uma aba, o ÚLTIMO TERÇO da tela mostra um gráfico de
 barras (SVG puro, offline) com amostras SEMANAIS (toda segunda desde 06/04 +
-o ponto de hoje) da mesma medida do chip do título. Concorrente fica sem
-(relatório embutido do pricing, sem lista própria) e a Cobrança também
-(pedido do dono, 21/07 — a série continua sendo gravada no historico.json).
+o ponto de hoje) da mesma medida do chip do título. Cobrança e Pré-pedidos
+ficam SEM gráfico (dono, 21/07 — as séries continuam gravadas). No
+Concorrente os gráficos ficam na TELA CHEIA da revisão (rodapé fixo
+injetado na cópia; a prévia do card esconde): DOIS gráficos — itens acima
+e abaixo da concorrência (só pesquisa fresca ≤10d, mesma regra da poda).
+A cópia também é podada (nota verde e descrição escondidas) e KVI é
+renomeado para "Itens acima de concorrência" (chip e selos das linhas);
+o original do pricing fica intacto. O gráfico da Ruptura empilha SÓ curva
+A (azul) + curva B (âmbar) — hover mostra a contagem de cada curva; curva
+usada é a ATUAL aplicada ao passado (não há curva histórica). A mescla
+poda dias soltos: só segundas + o ponto mais recente ficam na série.
 
 - **Fonte**: `painel/historico.json` — mantido por `src/historico_painel.py`
   e embutido no payload (`historico`). Merge preservador: mesma data

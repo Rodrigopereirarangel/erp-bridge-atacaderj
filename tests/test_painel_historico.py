@@ -53,19 +53,74 @@ def test_serie_abaixo_custo_conta_itens_distintos_da_semana():
     assert serie == [{"s": "2026-07-07", "v": 1}, {"s": "2026-07-20", "v": 1}]
 
 
-def test_corte_ruptura_espelha_a_regra_do_template():
+def test_corte_ruptura_espelha_a_regra_e_conta_por_curva():
     itens = [
-        {"probabilidade": 0.9, "dias_parado": 3},                    # entra
-        {"probabilidade": 0.7, "dias_parado": 3},                    # prob baixa
-        {"probabilidade": 0.9, "dias_parado": 1},                    # parado <= 1
+        {"probabilidade": 0.9, "dias_parado": 3, "curva": "A"},      # entra (A)
+        {"probabilidade": 0.7, "dias_parado": 3, "curva": "A"},      # prob baixa
+        {"probabilidade": 0.9, "dias_parado": 1, "curva": "B"},      # parado <= 1
         {"probabilidade": 0.9, "dias_parado": 3, "entrega_dias": 15,
-         "cobertura_restante": 4.0},                                 # guardrail
+         "cobertura_restante": 4.0, "curva": "A"},                   # guardrail
         {"probabilidade": 0.9, "dias_parado": 3, "entrega_dias": 15,
-         "cobertura_restante": 0.0},                                 # sem cobertura
+         "cobertura_restante": 0.0, "curva": "B"},                   # entra (B)
         {"probabilidade": 0.9, "dias_parado": 3, "entrega_dias": 47,
-         "cobertura_restante": 9.0},                                 # entrega velha
+         "cobertura_restante": 9.0, "curva": "B"},                   # entra (B)
+        {"probabilidade": 0.9, "dias_parado": 3, "curva": "C"},      # C+ fora
     ]
-    assert hp.corte_ruptura(itens) == 3
+    assert hp.corte_ruptura(itens) == {"a": 1, "b": 2}
+
+
+def test_mesclar_poda_dias_soltos_mantendo_segundas_e_ultimo(tmp_path):
+    d = str(tmp_path)
+    hp.mesclar_historico(d, {"x": [{"s": "2026-07-13", "v": 1},     # segunda
+                                   {"s": "2026-07-15", "v": 2}]}, "t1")  # qua
+    out = hp.mesclar_historico(d, {"x": [{"s": "2026-07-16", "v": 3}]}, "t2")
+    # a quarta antiga (15) cai; fica a segunda (13) + o mais recente (16)
+    assert [p["s"] for p in out["series"]["x"]] == ["2026-07-13", "2026-07-16"]
+
+
+def test_contar_concorrente_por_zona_e_frescor(tmp_path):
+    html = ('<script>const ITENS = ['
+            '{"g": "kvi", "v": [{"dt": "15/07/2026"}]}, '
+            '{"g": "kvi", "v": [{"dt": "01/07/2026"}]}, '     # velho (>10d)
+            '{"g": "alinha", "v": [{"dt": "20/07/2026"}]}, '
+            '{"g": "alinha", "v": []}, '                      # sem coleta
+            '{"g": "degrau", "v": [{"dt": "20/07/2026"}]}'    # outra zona
+            '];</script>')
+    arq = tmp_path / "rev.html"
+    arq.write_text(html, encoding="utf-8")
+    import painel_compras as pcm
+    assert pcm.contar_concorrente(str(arq), "2026-07-21") == \
+        {"acima": 1, "abaixo": 1}
+
+
+def test_podar_copia_renomeia_kvi_e_esconde_nota(tmp_path):
+    arq = tmp_path / "rev.html"
+    arq.write_text('<head></head><body><p class="nota">x</p>'
+                   '<script>const GRUPOS = [["kvi","KVI"],'
+                   '["alinha","Sobe p/ vizinho"]];'
+                   'const ITENS = [{"r": "KVI no piso", "g": "kvi"},'
+                   '{"r": "KVI", "g": "kvi"}];</script></body>',
+                   encoding="utf-8")
+    import painel_compras as pcm
+    pcm._podar_copia_revisao(str(arq))
+    s = arq.read_text(encoding="utf-8")
+    assert '["kvi","Itens acima de concorrência"]' in s
+    assert '"r": "Acima (no piso)"' in s and '"r": "Acima"' in s
+    assert "p.nota,#descricao{display:none!important}" in s
+
+
+def test_injetar_grafico_concorrente_e_idempotente(tmp_path):
+    arq = tmp_path / "rev.html"
+    arq.write_text("<body><p>x</p></body>", encoding="utf-8")
+    import painel_compras as pcm
+    series = {"acima": [{"s": "2026-07-21", "v": 12}],
+              "abaixo": [{"s": "2026-07-21", "v": 40}]}
+    pcm.injetar_grafico_concorrente(str(arq), series)
+    s = arq.read_text(encoding="utf-8")
+    assert s.count("historico-concorrente") >= 1 and '"v": 12' in s
+    pcm.injetar_grafico_concorrente(str(arq), series)   # 2a chamada nao duplica
+    assert arq.read_text(encoding="utf-8").count(
+        'id="historico-concorrente"') == 1
 
 
 def test_mesclar_preserva_pontos_antigos_e_substitui_iguais(tmp_path):
