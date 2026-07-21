@@ -546,6 +546,30 @@ WHERE p.inEntrada = 1
   AND p.dtPedido < DATEADD(day, -{cobranca_max_dias}, CAST(GETDATE() AS date))
 """
 
+# PRE_PEDIDOS: pre-pedidos ABERTOS (nao encerrados e ainda sem pedido de
+# compra gerado) feitos nos ultimos {prepedido_dias} dias — janela do painel
+# (dono, 21/07). FONTE (medida 2026-07-21): tbPrePedido (fornecedor em
+# cdPessoaComercial, encerrado em inEncerrado, conversao em cdPedidoCompra)
+# + tbPrePedidoItem (valor = qtPedida x vlEmbalagem).
+PRE_PEDIDOS = """
+SELECT pp.cdPrePedido                              AS pre_pedido,
+       LTRIM(RTRIM(COALESCE(ps.nmPessoa, '')))     AS fornecedor,
+       CAST(pp.dtPrePedido AS date)                AS data_pre,
+       CAST(pp.dtLimite AS date)                   AS limite,
+       COUNT(i.cdPrePedidoItem)                    AS itens,
+       CAST(SUM(i.qtPedida * i.vlEmbalagem) AS decimal(14,2)) AS valor
+FROM dbo.tbPrePedido pp
+LEFT JOIN dbo.tbPessoa ps ON ps.cdPessoa = pp.cdPessoaComercial
+LEFT JOIN dbo.tbPrePedidoItem i
+  ON i.cdPrePedido = pp.cdPrePedido AND i.cdPessoaFilial = pp.cdPessoaFilial
+WHERE COALESCE(pp.inEncerrado, 0) = 0
+  AND pp.cdPedidoCompra IS NULL
+  AND pp.dtPrePedido >= DATEADD(day, -{prepedido_dias}, CAST(GETDATE() AS date))
+GROUP BY pp.cdPrePedido, ps.nmPessoa, CAST(pp.dtPrePedido AS date),
+         CAST(pp.dtLimite AS date)
+ORDER BY data_pre DESC
+"""
+
 # REC_SELLOUT: verbas de sell-out por promocao x produto — replica o
 # rptReceitaSellOutDetalhe do ERP p/ o quadrante "Verba SellOut" do painel.
 # FONTE (medida 2026-07-21): tbPromocaoItem.vlVerbaComercial = verba UNITARIA

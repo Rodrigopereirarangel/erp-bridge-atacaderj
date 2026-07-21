@@ -368,6 +368,74 @@ const Q = {
                    dbr(i.inicio), dbr(i.fim),
                    '<td class="num">' + vencSellTag(i) + "</td>"],
   },
+  abaixo_custo: {
+    titulo: "🩸 Vendendo abaixo do custo", d: D.abaixo_custo,
+    filtroDica: "filtrar… produto ou código",
+    // dono (21/07): preco VIGENTE (hierarquia do caixa: promo vigente manda,
+    // senao varejo) abaixo do custo, so itens com venda nos ultimos 5 dias
+    kpis() {
+      const it = this.d.itens;
+      const perda = it.reduce((s, i) => s + (i.prejuizo_5d || 0), 0);
+      return [[it.length ? "bad" : "ok", it.length,
+               "itens · −" + rs(perda) + " em 5d", null]];
+    },
+    cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+           {t: "Preço vigente", k: "preco", num: 1},
+           {t: "Custo", k: "custo", num: 1},
+           {t: "Margem", k: "margem_pct", num: 1},
+           {t: "Vend. 5d", k: "qtd_5d", num: 1},
+           {t: "Prejuízo 5d", k: "prejuizo_5d", num: 1},
+           {t: "Curva", k: "curva"}],
+    linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
+                   '<td class="num">' + rs(i.preco) + ' <span class="tag ' +
+                     (i.origem === "promo" ? "warn" : "mut") + '">' + i.origem + "</span></td>",
+                   '<td class="num">' + rs(i.custo) + "</td>",
+                   '<td class="num"><span class="tag bad">' + i.margem_pct + "%</span></td>",
+                   '<td class="num">' + nf.format(i.qtd_5d) + "</td>",
+                   '<td class="num">' + rs(i.prejuizo_5d) + "</td>",
+                   esc(i.curva || "—")],
+    colsPrevia: [{t: "Produto", k: "descricao"},
+                 {t: "Preço vigente", k: "preco", num: 1},
+                 {t: "Custo", k: "custo", num: 1},
+                 {t: "Margem", k: "margem_pct", num: 1}],
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
+                   '<td class="num">' + rs(i.preco) + ' <span class="tag ' +
+                     (i.origem === "promo" ? "warn" : "mut") + '">' + i.origem + "</span></td>",
+                   '<td class="num">' + rs(i.custo) + "</td>",
+                   '<td class="num"><span class="tag bad">' + i.margem_pct + "%</span></td>"],
+  },
+  prepedidos: {
+    titulo: "📝 Pré-pedidos", d: D.prepedidos,
+    filtroDica: "filtrar… fornecedor ou nº",
+    // dono (21/07): pre-pedidos ABERTOS feitos ha menos de 21 dias
+    kpis() {
+      const it = this.d.itens;
+      const soma = it.reduce((s, i) => s + (i.valor || 0), 0);
+      return [[it.length ? "warn" : "ok", it.length,
+               "abertos · " + rs(soma), null]];
+    },
+    cols: [{t: "Fornecedor", k: "fornecedor"},
+           {t: "Nº", k: "pre_pedido", num: 1},
+           {t: "Data", k: "data_pre"},
+           {t: "Dias", k: "dias", num: 1},
+           {t: "Limite", k: "limite"},
+           {t: "Itens", k: "itens", num: 1},
+           {t: "R$", k: "valor", num: 1}],
+    linha: (i) => ['<td class="desc">' + esc(i.fornecedor || "—") + "</td>",
+                   esc(i.pre_pedido), dbr(i.data_pre),
+                   '<td class="num">' + i.dias + "d</td>",
+                   dbr(i.limite),
+                   '<td class="num">' + i.itens + "</td>",
+                   '<td class="num">' + rs(i.valor) + "</td>"],
+    colsPrevia: [{t: "Fornecedor", k: "fornecedor"},
+                 {t: "Data", k: "data_pre"},
+                 {t: "Dias", k: "dias", num: 1},
+                 {t: "R$", k: "valor", num: 1}],
+    linhaPrevia: (i) => ['<td class="desc">' + esc(i.fornecedor || "—") + "</td>",
+                   dbr(i.data_pre),
+                   '<td class="num">' + i.dias + "d</td>",
+                   '<td class="num">' + rs(i.valor) + "</td>"],
+  },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
     kpis() { return []; },   // sem box da semana (dono, 20/07): o rotulo vive no link

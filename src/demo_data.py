@@ -172,6 +172,20 @@ def promo_relampago():
     ]
 
 
+def pre_pedidos():
+    """Pre-pedidos abertos recentes (forma da query PRE_PEDIDOS)."""
+    hoje = date.today()
+    return [
+        {"pre_pedido": 1, "fornecedor": "GRUPO DEMO BEBIDAS",
+         "data_pre": (hoje - timedelta(days=2)).isoformat(),
+         "limite": (hoje + timedelta(days=5)).isoformat(),
+         "itens": 3, "valor": 1500.0},
+        {"pre_pedido": 2, "fornecedor": "DEMO ALIMENTOS",
+         "data_pre": hoje.isoformat(), "limite": None,
+         "itens": 1, "valor": 500.0},
+    ]
+
+
 def receita_sellout():
     """Verbas sell-out (forma da query REC_SELLOUT). Casos: vencida com total
     (entra no quadrante), vencida com total 0 (fora), a vencer (fora)."""

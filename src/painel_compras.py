@@ -22,6 +22,7 @@ PADROES = {
     "cobranca_dias_limiar": 7,
     "cobranca_max_dias": 30,
     "cobranca_alerta_dias": 21,
+    "prepedido_dias": 21,
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
     "reload_minutos": 5,
@@ -130,6 +131,68 @@ def _pedido_dias(item, hoje):
         return _dias(data, hoje)
     except ValueError:
         return None
+
+
+def montar_prepedidos(linhas, hoje):
+    """Pre-pedidos abertos normalizados: dias desde a criacao; mais novo
+    primeiro (a query ja filtra abertos e a janela de dias)."""
+    itens = []
+    for r in linhas or []:
+        data = str(r.get("data_pre"))[:10]
+        itens.append({
+            "pre_pedido": r.get("pre_pedido"),
+            "fornecedor": r.get("fornecedor") or "",
+            "data_pre": data,
+            "dias": _dias(data, hoje),
+            "limite": (str(r.get("limite"))[:10] if r.get("limite") else None),
+            "itens": int(r.get("itens") or 0),
+            "valor": float(r.get("valor") or 0),
+        })
+    itens.sort(key=lambda i: (i["dias"], -i["valor"]))
+    return itens
+
+
+def montar_abaixo_custo(catalogo, vendas):
+    """Produtos cujo preco VIGENTE (hierarquia do caixa: promocao vigente
+    MANDA; senao varejo) esta abaixo do custo — so quem teve venda na janela
+    recebida (ultimos 5 dias). Ordena pelo maior prejuizo estimado no periodo."""
+    qtd5 = {}
+    for v in vendas or []:
+        c = _cod(v.get("codigo"))
+        try:
+            qtd5[c] = qtd5.get(c, 0.0) + float(v.get("qtd_vendida") or 0)
+        except (TypeError, ValueError):
+            pass
+    itens = []
+    for r in catalogo or []:
+        c = _cod(r.get("codigo"))
+        if c not in qtd5:
+            continue
+        promo = r.get("preco_promocao")
+        varejo = r.get("preco_varejo")
+        if promo is not None and float(promo) > 0:
+            preco, origem = float(promo), "promo"
+        elif varejo is not None and float(varejo) > 0:
+            preco, origem = float(varejo), "varejo"
+        else:
+            continue
+        custo = float(r.get("custo_atual") or 0)
+        if custo <= 0 or preco >= custo:
+            continue
+        qtd = qtd5[c]
+        itens.append({
+            "codigo": c,
+            "descricao": r.get("descricao"),
+            "preco": round(preco, 2),
+            "origem": origem,
+            "custo": round(custo, 2),
+            "margem_pct": round((preco - custo) / custo * 100, 1),
+            "qtd_5d": round(qtd, 2),
+            "prejuizo_5d": round((custo - preco) * qtd, 2),
+            "curva": r.get("curva"),
+        })
+    itens.sort(key=lambda i: -i["prejuizo_5d"])
+    return itens
 
 
 def montar_sellout(linhas, hoje):
@@ -270,12 +333,14 @@ def rodar(cfg, usar_demo=False):
 
     # --- fontes SQL (cada quadrante falha sozinho) ---
     erros = {}
-    cat = val = relamp = cob = sellout = None
+    cat = val = relamp = cob = sellout = ven5 = prep = None
     aband = 0
     if usar_demo:
         cat, val = demo_data.catalogo(), demo_data.validades()
         relamp, cob = demo_data.promo_relampago(), demo_data.pedidos_cobranca()
         sellout = demo_data.receita_sellout()
+        ven5 = demo_data.vendas(5)
+        prep = demo_data.pre_pedidos()
         aband = 2
     else:
         import db
@@ -284,7 +349,8 @@ def rodar(cfg, usar_demo=False):
             conn = db.conectar(cfg["db"])
         except Exception as e:  # noqa: BLE001
             erros["validade_relampago"] = erros["cobranca"] = \
-                erros["sellout"] = f"banco inacessivel: {e}"
+                erros["sellout"] = erros["abaixo_custo"] = \
+                erros["prepedidos"] = f"banco inacessivel: {e}"
         else:
             try:
                 jan = int(cfg.get("janela_entradas_dias", 180))
@@ -300,6 +366,12 @@ def rodar(cfg, usar_demo=False):
                     cobranca_max_dias=max_d), "cobranca", erros)
                 aband = int(ab[0]["n"]) if ab else 0
                 sellout = _consulta(conn, queries.REC_SELLOUT, "sellout", erros)
+                # abaixo do custo: reusa a query VENDAS com janela de 5 dias
+                ven5 = _consulta(conn, queries.VENDAS.format(janela=5),
+                                 "abaixo_custo", erros)
+                prep = _consulta(conn, queries.PRE_PEDIDOS.format(
+                    prepedido_dias=int(cfgp["prepedido_dias"])),
+                    "prepedidos", erros)
             finally:
                 try:
                     conn.close()
@@ -331,6 +403,17 @@ def rodar(cfg, usar_demo=False):
     if sellout is not None:
         q_sellout["itens"] = montar_sellout(sellout, hoje)
 
+    q_abaixo = {"carimbo": gerado_em,
+                "erro": erros.get("abaixo_custo") or
+                (None if cat is not None else erros.get("validade_relampago")),
+                "itens": []}
+    if cat is not None and ven5 is not None:
+        q_abaixo["itens"] = montar_abaixo_custo(cat, ven5)
+
+    q_prep = {"carimbo": gerado_em, "erro": erros.get("prepedidos"), "itens": []}
+    if prep is not None:
+        q_prep["itens"] = montar_prepedidos(prep, hoje)
+
     q_conc = {"carimbo": None, "erro": None, "rotulo": None, "arquivo": None}
     try:
         rv = copiar_revisao_pricing(cfgp.get("pricing_dados_dir"), destino)
@@ -353,6 +436,8 @@ def rodar(cfg, usar_demo=False):
         "ruptura": q_ruptura,
         "cobranca": q_cobranca,
         "sellout": q_sellout,
+        "abaixo_custo": q_abaixo,
+        "prepedidos": q_prep,
         "concorrente": q_conc,
     }
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
@@ -365,6 +450,8 @@ def rodar(cfg, usar_demo=False):
                              ("ruptura", q_ruptura["erro"]),
                              ("cobranca", q_cobranca["erro"]),
                              ("sellout", q_sellout["erro"]),
+                             ("abaixo_custo", q_abaixo["erro"]),
+                             ("prepedidos", q_prep["erro"]),
                              ("concorrente", q_conc["erro"])) if e]
 
     # spec §8: falha de fonte nao aborta, mas deixa trilha no log do bridge —
@@ -378,6 +465,8 @@ def rodar(cfg, usar_demo=False):
                                 ("ruptura", q_ruptura["erro"]),
                                 ("cobranca", q_cobranca["erro"]),
                                 ("sellout", q_sellout["erro"]),
+                                ("abaixo_custo", q_abaixo["erro"]),
+                                ("prepedidos", q_prep["erro"]),
                                 ("concorrente", q_conc["erro"])):
                     if e:
                         f.write(f"{gerado_em}  PAINEL {quad}: {e}\n")
@@ -388,6 +477,8 @@ def rodar(cfg, usar_demo=False):
     resumo = (f"painel/index.html: {len(q_validade['itens'])} relampago, "
               f"{len(q_ruptura['itens'])} ruptura, "
               f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados), "
-              f"{len(so_abertas)} sellout em aberto"
+              f"{len(so_abertas)} sellout em aberto, "
+              f"{len(q_abaixo['itens'])} abaixo do custo, "
+              f"{len(q_prep['itens'])} pre-pedidos"
               + (f" — AVISO em: {', '.join(avisos)}" if avisos else ""))
     return [resumo]
