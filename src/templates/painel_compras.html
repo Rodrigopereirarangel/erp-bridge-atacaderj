@@ -482,8 +482,14 @@ function pintarGrade() {
       // mouse e repassada por JS para rolar a revisao por dentro (mesma origem)
       const moldura = f.closest(".previa-frame");
       if (moldura) moldura.addEventListener("wheel", (we) => {
-        try { f.contentWindow.scrollBy(0, we.deltaY); we.preventDefault(); }
-        catch (e) {}
+        try {
+          // rola DENTRO da revisao so enquanto ela tiver para onde ir; no
+          // limite, deixa a roda seguir rolando a PAGINA (sem prender o scroll)
+          const w = f.contentWindow, de = w.document.documentElement;
+          const max = Math.max(0, de.scrollHeight - w.innerHeight);
+          const cabe = we.deltaY > 0 ? w.scrollY < max - 1 : w.scrollY > 0;
+          if (cabe) { w.scrollBy(0, we.deltaY); we.preventDefault(); }
+        } catch (e) {}
       }, {passive: false});
     });
     el.addEventListener("click", (ev) => {
