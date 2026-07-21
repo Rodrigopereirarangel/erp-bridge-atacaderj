@@ -183,6 +183,12 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (7ª): **SellOut: limite aceito pelo dono** (só em abertos; fechado
+  não precisa aparecer). Sondagem extra: VW_MLP_CONTAS_A_RECEBER tem verbas de
+  NF (Sell In) COM status/baixa — mas SellOut de promoção não vira conta no
+  financeiro (não há "fechado" a filtrar). Colateral p/ possível 6ª janela:
+  verbas de NF VENCIDAS há 150–180d sem recebimento (GARCIA 917,60/153d,
+  CADORE 458,95/171d, DO REI 202,05/167d...) — oferecido ao dono.
 - 2026-07-21 (6ª): **5ª janela "💰 Verba SellOut"** (7c5bfe3) — réplica do
   rptReceitaSellOutDetalhe: verbas de promoção vencidas e com valor a cobrar
   do fornecedor. Fonte mapeada no schema: tbPromocaoItem (verba unitária,
