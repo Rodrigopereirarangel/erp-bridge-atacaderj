@@ -183,6 +183,15 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-21 (6ª): **5ª janela "💰 Verba SellOut"** (7c5bfe3) — réplica do
+  rptReceitaSellOutDetalhe: verbas de promoção vencidas e com valor a cobrar
+  do fornecedor. Fonte mapeada no schema: tbPromocaoItem (verba unitária,
+  vencimento=dtPagamentoReceitaSellOut, pagador) + total acumulado por cupom
+  em tbVendaPDV.vlSellOut. NO AR: **147 vencidas · R$ 4.823,81**. Prévia
+  Produto/Início/Fim/Vencimento; lista aberta + Total/Fornecedor/Tipo.
+  Limite documentado: status de baixa do financeiro não localizado no schema
+  (se algo já foi pago por fora, ainda aparece). Gaveta/TV absorveram a
+  janela automaticamente; 5 janelas = última em largura cheia.
 - 2026-07-21 (5ª): **Pedido vencido some de vez + cobrança ≤30d** (b6284d3) —
   pedido não entregue há >20d agora é normalizado NA CARGA (tem_pedido=False,
   pedido_dias=None): LEITE QUATA aparece "🛒 sem pedido" com "Pedido há —",
