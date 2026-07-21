@@ -27,9 +27,9 @@
             padding:.9rem 1rem 1rem; cursor:pointer;
             display:flex; flex-direction:column; min-width:0;
             transition:border-color .15s;
-            /* a grade 2x2 cabe na janela: cada card = metade da altura util,
-               e o conteudo rola por dentro (.rolagem); sem h1, sobra mais */
-            height:calc(50vh - 1.6rem); min-height:15rem }
+            /* PC (dono, 21/07): pagina ROLANTE com cards altos — uma fileira
+               ocupa quase a tela; role para as proximas janelas */
+            height:82vh; min-height:24rem }
   .quadro:hover { border-color:#31405a }
   .quadro .rolagem { flex:1 1 auto; overflow:auto; min-height:0 }
   .nota-previa { color:var(--fraco); font-size:.74rem; margin:-.25rem 0 .45rem;
@@ -102,10 +102,30 @@
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
+  /* gaveta lateral de configuracao das janelas (ordem + visibilidade) */
+  #config-abre { position:fixed; top:.6rem; right:.6rem; z-index:15;
+                 padding:.3rem .7rem; font-size:1rem; opacity:.45;
+                 transition:opacity .15s }
+  #config-abre:hover { opacity:1 }
+  #config { position:fixed; top:0; right:-21rem; width:20rem; height:100%;
+            background:var(--card); border-left:1px solid var(--borda);
+            padding:1rem; z-index:20; transition:right .25s; overflow:auto;
+            box-shadow:-8px 0 30px rgba(0,0,0,.45) }
+  #config.aberto { right:0 }
+  #config h3 { font-size:1rem; margin-bottom:.7rem }
+  .cfg-item { display:flex; align-items:center; justify-content:space-between;
+              gap:.6rem; padding:.45rem .2rem; border-bottom:1px solid var(--linha) }
+  .cfg-item label { display:flex; align-items:center; gap:.5rem; cursor:pointer;
+                    font-size:.92rem }
+  .cfg-setas button { padding:.15rem .55rem; font-size:.85rem; margin-left:.25rem }
+  .cfg-setas button:disabled { opacity:.3; cursor:default }
+  #cfg-padrao { margin-top:.9rem; width:100%; font-size:.85rem }
+  #cfg-nota { color:var(--fraco); font-size:.74rem; margin-top:.6rem }
   /* modo TV: pensado para 55" vista a metros (fonte grande, sem scrollbar,
      sem links — nao ha mouse; o rodizio mostra a PREVIA curada em tela cheia) */
   body.tv { font-size:27px; cursor:none; padding:1.2rem }
-  body.tv .quadro { cursor:default }
+  body.tv .quadro { cursor:default; height:calc(50vh - 1.9rem); min-height:0 }
+  body.tv #config-abre, body.tv #config { display:none }
   body.tv .quadro:hover { border-color:var(--borda) }
   body.tv tr:hover td { background:inherit }
   body.tv h1 { font-size:1.5rem }
@@ -128,6 +148,8 @@
 <body>
 <div class="grade" id="grade"></div>
 <div id="detalhe"></div>
+<button id="config-abre" title="escolher e ordenar as janelas">☰</button>
+<aside id="config"></aside>
 <script>
 const D = /*__DADOS__*/null;
 const TV = location.hash.toLowerCase() === "#tv";
@@ -293,6 +315,25 @@ const Q = {
   },
 };
 
+/* ---- layout das janelas: ordem + visibilidade, salvos NESTE navegador ----
+   (cada maquina — PC de comprador, TV — guarda o proprio arranjo; janelas
+   novas que o painel ganhar no futuro entram sozinhas no fim da lista) */
+const LAYOUT_KEY = "painel_layout_v1";
+function lerLayout() {
+  try { return JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function salvarLayout(l) {
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(l)); } catch (e) {}
+}
+function layoutAtual() {
+  const l = lerLayout();
+  const ordem = (l.ordem || []).filter((id) => Q[id]);
+  for (const id of Object.keys(Q)) if (!ordem.includes(id)) ordem.push(id);
+  const vis = l.vis || {};
+  return {ordem, vis: Object.fromEntries(ordem.map((id) => [id, vis[id] !== false]))};
+}
+
 /* ---- ordenacao por coluna (clique no cabecalho: asc -> desc -> original) ---- */
 const SORT = {};   // por quadrante: {k, dir: 1|-1}
 const FACETA = {}; // por quadrante: Set de indices de facetas ligadas
@@ -382,7 +423,9 @@ function podarRevisao(fr) {
 function pintarGrade() {
   const g = document.getElementById("grade");
   g.innerHTML = "";
-  for (const id of Object.keys(Q)) {
+  const L = layoutAtual();
+  for (const id of L.ordem) {
+    if (!L.vis[id]) continue;
     const q = Q[id];
     const el = document.createElement("div");
     el.className = "quadro"; el.dataset.id = id; el.innerHTML = cartao(id);
@@ -488,10 +531,55 @@ document.getElementById("detalhe").addEventListener("click", (ev) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharDetalhe(); });
 
+/* ---- gaveta de configuracao das janelas (so PC) ---- */
+function pintarConfig() {
+  const L = layoutAtual();
+  document.getElementById("config").innerHTML = "<h3>Janelas do painel</h3>" +
+    L.ordem.map((id, ix) => '<div class="cfg-item">' +
+      '<label><input type="checkbox" data-vis="' + id + '"' +
+      (L.vis[id] ? " checked" : "") + "> " + Q[id].titulo + "</label>" +
+      '<span class="cfg-setas">' +
+      '<button data-sobe="' + id + '"' + (ix === 0 ? " disabled" : "") + ">↑</button>" +
+      '<button data-desce="' + id + '"' +
+      (ix === L.ordem.length - 1 ? " disabled" : "") + ">↓</button></span></div>").join("") +
+    '<button id="cfg-padrao">restaurar padrão</button>' +
+    '<div id="cfg-nota">a escolha vale só para este computador (TV tem a dela); ' +
+    "janelas novas do painel entram sozinhas no fim da lista</div>";
+}
+document.getElementById("config-abre").addEventListener("click", () => {
+  pintarConfig();
+  document.getElementById("config").classList.toggle("aberto");
+});
+document.getElementById("config").addEventListener("click", (ev) => {
+  const t = ev.target, L = layoutAtual();
+  if (t.dataset && t.dataset.vis) {
+    L.vis[t.dataset.vis] = t.checked;
+    salvarLayout(L); pintarGrade(); return;
+  }
+  const id = (t.dataset && (t.dataset.sobe || t.dataset.desce)) || null;
+  if (id) {
+    const ix = L.ordem.indexOf(id), novo = t.dataset.sobe ? ix - 1 : ix + 1;
+    if (novo >= 0 && novo < L.ordem.length) {
+      L.ordem.splice(ix, 1); L.ordem.splice(novo, 0, id);
+      salvarLayout(L); pintarConfig(); pintarGrade();
+    }
+    return;
+  }
+  if (t.id === "cfg-padrao") {
+    try { localStorage.removeItem(LAYOUT_KEY); } catch (e) {}
+    pintarConfig(); pintarGrade();
+  }
+});
+
 /* ---- modo TV: rodizio automatico + recarga periodica ---- */
 pintarGrade();
 if (TV) {
-  const ordem = [null, "validade_relampago", null, "ruptura", null, "cobranca"];
+  // gira pelas janelas VISIVEIS (na ordem escolhida) que tem lista propria
+  const L = layoutAtual();
+  const giro = L.ordem.filter((id) => L.vis[id] && Q[id].cols.length);
+  const ordem = [];
+  for (const id of giro) ordem.push(null, id);
+  if (!ordem.length) ordem.push(null);
   let i = 0;
   setInterval(() => {
     i = (i + 1) % ordem.length;
