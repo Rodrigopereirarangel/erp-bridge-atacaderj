@@ -65,6 +65,18 @@ def test_entrega_e_cobertura_viram_campos_do_guardrail(tmp_path):
     assert por_cod["3905"]["cobertura_restante"] is None
 
 
+def test_pedido_com_mais_de_20_dias_e_ignorado_por_completo(tmp_path):
+    # dono (21/07): pedido velho nao entregue = como se nao existisse
+    velho = dict(ITEM_COM_PEDIDO)
+    velho["pedido"] = {"dataPedido": "2026-04-14"}   # 97 dias antes de 20/07
+    _grava(tmp_path, "2026-07-19.json", {"id": "2026-07-19", "refDate": "2026-07-19",
+                                         "items": [velho]})
+    r = pc.carregar_ruptura(str(tmp_path), hoje="2026-07-20")
+    i = r["itens"][0]
+    assert i["tem_pedido"] is False       # badge/contagem = sem pedido
+    assert i["pedido_dias"] is None       # coluna "Pedido ha" = "—"
+
+
 def test_pedido_com_data_invalida_nao_quebra(tmp_path):
     item = dict(ITEM_COM_PEDIDO)
     item["pedido"] = {"dataPedido": "lixo"}

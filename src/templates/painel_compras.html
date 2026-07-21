@@ -182,12 +182,11 @@ function diasTag(d) {
   const txt = d < 0 ? ("vencida ha " + (-d) + "d") : ("vence em " + d + "d");
   return '<span class="tag ' + cls + '">' + txt + "</span>";
 }
-// pedido com mais de 20 dias = DESCONSIDERADO (dono, 21/07): aparece igual
-// aos sem pedido — a idade fica so na coluna "Pedido ha", como rastro
+// pedido >20d ja e IGNORADO na carga dos dados (vira sem pedido, "Pedido ha"
+// vira "—") — aqui so resta o badge simples
 function pedidoTag(i) {
-  if (i.tem_pedido && !(i.pedido_dias != null && i.pedido_dias > 20))
-    return '<span class="tag ok">✅ lançado</span>';
-  return '<span class="tag bad">🛒 sem pedido</span>';
+  return i.tem_pedido ? '<span class="tag ok">✅ lançado</span>'
+                      : '<span class="tag bad">🛒 sem pedido</span>';
 }
 // dono (21/07): "dias para vencer" = dias para FINALIZAR A REBAIXA
 function fimPromoTag(d) {
@@ -246,8 +245,6 @@ const Q = {
     corte: (i) => (i.probabilidade || 0) > 0.75 && (i.dias_parado || 0) > 1 &&
       !(i.entrega_dias != null && i.entrega_dias <= 30 &&
         (i.cobertura_restante || 0) > 0),
-    // pedido com mais de 20 dias = como se nao tivesse pedido (dono, 21/07)
-    pedidoVale: (i) => i.tem_pedido && !(i.pedido_dias != null && i.pedido_dias > 20),
     filtroDica: "filtrar… produto ou código",
     // botoes da lista aberta (dono, 20/07): escolher quais curvas aparecem
     facetas: [{rot: "A", f: (i) => i.curva === "A"},
@@ -255,7 +252,7 @@ const Q = {
               {rot: "C+", f: (i) => i.curva !== "A" && i.curva !== "B"}],
     kpis() {
       const it = this.d.itens.filter(this.corte);
-      const sem = it.filter((i) => !this.pedidoVale(i));
+      const sem = it.filter((i) => !i.tem_pedido);
       return [["", it.length, ">75% · >1d", null],
               [sem.length ? "bad" : "ok", sem.length, "s/ pedido",
                {k: "tem_pedido", dir: 1}]];
@@ -272,7 +269,7 @@ const Q = {
            {t: "R$ hist.", k: "rs_hist", num: 1}, {t: "Parado", k: "dias_parado", num: 1},
            {t: "Curva", k: "curva"},
            {t: "Pedido", k: "tem_pedido", num: 1,
-            v: (i) => (i.tem_pedido && !(i.pedido_dias > 20)) ? 1 : 0},
+            v: (i) => i.tem_pedido ? 1 : 0},
            {t: "Pedido há", k: "pedido_dias", num: 1}],
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + (i.probabilidade == null ? "—" :
@@ -287,7 +284,7 @@ const Q = {
                  {t: "R$ hist.", k: "rs_hist", num: 1},
                  {t: "Parado", k: "dias_parado", num: 1},
                  {t: "Pedido", k: "tem_pedido", num: 1,
-                  v: (i) => (i.tem_pedido && !(i.pedido_dias > 20)) ? 1 : 0},
+                  v: (i) => i.tem_pedido ? 1 : 0},
                  {t: "Pedido há", k: "pedido_dias", num: 1}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.rs_hist) + "</td>",

@@ -20,7 +20,7 @@ PADROES = {
     "dir_saida": None,             # default: <repo>/saida/painel
     "porta_http": 8477,
     "cobranca_dias_limiar": 7,
-    "cobranca_max_dias": 45,
+    "cobranca_max_dias": 30,
     "cobranca_alerta_dias": 21,
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
@@ -154,23 +154,32 @@ def carregar_ruptura(rounds_dir, hoje=None):
         except ValueError:
             return None
 
-    itens = [{
-        "codigo": _cod(i.get("codigo")),
-        "descricao": i.get("descricao"),
-        "prioridade": i.get("scorePrioridade"),
-        "probabilidade": i.get("probabilidade"),
-        "tem_pedido": bool(i.get("temPedido")),
-        "pedido_dias": _pedido_dias(i, hoje),
-        "curva": i.get("curvaABC"),
-        "un_mes": i.get("unMes"),
-        "rs_hist": i.get("rsHist"),
-        "dias_parado": i.get("diasParado"),
-        "cobertura_esgotada": bool(i.get("coberturaEsgotada")),
-        # guardrail do dono (21/07): entrega recente com cobertura sobrando
-        "entrega_dias": _entrega_dias(i),
-        "entrega_qtd": (i.get("receipt") or {}).get("qty"),
-        "cobertura_restante": i.get("coverageRemaining"),
-    } for i in rodada.get("items", [])]
+    itens = []
+    for i in rodada.get("items", []):
+        tem_pedido = bool(i.get("temPedido"))
+        pedido_dias = _pedido_dias(i, hoje)
+        # dono (21/07): pedido feito ha MAIS de 20 dias e nao entregue e
+        # IGNORADO por completo — vira "sem pedido" (badge, coluna e contagem)
+        if pedido_dias is not None and pedido_dias > 20:
+            tem_pedido = False
+            pedido_dias = None
+        itens.append({
+            "codigo": _cod(i.get("codigo")),
+            "descricao": i.get("descricao"),
+            "prioridade": i.get("scorePrioridade"),
+            "probabilidade": i.get("probabilidade"),
+            "tem_pedido": tem_pedido,
+            "pedido_dias": pedido_dias,
+            "curva": i.get("curvaABC"),
+            "un_mes": i.get("unMes"),
+            "rs_hist": i.get("rsHist"),
+            "dias_parado": i.get("diasParado"),
+            "cobertura_esgotada": bool(i.get("coberturaEsgotada")),
+            # guardrail do dono (21/07): entrega recente com cobertura sobrando
+            "entrega_dias": _entrega_dias(i),
+            "entrega_qtd": (i.get("receipt") or {}).get("qty"),
+            "cobertura_restante": i.get("coverageRemaining"),
+        })
     return {"ref": rodada.get("refDate") or rodada.get("id"), "itens": itens}
 
 
