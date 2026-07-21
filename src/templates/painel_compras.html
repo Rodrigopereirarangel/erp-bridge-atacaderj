@@ -102,17 +102,19 @@
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
-  /* gaveta lateral de configuracao das janelas (ordem + visibilidade) */
-  #config-abre { position:fixed; top:.6rem; right:.6rem; z-index:15;
+  /* gaveta lateral ESQUERDA de configuracao das janelas (ordem+visibilidade);
+     o botao ☰ fica ACIMA da gaveta (z-index) para sempre poder fechar */
+  #config-abre { position:fixed; top:.6rem; left:.6rem; z-index:25;
                  padding:.3rem .7rem; font-size:1rem; opacity:.45;
                  transition:opacity .15s }
   #config-abre:hover { opacity:1 }
-  #config { position:fixed; top:0; right:-21rem; width:20rem; height:100%;
-            background:var(--card); border-left:1px solid var(--borda);
-            padding:1rem; z-index:20; transition:right .25s; overflow:auto;
-            box-shadow:-8px 0 30px rgba(0,0,0,.45) }
-  #config.aberto { right:0 }
-  #config h3 { font-size:1rem; margin-bottom:.7rem }
+  #config { position:fixed; top:0; left:-21rem; width:20rem; height:100%;
+            background:var(--card); border-right:1px solid var(--borda);
+            padding:1rem; z-index:20; transition:left .25s; overflow:auto;
+            box-shadow:8px 0 30px rgba(0,0,0,.45) }
+  #config.aberto { left:0 }
+  #config h3 { font-size:1rem; margin:0 0 .7rem 2.2rem }
+  #cfg-fechar { float:right; padding:.15rem .6rem }
   .cfg-item { display:flex; align-items:center; justify-content:space-between;
               gap:.6rem; padding:.45rem .2rem; border-bottom:1px solid var(--linha) }
   .cfg-item label { display:flex; align-items:center; gap:.5rem; cursor:pointer;
@@ -529,12 +531,18 @@ document.getElementById("detalhe").addEventListener("click", (ev) => {
     pintarGrade();          // o card da visao geral acompanha a ordem escolhida
   }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharDetalhe(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const cfg = document.getElementById("config");
+  if (cfg.classList.contains("aberto")) cfg.classList.remove("aberto");
+  else fecharDetalhe();
+});
 
 /* ---- gaveta de configuracao das janelas (so PC) ---- */
 function pintarConfig() {
   const L = layoutAtual();
-  document.getElementById("config").innerHTML = "<h3>Janelas do painel</h3>" +
+  document.getElementById("config").innerHTML =
+    '<button id="cfg-fechar" title="fechar">✕</button><h3>Janelas do painel</h3>' +
     L.ordem.map((id, ix) => '<div class="cfg-item">' +
       '<label><input type="checkbox" data-vis="' + id + '"' +
       (L.vis[id] ? " checked" : "") + "> " + Q[id].titulo + "</label>" +
@@ -552,6 +560,9 @@ document.getElementById("config-abre").addEventListener("click", () => {
 });
 document.getElementById("config").addEventListener("click", (ev) => {
   const t = ev.target, L = layoutAtual();
+  if (t.id === "cfg-fechar") {
+    document.getElementById("config").classList.remove("aberto"); return;
+  }
   if (t.dataset && t.dataset.vis) {
     L.vis[t.dataset.vis] = t.checked;
     salvarLayout(L); pintarGrade(); return;
