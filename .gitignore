@@ -28,3 +28,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# temporarios de sessoes (raio-x etc.)
+scripts/tmp-*.py
