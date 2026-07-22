@@ -183,6 +183,12 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (12ª): **Tooltip interativo nos gráficos** (796c6a8) — o <title>
+  nativo do SVG era lento/falho; agora div própria segue o mouse (data-t por
+  rect): na ruptura mostra a curva apontada + a outra + total (ex.: "curva
+  B: 325 (A: 106 · total 431)"); pedaço clareia no hover; mesmo mecanismo
+  nos minis dos cards e no rodapé da revisão (concorrente). Verificado ao
+  vivo. 158 testes.
 - 2026-07-21 (11ª): **Rodada de ajustes do dono no histórico** (0f5211a+c7a2557)
   — Cobrança e Pré-pedidos sem gráfico; SellOut = itens vigentes início–fim;
   Ruptura EMPILHADA só A+B (hoje A:106+B:325, bate com as facetas; replay
