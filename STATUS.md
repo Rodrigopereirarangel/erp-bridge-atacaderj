@@ -183,6 +183,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (14ª): **Avaria — visual do terço de baixo** (f8bd195..a4d522b)
+  — esquecidos agora listam TODOS (1.009) com rolagem própria (dois bugs de
+  flex: min-height:auto no .gforgot e no próprio .grafico esticavam o bloco
+  a 27 mil px e o overflow nunca disparava); gráfico virou QUINZENAL (9
+  barras); escala com corte de base automático p/ série achatada (rótulo
+  honesto "corte da escala: R$ 636k" no canto) — variação 649k→668k agora
+  salta aos olhos. Verificado ao vivo.
 - 2026-07-22 (13ª): **8ª janela — ♻️ Troca/Avaria** (522ea75) — sonda no ERP
   achou as fontes vivas (estoque tipo 3: físico/contábil/movimento; a tabela
   `avaria` é carga inicial morta e a MIS está vazia). NO AR: **1.368 itens ·
