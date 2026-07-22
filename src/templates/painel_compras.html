@@ -409,9 +409,11 @@ const Q = {
   sellout: {
     titulo: "💰 Verba SellOut", d: D.sellout,
     filtroDica: "filtrar… produto, fornecedor ou promoção",
-    // dono (22/07): apenas VENCIDAS ha ate 60 dias — nem as ainda no prazo,
-    // nem o lixo vencido ha mais de 60d. Universo segue o rptReceitaSellOut
-    // (tudo em aberto: sellout de promocao nao tem baixa no financeiro).
+    // TEMPORARIO ATE 2026-08-22 (dono, 22/07): apenas VENCIDAS ha ate 60
+    // dias — e um paliativo enquanto o dono limpa o lixo de dados do ERP.
+    // Em ~22/08: voltar a puxar TUDO (corte = total > 0) e REMOVER este
+    // bloco temporario. Universo segue o rptReceitaSellOut (tudo em aberto:
+    // sellout de promocao nao tem baixa no financeiro).
     corte: (i) => (i.total || 0) > 0 && i.dias_vencida != null &&
       i.dias_vencida > 0 && i.dias_vencida <= 60,
     kpis() {

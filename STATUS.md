@@ -181,6 +181,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 3. Quando os detectores forem clonados neste PC, apontar `saida.detector_*_dir`
    do `config.local.json` para as pastas `data/input` deles
 
+## Pendência AGENDADA (não esquecer)
+
+- [ ] **A partir de 2026-08-22** (pedido do dono em 22/07): o corte
+  "vencidas ≤60d" do SellOut é TEMPORÁRIO (paliativo enquanto o dono limpa
+  o lixo de dados do ERP). Reverter para puxar TUDO (corte = total > 0,
+  chip "em aberto") e REMOVER o código do ajuste temporário (bloco marcado
+  "TEMPORARIO ATE 2026-08-22" no template, Q.sellout.corte).
+
 ## Log de progresso
 
 - 2026-07-22 (21ª): **Verba: bug do total + custo efetivo + renomes**
