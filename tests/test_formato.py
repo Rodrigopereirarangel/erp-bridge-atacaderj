@@ -35,3 +35,9 @@ def test_rotulo_rua_igual_ao_deposito():
 def test_ordem_rua_sem_rua_vai_para_o_fim():
     assert formato.ordem_rua(1) < formato.ordem_rua(26)
     assert formato.ordem_rua(26) < formato.ordem_rua(None)
+
+
+def test_ordem_rua_vitrine_ordena_como_a24_antes_do_terreo():
+    # dono 22/07: "A24 vitrine" (rua interna 26) vem ANTES de "A25 TERREO"
+    assert formato.ordem_rua(24) < formato.ordem_rua(26)
+    assert formato.ordem_rua(26) < formato.ordem_rua(25)

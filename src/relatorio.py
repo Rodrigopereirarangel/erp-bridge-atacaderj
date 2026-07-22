@@ -39,7 +39,10 @@ def montar(fornecedores, dados_de):
                             "curva": p.get("curva") or "",
                             "rua": p.get("rua_rotulo") or "",
                             "minimo": p["minimo"],
-                            "marca": MARCAS_TXT.get(p.get("marca") or "", "")}
+                            "marca": MARCAS_TXT.get(p.get("marca") or "", ""),
+                            # alerta do detector de estoque (dono, 22/07):
+                            # item presente no corte da ultima rodada
+                            "rp": 1 if p.get("ruptura") else 0}
                            for p in f["produtos"]]}
              for f in fornecedores]
     # todo '<' do JSON vira a sequencia backslash-u003c: nenhum
@@ -85,7 +88,8 @@ _TEMPLATE = """<!doctype html>
  <th>corredor</th><th>est. m&iacute;nimo</th></tr></thead>
  <tbody id="corpo"></tbody></table>
 </div>
-<footer>* = calculado com ruptura (pode estar subestimado) &middot;
+<footer>&#9888;&#65039; = poss&iacute;vel ruptura AGORA (detector de estoque) &middot;
+ * = calculado com ruptura (pode estar subestimado) &middot;
  novo = estimativa proporcional (produto recente) &middot;
  sem venda 6m = nenhuma venda no hist&oacute;rico</footer>
 <script>
@@ -110,7 +114,8 @@ function abrir(i){
   corpo.innerHTML='';
   f.produtos.forEach(function(p){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+esc(p.codigo)+'</td><td>'+esc(p.nome)+
+    tr.innerHTML='<td>'+esc(p.codigo)+'</td><td>'+
+      (p.rp?'<span title="possível ruptura">⚠️</span> ':'')+esc(p.nome)+
       (p.marca?' <span class="marca">'+esc(p.marca)+'</span>':'')+
       '</td><td>'+esc(p.curva)+'</td><td>'+esc(p.rua)+
       '</td><td class="num">'+esc(p.minimo)+'</td>';

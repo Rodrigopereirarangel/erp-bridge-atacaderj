@@ -39,4 +39,11 @@ def rotulo_rua(rua):
 
 
 def ordem_rua(rua):
-    return (1, 0) if rua is None else (0, rua)
+    """Ordena pelo NUMERO EXIBIDO: a rua interna 26 aparece como "A24
+    vitrine" e por isso ordena logo apos a 24 ROTATIVO e ANTES da A25
+    TERREO (dono, 22/07). Sem rua vai para o fim."""
+    if rua is None:
+        return (1, 0, 0)
+    if rua == 26:
+        return (0, 24, 1)
+    return (0, rua, 0)

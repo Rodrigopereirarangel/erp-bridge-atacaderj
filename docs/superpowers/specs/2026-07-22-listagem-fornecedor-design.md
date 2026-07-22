@@ -114,3 +114,14 @@ Corredor: ler o `estado_json` do `deposito-atacaderj` no ponte (só leitura).
 - Ruptura por curva: A=10, B=20, C=30 dias seguidos sem venda.
 - Formato: relatório HTML estático, aberto no navegador direto.
 - Sem agendamento por enquanto — só teste manual.
+
+## Adendos do dono (22/07, pós-entrega)
+
+- **⚠️ possível ruptura**: itens presentes no corte da última rodada do
+  detector-estoque (MESMA regra do quadrante do painel: prob > 0,75,
+  parado > 1 dia, guardrail de entrega ≤30d com cobertura) ganham o emoji
+  ⚠️ ao lado do nome. Insumo opcional `entrada.ruptura_rounds_dir`.
+- **Ordem das ruas**: "A24 vitrine" (rua interna 26) ordena pelo número
+  EXIBIDO — depois da A24 ROTATIVO e ANTES da A25 TERREO.
+- **Acesso sem senha**: `/listagem-fornecedores.html` é servido SEM login
+  pelo servidor do painel (8477); o resto do painel continua protegido.

@@ -26,6 +26,7 @@ para abrir no navegador.
 - Bridge real no ponte: 10,5s → 4.643 produtos, 233.635 linhas de vendas 180d,
   9.023 entradas c/ fornecedor, 20.099 pares de negociação.
 - Relatório gerado no ponte: **4.534 produtos ativos, 437 fornecedores**.
+- ⚠️ = possível ruptura (detector de estoque, mesma regra do painel); config precisa de entrada.ruptura_rounds_dir.
 - Sanidade automática: óleo Soya 15450 só em COTACAO (corredor A25 TERreo,
   curva A); SEM FORNECEDOR = 77 itens (2%); ordenação por corredor ok;
   marcas: 3.727 normais / 313 `*` / 346 sem venda 6m / 148 novos;

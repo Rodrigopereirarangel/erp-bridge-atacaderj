@@ -94,3 +94,52 @@ def test_estado_de_ruas_corrompido_nao_derruba(tmp_path):
     assert "AVISO" in r.stderr
     html = open(cfg["saida_html"], encoding="utf-8").read()
     assert "OLEO SOJA SOYA 900ML" in html
+
+
+def test_alerta_de_ruptura_marca_item_do_corte(tmp_path):
+    # rodada do detector: 15450 passa no corte do painel (prob>0.75,
+    # parado>1, sem entrega recente); 222 fica fora (prob baixa)
+    config, cfg = _montar_insumos(tmp_path)
+    rounds = tmp_path / "rounds"
+    rounds.mkdir()
+    (rounds / "2026-07-19.json").write_text(json.dumps({"items": []}),
+                                            encoding="utf-8")
+    (rounds / "2026-07-20.json").write_text(json.dumps({"items": [
+        {"codigo": "15450", "probabilidade": 0.9, "diasParado": 5},
+        {"codigo": "222", "probabilidade": 0.5, "diasParado": 9},
+    ]}), encoding="utf-8")
+    cfg["entrada"]["ruptura_rounds_dir"] = str(rounds)
+    config.write_text(json.dumps(cfg), encoding="utf-8")
+    r = _rodar(config)
+    assert r.returncode == 0, r.stderr
+    assert "1 com alerta de ruptura" in r.stdout
+    html = open(cfg["saida_html"], encoding="utf-8").read()
+    # 15450 marcado, 222 nao — blob JSON carrega o flag "rp"
+    assert '"codigo": 15450' in html.replace('"codigo":15450', '"codigo": 15450')
+    assert '"rp": 1' in html or '"rp":1' in html
+
+
+def test_guardrail_entrega_recente_com_cobertura_nao_alerta(tmp_path):
+    # entrega ha 3 dias com cobertura sobrando -> guardrail do painel corta
+    config, cfg = _montar_insumos(tmp_path)
+    rounds = tmp_path / "rounds"
+    rounds.mkdir()
+    (rounds / "r.json").write_text(json.dumps({"items": [
+        {"codigo": "15450", "probabilidade": 0.9, "diasParado": 5,
+         "receipt": {"date": date.today().isoformat()},
+         "coverageRemaining": 4.0},
+    ]}), encoding="utf-8")
+    cfg["entrada"]["ruptura_rounds_dir"] = str(rounds)
+    config.write_text(json.dumps(cfg), encoding="utf-8")
+    r = _rodar(config)
+    assert r.returncode == 0, r.stderr
+    assert "0 com alerta de ruptura" in r.stdout
+
+
+def test_rounds_dir_configurado_mas_ausente_avisa_e_segue(tmp_path):
+    config, cfg = _montar_insumos(tmp_path)
+    cfg["entrada"]["ruptura_rounds_dir"] = str(tmp_path / "nao-existe")
+    config.write_text(json.dumps(cfg), encoding="utf-8")
+    r = _rodar(config)
+    assert r.returncode == 0
+    assert "AVISO" in r.stderr and "detector" in r.stderr
