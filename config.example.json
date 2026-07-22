@@ -5,7 +5,7 @@
     "vendas_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\vendas_diarias.csv",
     "entradas_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\entradas_fornecedor.csv",
     "negociacao_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\negociacao.csv",
-    "ruas_estado_json": "C:\\Users\\User\\deposito-atacaderj\\saida\\estado_ruas.json"
+    "ruas_estado_json": "C:\\Users\\User\\deposito-atacaderj\\data\\ruas.json"
   },
   "saida_html": "saida\\listagem-fornecedores.html"
 }

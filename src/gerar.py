@@ -27,7 +27,12 @@ def _ler_csv(caminho):
 def _ler_ruas(caminho):
     """Estado do deposito: {"15450": {"rua": 13, ...}} ou {"15450": 13}.
     Insumo OPCIONAL: ausente OU ilegivel -> sem corredor (aviso no log)."""
-    if not caminho or not os.path.exists(caminho):
+    if not caminho:
+        return {}
+    if not os.path.exists(caminho):
+        print(f"AVISO: estado de ruas nao encontrado em {caminho} - "
+              "corredor sai vazio (confira ruas_estado_json no config)",
+              file=sys.stderr)
         return {}
     try:
         with open(caminho, encoding="utf-8") as f:

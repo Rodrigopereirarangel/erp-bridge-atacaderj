@@ -80,6 +80,7 @@ def test_estado_de_ruas_ausente_nao_derruba(tmp_path):
     os.remove(cfg["entrada"]["ruas_estado_json"])
     r = _rodar(config)
     assert r.returncode == 0          # sem ruas = coluna corredor vazia
+    assert "AVISO" in r.stderr
     assert "OLEO SOJA SOYA 900ML" in open(cfg["saida_html"],
                                           encoding="utf-8").read()
 
