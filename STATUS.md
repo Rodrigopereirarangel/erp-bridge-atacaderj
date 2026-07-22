@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (19ª): **Duas regras ajustadas pelo dono** (70b8007+4b3b320) —
+  (1) Cobrança: previsão vencida DEIXOU de ser porta de entrada (pedido de
+  1 dia "2 DEPOSITO" furava a regra); entra só com ≥7d aberto; série
+  acompanha. (2) Avaria: só itens com ENTRADA na área ≥ 01/03/2026
+  (avaria_desde) — carga inicial de out/25 fora. Ao vivo: avaria caiu de
+  1.381 itens/R$ 666,6 mil para **543/R$ 140,1 mil** (esquecidos 172 ·
+  R$ 39,2 mil; topo agora COCA LATA R$ 22,3 mil · 54d); cobrança mínimo 7d.
+  Gráfico da avaria segue medindo a ÁREA INTEIRA (termômetro). 165 testes.
 - 2026-07-22 (18ª): **Dashboard compacto p/ TV grande** (023862a) — fonte
   menor SÓ nos cards (tabela .71rem, células justas, chips/tags menores,
   mini-gráfico 16%); detalhe aberto intocado. Medido ao vivo: 7–9 linhas
