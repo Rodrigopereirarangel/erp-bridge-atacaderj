@@ -117,7 +117,7 @@
   .grafico .gesq { flex:3; display:flex; flex-direction:column; min-width:0 }
   .grafico .gforgot { flex:2; display:flex; flex-direction:column;
       min-width:0; border-left:1px solid var(--borda); padding-left:1rem }
-  .grafico .frows { overflow:auto; min-height:0 }
+  .grafico .frows { flex:1 1 auto; overflow:auto; min-height:0 }
   .grafico .frow { display:flex; gap:.6rem; align-items:center;
       padding:.16rem 0; font-size:.85rem; border-bottom:1px solid #1a2230 }
   .grafico .frow .fdesc { flex:1; white-space:nowrap; overflow:hidden;
@@ -715,15 +715,23 @@ const GRAFICO_ROTULO = {
   // cobranca SEM grafico (pedido do dono 21/07); a serie segue sendo gravada
   sellout: "itens com sell-out vigente (início–fim) · amostras semanais",
   abaixo_custo: "itens VENDIDOS abaixo do custo na semana",
-  avaria: "R$ parados na troca/avaria · amostras semanais",
+  avaria: "R$ parados na troca/avaria · amostras quinzenais",
   // prepedidos e cobranca SEM grafico (dono, 21/07); series seguem gravadas
 };
 function barrasSVG(s, compacto, dinheiro) {
   // compacto = mini do card (1/4-1/5 da aba, dono 21/07): so barras+hover
   const W = 1600, H = 280, MT = compacto ? 10 : 24, MB = compacto ? 4 : 22;
-  const max = Math.max.apply(null, s.map((p) =>
-    (p.a != null || p.b != null) ? (p.a || 0) + (p.b || 0) : (p.v || 0)
-  ).concat([1]));
+  const empilhada = s.some((p) => p.a != null || p.b != null);
+  const tots = s.map((p) =>
+    (p.a != null || p.b != null) ? (p.a || 0) + (p.b || 0) : (p.v || 0));
+  const max = Math.max.apply(null, tots.concat([1]));
+  const min = Math.min.apply(null, tots);
+  // serie "achatada" (varia pouco sobre base alta): corta a base para a
+  // VARIACAO aparecer (dono, 22/07); empilhada fica no zero (proporcao A/B)
+  let base = 0;
+  if (!empilhada && min > 0 && max - min < max * 0.35)
+    base = Math.max(0, min - Math.max((max - min) * 0.3, max * 0.02));
+  const fator = (H - MT - MB) / (max - base || 1);
   const bw = W / s.length;
   const fv = (v) => dinheiro && v >= 1000
     ? Math.round(v / 1000) + "k" : String(Math.round(v));
@@ -732,8 +740,8 @@ function barrasSVG(s, compacto, dinheiro) {
     const ult = i === s.length - 1, x = (i * bw + bw * 0.12).toFixed(1);
     const larg = (bw * 0.76).toFixed(1), xc = (i * bw + bw / 2).toFixed(1);
     const empilhado = s[i].a != null || s[i].b != null;
-    const tot = empilhado ? (s[i].a || 0) + (s[i].b || 0) : s[i].v || 0;
-    const h = Math.max((tot / max) * (H - MT - MB), tot > 0 ? 2 : 0);
+    const tot = tots[i];
+    const h = Math.max((tot - base) * fator, tot > 0 ? 2 : 0);
     const y = H - MB - h;
     if (empilhado) {
       // barra A embaixo (azul) + B por cima (ambar); tooltip proprio (gtip,
@@ -764,22 +772,30 @@ function barrasSVG(s, compacto, dinheiro) {
           dbr(s[i].s).slice(0, 5) + "</text>";
     }
   }
+  if (base > 0 && !compacto)
+    b += '<text class="gdata" style="text-anchor:start" x="6" y="' +
+      (H - MB - 5) + '">corte da escala: ' + (dinheiro ? "R$ " : "") +
+      fv(base) + "</text>";
   return '<svg viewBox="0 0 ' + W + " " + H +
     '" preserveAspectRatio="none">' + b + "</svg>";
 }
 function grafico(id) {
-  const s = (D.historico || {})[id];
+  let s = (D.historico || {})[id];
   if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
   const din = id === "avaria";
+  // avaria divide a tela com os esquecidos -> fica apertado: QUINZENAL
+  // (dono, 22/07) — mantem o ponto mais recente e pula de 2 em 2 para tras
+  if (id === "avaria")
+    s = s.filter((_, i) => (s.length - 1 - i) % 2 === 0);
   const corpo = '<div class="glabel">' + GRAFICO_ROTULO[id] +
     " · desde 06/04</div>" + barrasSVG(s, false, din);
   if (id !== "avaria")
     return '<div class="grafico">' + corpo + "</div>";
   // avaria (dono, 22/07): os ESQUECIDOS dividem o terco de baixo com o
-  // grafico — caixa ao lado com os maiores R$ parados sem mexer ha +60d
+  // grafico — TODOS, maiores R$ primeiro, com rolagem propria na caixa
   const esq = (D.avaria.itens || []).filter((i) => i.esquecido);
   const totEsq = esq.reduce((t, i) => t + (i.valor || 0), 0);
-  const linhas = esq.slice(0, 12).map((i) =>
+  const linhas = esq.map((i) =>
     '<div class="frow"><span class="fdesc">' + esc(i.descricao) +
     '</span><span class="fnum">' + rs(i.valor) +
     '</span><span class="tag bad">' + i.idade + "d</span></div>").join("");
@@ -791,8 +807,10 @@ function grafico(id) {
     "</div></div>";
 }
 function graficoMini(id) {
-  const s = (D.historico || {})[id];
+  let s = (D.historico || {})[id];
   if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
+  if (id === "avaria")
+    s = s.filter((_, i) => (s.length - 1 - i) % 2 === 0);
   return '<div class="grafico-mini" title="' + esc(GRAFICO_ROTULO[id]) +
     '">' + barrasSVG(s, true, id === "avaria") + "</div>";
 }
