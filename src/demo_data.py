@@ -294,3 +294,23 @@ def vendas_canal(janela_dias=400):
                 linhas.append({"codigo": cod, "data": dia.isoformat(),
                                "canal": "atacado", "unidades": round(base * 20, 3)})
     return linhas
+
+
+def negociacao():
+    """Demo da tela de negociacao: 2411 e de COTACAO (exclusivo), 2795 tem
+    dois fornecedores reais, 3905 nao tem negociacao nenhuma."""
+    return [
+        {"codigo": "2411", "fornecedor": "COTACAO", "dt_alteracao": None},
+        {"codigo": "2795", "fornecedor": "RICLAN SA", "dt_alteracao": "2026-06-01"},
+        {"codigo": "2795", "fornecedor": "GARCIA", "dt_alteracao": "2026-04-01"},
+    ]
+
+
+def entradas_fornecedor(janela=180):
+    """Demo de entregas com fornecedor (datas dentro da janela)."""
+    d = lambda n: (date.today() - timedelta(days=n)).isoformat()  # noqa: E731
+    return [
+        {"codigo": "2795", "data": d(10), "fornecedor": "RICLAN SA", "qtd": 120.0},
+        {"codigo": "2795", "data": d(40), "fornecedor": "GARCIA", "qtd": 60.0},
+        {"codigo": "3905", "data": d(20), "fornecedor": "JW DOCES", "qtd": 30.0},
+    ]

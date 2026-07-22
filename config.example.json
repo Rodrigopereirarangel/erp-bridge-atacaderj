@@ -47,6 +47,11 @@
     "pdvs_atacado": [11, 12]
   },
 
+  "listagem": {
+    "_comentario": "app listagem-fornecedor: janela PROPRIA de vendas/entradas (180d = 6 meses de janelas rolantes de 45d). NAO usa janela_dias dos detectores.",
+    "janela_dias": 180
+  },
+
   "painel": {
     "_comentario": "Painel de Compras (TV+PC). dir_saida e servido por http.server (porta_http). cobranca: entra com >= dias_limiar aberto OU previsao vencida, janela maxima cobranca_max_dias (medido 2026-07-20: sem janela seriam 494 pedidos — lixo historico vira contador de abandonados). detector_rounds_dir = <detector-estoque>/data/rounds. detector_dashboard_url = http://localhost:5173 (porta do dashboard do detector).",
     "dir_saida": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/painel",
@@ -78,6 +83,7 @@
     "detector_estoque_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/detector-estoque",
     "_historico_cliente_csv": "relativo ao CWD de proposito (o --demo roda em qualquer maquina); no config.local.json use o caminho ABSOLUTO do data/input do app recuperacao-itens",
     "historico_cliente_csv": "saida/recuperacao-itens/historico_cliente.csv",
-    "exposicao_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/exposicao"
+    "exposicao_dir": "C:/Users/COMPUTADOR/erp-bridge-atacaderj/saida/exposicao",
+    "listagem_dir": "saida/listagem"
   }
 }

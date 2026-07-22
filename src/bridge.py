@@ -24,6 +24,10 @@ via camada de projecao, o formato exato de cada consumidor:
                     agenda MENSAL propria, como o historico-cliente)
   painel        -> painel/index.html + dados_painel.json (Painel de Compras
                    TV+PC: validade x relampago, ruptura, cobranca, concorrente)
+  listagem      -> listagem/catalogo_listagem.csv + vendas_diarias.csv +
+                   entradas_fornecedor.csv + negociacao.csv (app
+                   listagem-fornecedor; janela PROPRIA de 180d, agenda propria,
+                   NAO entra no `all` — mesmo espirito do `exposicao`)
 
 Uso:
   python src/bridge.py --demo                # gera tudo com dados falsos (sem banco)
@@ -32,6 +36,7 @@ Uso:
   python src/bridge.py --only movimentos     # vendas+recebimentos+pedidos (agendamento diario)
   python src/bridge.py --only exposicao      # base do MIN/MAX de exposicao (mensal)
   python src/bridge.py --only painel         # painel de compras (06:00 + pos-catalogo)
+  python src/bridge.py --only listagem       # listagem por fornecedor (manual/agenda propria)
   python src/bridge.py --config caminho.json # usa outro arquivo de config
 """
 
@@ -248,11 +253,47 @@ def escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, alvo, val=None):
     return rel
 
 
+def coletar_listagem(cfg, usar_demo):
+    """Alvo `listagem` tem agenda propria (janela 180d) e NAO roda no `all`:
+    nao pagar 180d de vendas nos jobs de catalogo/movimentos dos detectores."""
+    janela = int(cfg.get("listagem", {}).get("janela_dias", 180))
+    if usar_demo:
+        return (demo_data.catalogo(), demo_data.vendas(janela),
+                demo_data.entradas_fornecedor(janela), demo_data.negociacao())
+    import db
+    conn = db.conectar(cfg["db"])
+    try:
+        cat = db.consultar(conn, queries.CATALOGO)
+        ven = db.consultar(conn, queries.VENDAS.format(janela=janela))
+        entf = db.consultar(conn, queries.ENTRADAS_FORNECEDOR.format(
+            janela_listagem=janela))
+        neg = db.consultar(conn, queries.NEGOCIACAO_FORNECEDOR)
+    finally:
+        conn.close()
+    return cat, ven, entf, neg
+
+
+def escrever_listagem(cfg, cat, ven, entf, neg):
+    destino = cfg["saida"].get("listagem_dir") or os.path.join(
+        RAIZ, "saida", "listagem")
+    os.makedirs(destino, exist_ok=True)
+    rel = []
+    n = projections.catalogo_listagem_csv(cat, os.path.join(destino, "catalogo_listagem.csv"))
+    rel.append(f"listagem/catalogo_listagem.csv: {n}")
+    n = projections.vendas_csv(ven, os.path.join(destino, "vendas_diarias.csv"))
+    rel.append(f"listagem/vendas_diarias.csv: {n}")
+    n = projections.entradas_fornecedor_csv(entf, os.path.join(destino, "entradas_fornecedor.csv"))
+    rel.append(f"listagem/entradas_fornecedor.csv: {n}")
+    n = projections.negociacao_csv(neg, os.path.join(destino, "negociacao.csv"))
+    rel.append(f"listagem/negociacao.csv: {n}")
+    return rel
+
+
 def main():
     ap = argparse.ArgumentParser(description="Ponte ERP -> consumidores AtacadeRJ")
     ap.add_argument("--demo", action="store_true", help="usa dados falsos, sem tocar no banco")
     ap.add_argument("--only", default="all",
-                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente", "exposicao", "painel"],
+                    choices=["all", "catalogo", "movimentos", "vendas", "entradas", "recebimentos", "pedidos", "pedidos-venda", "vendas-mensal", "historico-cliente", "exposicao", "painel", "listagem"],
                     help="qual bloco gerar (default: all)")
     ap.add_argument("--config", default=None, help="caminho do config (default: config.local.json)")
     args = ap.parse_args()
@@ -262,7 +303,12 @@ def main():
         cfg = (json.load(open(os.path.join(RAIZ, "config.example.json"), encoding="utf-8"))
                if args.demo else carregar_config(args.config))
         relatorio = []
-        if args.only != "painel":
+        if args.only == "listagem":
+            # agenda propria (janela 180d), NAO entra no `all` — desvio ANTES
+            # da coleta padrao (mesmo cfg ja carregado acima, demo ou real)
+            cat, ven, entf, neg = coletar_listagem(cfg, args.demo)
+            relatorio = escrever_listagem(cfg, cat, ven, entf, neg)
+        elif args.only != "painel":
             cat, ven, ent, ped, pv, vm, hc, vc, val = coletar(cfg, args.demo, args.only)
             relatorio = escrever(cfg, cat, ven, ent, ped, pv, vm, hc, vc, args.only, val)
         if args.only in ("all", "painel"):
