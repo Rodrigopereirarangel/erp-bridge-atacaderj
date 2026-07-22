@@ -183,6 +183,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (13ª): **8ª janela — ♻️ Troca/Avaria** (522ea75) — sonda no ERP
+  achou as fontes vivas (estoque tipo 3: físico/contábil/movimento; a tabela
+  `avaria` é carga inicial morta e a MIS está vazia). NO AR: **1.368 itens ·
+  R$ 665,2 mil parados; 1.009 esquecidos +60d = R$ 565,7 mil (85%!)**; nº 1:
+  PEITO DE CHESTER, R$ 272,8 mil parado há 280d (13,4 t — cheira a resíduo
+  da carga inicial de out/25; conferir físico). Detalhe divide o terço de
+  baixo: gráfico do R$ (série exata desde 06/04) + caixa dos esquecidos.
+  163 testes.
 - 2026-07-22 (12ª): **Tooltip interativo nos gráficos** (796c6a8) — o <title>
   nativo do SVG era lento/falho; agora div própria segue o mouse (data-t por
   rect): na ruptura mostra a curva apontada + a outra + total (ex.: "curva
