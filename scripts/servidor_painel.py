@@ -23,6 +23,11 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _trava = threading.Lock()
 
+# arquivos servidos SEM login (dono, 22/07): a listagem por fornecedor e
+# aberta para qualquer um da rede/Tailscale — o RESTO do painel continua
+# atras do Basic auth. So GET/HEAD; POST /atualizar segue protegido.
+PUBLICOS = {"/listagem-fornecedores.html"}
+
 
 def _cfg():
     arq = next(a for a in ("config.local.json", "config.example.json")
@@ -93,13 +98,16 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _publico(self):
+        return self.path.split("?", 1)[0] in PUBLICOS
+
     def do_GET(self):  # noqa: N802 — nome da stdlib
-        if not self._autorizado():
+        if not self._publico() and not self._autorizado():
             return self._pede_login()
         return super().do_GET()
 
     def do_HEAD(self):  # noqa: N802
-        if not self._autorizado():
+        if not self._publico() and not self._autorizado():
             return self._pede_login()
         return super().do_HEAD()
 
