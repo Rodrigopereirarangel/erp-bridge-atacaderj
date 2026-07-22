@@ -658,3 +658,47 @@ WHERE pi.vlVerbaComercial IS NOT NULL AND pi.vlVerbaComercial > 0
   AND GETDATE() BETWEEN p.dtInicio AND p.dtFim
 GROUP BY p2.cdProduto
 """
+
+# NEGOCIACAO_FORNECEDOR: produto x fornecedor da tela de NEGOCIACAO — e o
+# campo que o dono usa para marcar "esse produto e de cotacao" (pessoa
+# "COTACAO", cd 164259; validado 2026-07-22: oleo Soya 15450 = COTACAO).
+# tbNegociacao NAO tem cdProduto: liga por cdSuperProduto. Um produto pode
+# ter negociacao com varios fornecedores (uma linha por par). dtAlteracao
+# vem NULL com frequencia -> MAX() e o CSV sai vazio nesses casos.
+# Alimenta o app listagem-fornecedor (Regra 1 do spec de la).
+NEGOCIACAO_FORNECEDOR = """
+SELECT
+    p.cdProduto                                 AS codigo,
+    LTRIM(RTRIM(ps.nmPessoa))                   AS fornecedor,
+    CONVERT(char(10), MAX(n.dtAlteracao), 126)  AS dt_alteracao
+FROM dbo.tbNegociacao n
+JOIN dbo.tbProduto p ON p.cdSuperProduto = n.cdSuperProduto
+JOIN dbo.tbPessoa ps ON ps.cdPessoa = n.cdPessoaComercial
+GROUP BY p.cdProduto, LTRIM(RTRIM(ps.nmPessoa))
+ORDER BY codigo, fornecedor
+"""
+
+# ENTRADAS_FORNECEDOR: igual a ENTRADAS (entregas por produto x dia, qtd em
+# UNIDADES = volumes x embalagem da nota), mas com o FORNECEDOR da nota —
+# join validado com dados reais em 2026-07-22 (tbNota.cdPessoaComercial por
+# cdNota + cdPessoaFilial; amostra: QUEIJOS DONA ROSA, JW DOCES).
+# Nota sem pessoa -> fornecedor '' (o consumidor ignora na dominancia).
+# Janela propria ({janela_listagem}, 180d) — NAO usa a janela dos detectores.
+ENTRADAS_FORNECEDOR = """
+SELECT
+    i.cdProduto                                        AS codigo,
+    CAST(ne.dtChegada AS date)                         AS data,
+    LTRIM(RTRIM(COALESCE(ps.nmPessoa, '')))            AS fornecedor,
+    CAST(SUM(i.qtItemNota * i.qtEmbalagem) AS decimal(14,3)) AS qtd
+FROM dbo.tbNotaItem i
+JOIN dbo.tbNotaEntrada ne
+  ON ne.cdNotaEntrada = i.cdNota AND ne.cdPessoaFilial = i.cdPessoaFilial
+JOIN dbo.tbNota n
+  ON n.cdNota = i.cdNota AND n.cdPessoaFilial = i.cdPessoaFilial
+LEFT JOIN dbo.tbPessoa ps ON ps.cdPessoa = n.cdPessoaComercial
+WHERE ne.dtChegada >= DATEADD(day, -{janela_listagem}, CAST(GETDATE() AS date))
+  AND i.cdProduto IS NOT NULL
+GROUP BY i.cdProduto, CAST(ne.dtChegada AS date),
+         LTRIM(RTRIM(COALESCE(ps.nmPessoa, '')))
+ORDER BY codigo, data
+"""
