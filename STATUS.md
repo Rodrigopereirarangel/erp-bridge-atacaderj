@@ -191,6 +191,14 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (23ª): **Alerta de pesquisa parada + login** (4f2c270+d07cc5a)
+  — (1) concorrente sem pesquisa nova há +7d gera chip vermelho no card e
+  faixa no topo da revisão; estado concorrentes_vistos.json aprende e nunca
+  esquece (semeado c/ os 5 medidos). NO AR: 4 paradas (SUPER MARKET 14d,
+  DOM 9d, ESTRELA 9d, JHC 8d). (2) Servidor exige usuário+senha (Basic
+  Auth; credenciais SÓ no config.local do ponte, definidas pelo dono);
+  verificado: sem login 401, com login 200. Pendente: Cloudflare
+  Tunnel+Access (aguarda conta Cloudflare + domínio do dono).
 - 2026-07-22 (22ª): **Investigação: concorrentes sumidos da revisão** — (1)
   pesquisas dos outros mercados PARADAS no módulo de concorrência do
   Solidcon: JHC 14/07, DOM/ESTRELA 13/07, SUPER MARKET 08/07; "Atacadão"
