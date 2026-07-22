@@ -2,13 +2,17 @@
 """Servidor do Painel de Compras: estaticos + POST /atualizar (dono, 22/07).
 
 Substitui o `python -m http.server`: serve a pasta do painel e ganha o
-endpoint POST /atualizar, que roda `bridge.py --only painel` NA HORA (botao
-🔄 do painel). Trava anti-concorrencia: uma geracao por vez — pedido novo
-durante uma geracao recebe 429 e o botao espera/recarrega. Roda como SYSTEM
-no boot, sem janela (ver register-painel-tasks.ps1).
+endpoint POST /atualizar, que atualiza TUDO de uma vez (dono, 22/07):
+1) bridge --only movimentos (vendas/entregas/recebimentos frescos do ERP);
+2) rodada nova do detector de ruptura (node src/detect.js);
+3) bridge --only painel (as 8 janelas).
+Trava anti-concorrencia: uma atualizacao por vez — pedido durante uma em
+andamento recebe 429 (o painel espera e recarrega). Roda como SYSTEM no
+boot, sem janela (ver register-painel-tasks.ps1).
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -26,7 +30,39 @@ def _cfg():
         cfg = json.load(f)
     p = cfg.get("painel") or {}
     return (p.get("dir_saida") or os.path.join(RAIZ, "saida", "painel"),
-            int(p.get("porta_http") or 8477))
+            int(p.get("porta_http") or 8477),
+            p.get("detector_rounds_dir") or "")
+
+
+def _atualizar_tudo(detector_rounds_dir):
+    """Cadeia completa; cada passo falha SOZINHO (o painel sempre sai no
+    fim, com o que houver de mais fresco). Devolve o relato por passo."""
+    relato = []
+
+    def roda(rotulo, args, cwd, timeout):
+        try:
+            r = subprocess.run(args, capture_output=True, text=True,
+                               timeout=timeout, cwd=cwd)
+            txt = (r.stdout or r.stderr or "").strip()
+            relato.append(f"{rotulo}: {'ok' if r.returncode == 0 else 'ERRO'}"
+                          f" {txt[-200:]}")
+            return r.returncode == 0
+        except Exception as e:  # noqa: BLE001
+            relato.append(f"{rotulo}: ERRO {str(e)[:150]}")
+            return False
+
+    roda("movimentos",
+         [sys.executable, os.path.join(RAIZ, "src", "bridge.py"),
+          "--only", "movimentos"], RAIZ, 300)
+    det = os.path.dirname(os.path.dirname(detector_rounds_dir or ""))
+    node = shutil.which("node") or r"C:\Program Files\nodejs\node.exe"
+    if det and os.path.isdir(os.path.join(det, "src")):
+        roda("detector", [node, os.path.join(det, "src", "detect.js")],
+             det, 300)
+    ok = roda("painel",
+              [sys.executable, os.path.join(RAIZ, "src", "bridge.py"),
+               "--only", "painel"], RAIZ, 300)
+    return ok, " | ".join(relato)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -35,17 +71,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(404)
             return
         if not _trava.acquire(blocking=False):
-            self._json(429, {"ok": False, "erro": "geracao ja em andamento"})
+            self._json(429, {"ok": False, "erro": "atualizacao ja em andamento"})
             return
         try:
-            r = subprocess.run(
-                [sys.executable, os.path.join(RAIZ, "src", "bridge.py"),
-                 "--only", "painel"],
-                capture_output=True, text=True, timeout=300, cwd=RAIZ)
-            ok = r.returncode == 0
-            self._json(200 if ok else 500,
-                       {"ok": ok,
-                        "saida": (r.stdout or r.stderr or "").strip()[-400:]})
+            ok, saida = _atualizar_tudo(self.server.detector_rounds_dir)
+            self._json(200 if ok else 500, {"ok": ok, "saida": saida[-500:]})
         except Exception as e:  # noqa: BLE001 — erro vira resposta, nao crash
             self._json(500, {"ok": False, "erro": str(e)[:300]})
         finally:
@@ -64,9 +94,10 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    destino, porta = _cfg()
+    destino, porta, rounds = _cfg()
     srv = ThreadingHTTPServer(("0.0.0.0", porta),
                               partial(Handler, directory=destino))
+    srv.detector_rounds_dir = rounds
     srv.serve_forever()
 
 

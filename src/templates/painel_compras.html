@@ -22,17 +22,20 @@
              letter-spacing:0 }
   /* minmax(0,1fr): itens de grid nao encolhem abaixo do conteudo nowrap sem
      isto — a tabela larga estourava a grade p/ fora da janela */
-  .grade { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem }
+  /* 3 janelas por fileira (dono, 22/07); base de 6 colunas para a ultima
+     fileira incompleta repartir o espaco (span 3/6 via pintarGrade) */
+  .grade { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:.8rem }
   /* numero IMPAR de janelas visiveis: a ultima ocupa a largura inteira
      (sem buraco vazio na grade) */
-  .grade .quadro:nth-child(odd):last-child { grid-column:1 / -1 }
   .quadro { background:var(--card); border:1px solid var(--borda); border-radius:14px;
-            padding:.9rem 1rem 1rem; cursor:pointer;
+            padding:.7rem .85rem .85rem; cursor:pointer;
             display:flex; flex-direction:column; min-width:0;
-            transition:border-color .15s;
-            /* PC (dono, 21/07): pagina ROLANTE com cards altos — uma fileira
-               ocupa quase a tela; role para as proximas janelas */
-            height:82vh; min-height:24rem }
+            transition:border-color .15s; grid-column:span 2;
+            /* altura ADAPTATIVA (dono, 22/07): as fileiras dividem a tela —
+               tirar/devolver janelas na gaveta aumenta/encolhe os cards
+               (--linhas vem do pintarGrade) */
+            height:calc((100vh - 1.6rem)/var(--linhas,3) - .8rem);
+            min-height:15rem }
   .quadro:hover { border-color:#31405a }
   .quadro .rolagem { flex:1 1 auto; overflow:auto; min-height:0 }
   .nota-previa { color:var(--fraco); font-size:.74rem; margin:-.25rem 0 .45rem;
@@ -202,6 +205,7 @@
   body.tv .rolagem::-webkit-scrollbar { display:none }
   body.tv #detalhe .topo input, body.tv #detalhe .topo button { display:none }
   @media (max-width:900px){ .grade { grid-template-columns:1fr }
+    .grade .quadro { grid-column:auto !important; height:72vh }
     .quadro { height:auto; max-height:80vh } }
 </style>
 </head>
@@ -746,6 +750,16 @@ function pintarGrade() {
     });
     g.appendChild(el);
   }
+  // altura adaptativa (dono, 22/07): fileiras de 3 dividem a tela inteira;
+  // ultima fileira incompleta reparte o espaco (span 3/6 na base de 6 cols)
+  const n = g.children.length;
+  g.style.setProperty("--linhas", Math.max(Math.ceil(n / 3), 1));
+  const resto = n % 3;
+  if (resto === 1) g.children[n - 1].style.gridColumn = "span 6";
+  else if (resto === 2) {
+    g.children[n - 2].style.gridColumn = "span 3";
+    g.children[n - 1].style.gridColumn = "span 3";
+  }
 }
 
 /* ---- detalhe (tabela completa + filtro; na TV entra no rodizio) ---- */
@@ -857,22 +871,33 @@ function graficoMini(id) {
   return '<div class="grafico-mini" title="' + esc(GRAFICO_ROTULO[id]) +
     '">' + barrasSVG(s, true, id === "avaria") + "</div>";
 }
-// botao 🔄 (dono, 22/07): POST /atualizar no servidor do painel — roda a
-// geracao NA HORA e recarrega; 429 = alguem ja disparou (espera e recarrega)
+// botao 🔄 (dono, 22/07): POST /atualizar — atualiza TUDO de uma vez
+// (movimentos do ERP + rodada nova do detector + painel) e recarrega;
+// 429 = alguem ja disparou (espera a geracao do outro e recarrega)
 const btnAtu = document.getElementById("atualizar");
-if (btnAtu) btnAtu.addEventListener("click", async () => {
+async function atualizarAgora() {
+  if (!btnAtu || btnAtu.classList.contains("rodando")) return;
   btnAtu.classList.add("rodando");
   const volta = (emoji) => { btnAtu.textContent = emoji;
     setTimeout(() => { btnAtu.textContent = "🔄";
       btnAtu.classList.remove("rodando"); }, 4000); };
   try {
     const r = await fetch("atualizar", { method: "POST" });
-    if (r.status === 429) { setTimeout(() => location.reload(), 8000); return; }
+    if (r.status === 429) { setTimeout(() => location.reload(), 15000); return; }
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.ok) { location.reload(); return; }
     volta("⚠️");
   } catch (e) { volta("⚠️"); }
-});
+}
+if (btnAtu) btnAtu.addEventListener("click", atualizarAgora);
+// primeira abertura desta guia (dono, 22/07): atualiza tudo sozinho.
+// sessionStorage sobrevive aos reloads da MESMA guia — nao vira loop
+try {
+  if (!TV && !sessionStorage.getItem("painel_atualizou")) {
+    sessionStorage.setItem("painel_atualizou", "1");
+    atualizarAgora();
+  }
+} catch (e) {}
 const gtip = document.createElement("div");
 gtip.id = "gtip";
 document.body.appendChild(gtip);
