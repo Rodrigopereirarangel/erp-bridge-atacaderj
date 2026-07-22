@@ -30,18 +30,21 @@ def _cfg():
     with open(os.path.join(RAIZ, arq), encoding="utf-8") as f:
         cfg = json.load(f)
     p = cfg.get("painel") or {}
-    # usuario+senha (dono, 22/07): quando os DOIS estiverem no
-    # config.local.json (acesso_usuario/acesso_senha), o navegador pede
-    # login ao abrir do zero; vazios = sem login (nada quebra ate o dono
-    # definir as credenciais)
-    usuario = (p.get("acesso_usuario") or "").strip()
-    senha = (p.get("acesso_senha") or "").strip()
-    cred = None
-    if usuario and senha:
-        cred = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
+    # usuarios+senhas (dono, 22/07): acesso_usuario/acesso_senha (1o login)
+    # e acesso_usuarios [{usuario, senha}] (demais). Nenhum definido = sem
+    # login. Credenciais SO no config.local.json (gitignored).
+    pares = []
+    if (p.get("acesso_usuario") or "").strip() and \
+            (p.get("acesso_senha") or "").strip():
+        pares.append((p["acesso_usuario"].strip(), p["acesso_senha"].strip()))
+    for u in p.get("acesso_usuarios") or []:
+        if (u.get("usuario") or "").strip() and (u.get("senha") or "").strip():
+            pares.append((u["usuario"].strip(), u["senha"].strip()))
+    creds = {base64.b64encode(f"{us}:{se}".encode()).decode()
+             for us, se in pares} or None
     return (p.get("dir_saida") or os.path.join(RAIZ, "saida", "painel"),
             int(p.get("porta_http") or 8477),
-            p.get("detector_rounds_dir") or "", cred)
+            p.get("detector_rounds_dir") or "", creds)
 
 
 def _atualizar_tudo(detector_rounds_dir):
@@ -77,10 +80,11 @@ def _atualizar_tudo(detector_rounds_dir):
 
 class Handler(SimpleHTTPRequestHandler):
     def _autorizado(self):
-        cred = getattr(self.server, "credencial", None)
-        if not cred:
+        creds = getattr(self.server, "credenciais", None)
+        if not creds:
             return True
-        return (self.headers.get("Authorization") or "") == "Basic " + cred
+        auth = self.headers.get("Authorization") or ""
+        return auth.startswith("Basic ") and auth[6:] in creds
 
     def _pede_login(self):
         self.send_response(401)
@@ -129,11 +133,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    destino, porta, rounds, cred = _cfg()
+    destino, porta, rounds, creds = _cfg()
     srv = ThreadingHTTPServer(("0.0.0.0", porta),
                               partial(Handler, directory=destino))
     srv.detector_rounds_dir = rounds
-    srv.credencial = cred
+    srv.credenciais = creds
     srv.serve_forever()
 
 

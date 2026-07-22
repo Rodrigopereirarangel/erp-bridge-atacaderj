@@ -54,6 +54,7 @@
     "_acesso": "usuario+senha do painel (dono, 22/07): preencha os DOIS no config.local.json e reinicie a tarefa do servidor; vazios = sem login. A senha NUNCA vai para o repo (config.local e gitignored).",
     "acesso_usuario": "",
     "acesso_senha": "",
+    "acesso_usuarios": [],
     "cobranca_dias_limiar": 7,
     "cobranca_max_dias": 30,
     "cobranca_alerta_dias": 21,
