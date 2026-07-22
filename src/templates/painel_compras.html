@@ -150,6 +150,14 @@
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
+  /* botao 🔄: gera os dados NA HORA (POST /atualizar do servidor proprio) */
+  #atualizar { position:fixed; bottom:.6rem; right:1.05rem; z-index:20;
+      font-size:1.2rem; line-height:1; padding:.4rem .55rem;
+      border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.45) }
+  #atualizar.rodando { animation:gira 1s linear infinite;
+      pointer-events:none; opacity:.75 }
+  @keyframes gira { to { transform:rotate(360deg) } }
+  body.tv #atualizar { display:none }
   /* gaveta lateral ESQUERDA de configuracao das janelas (ordem+visibilidade);
      o botao e uma ALCA na borda esquerda, no meio da tela (nao colide com os
      cards) e fica ACIMA da gaveta (z-index) para sempre poder fechar */
@@ -200,6 +208,7 @@
 <body>
 <div class="grade" id="grade"></div>
 <div id="detalhe"></div>
+<button id="atualizar" title="atualizar agora (gera os dados de novo)">🔄</button>
 <button id="config-abre" title="escolher e ordenar as janelas">☰</button>
 <aside id="config"></aside>
 <script>
@@ -848,6 +857,22 @@ function graficoMini(id) {
   return '<div class="grafico-mini" title="' + esc(GRAFICO_ROTULO[id]) +
     '">' + barrasSVG(s, true, id === "avaria") + "</div>";
 }
+// botao 🔄 (dono, 22/07): POST /atualizar no servidor do painel — roda a
+// geracao NA HORA e recarrega; 429 = alguem ja disparou (espera e recarrega)
+const btnAtu = document.getElementById("atualizar");
+if (btnAtu) btnAtu.addEventListener("click", async () => {
+  btnAtu.classList.add("rodando");
+  const volta = (emoji) => { btnAtu.textContent = emoji;
+    setTimeout(() => { btnAtu.textContent = "🔄";
+      btnAtu.classList.remove("rodando"); }, 4000); };
+  try {
+    const r = await fetch("atualizar", { method: "POST" });
+    if (r.status === 429) { setTimeout(() => location.reload(), 8000); return; }
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) { location.reload(); return; }
+    volta("⚠️");
+  } catch (e) { volta("⚠️"); }
+});
 const gtip = document.createElement("div");
 gtip.id = "gtip";
 document.body.appendChild(gtip);

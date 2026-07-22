@@ -49,8 +49,10 @@ if (-not (Get-NetFirewallRule -DisplayName "AtacadeRJ Painel Compras" -ErrorActi
   Write-Host "OK: regra de firewall (TCP $porta, Private/Domain)"
 }
 
-$acaoSrv = New-ScheduledTaskAction -Execute $python `
-  -Argument "-m http.server $porta --directory `"$dir`" --bind 0.0.0.0"
+# servidor proprio (scripts/servidor_painel.py): estaticos + POST /atualizar
+# (botao 🔄 do painel gera na hora) — dono, 22/07
+$srvScript = Join-Path $raiz "scripts\servidor_painel.py"
+$acaoSrv = New-ScheduledTaskAction -Execute $python -Argument "`"$srvScript`""
 $gatSrv = New-ScheduledTaskTrigger -AtStartup
 $setSrv = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) `
   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
