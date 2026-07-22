@@ -48,3 +48,29 @@ def test_previa_concorrente_divide_zonas_e_filtra_frescor(tmp_path):
     assert c["ref_nome"] == "Rio" and c["ref_preco"] == 2.19
     assert c["ref_data"] == "15/07/2026" and c["delta_pct"] == -14.6
     assert pv["abaixo"][0]["delta_pct"] == 8.0
+
+
+def test_pesquisas_paradas_aprende_e_nunca_esquece(tmp_path):
+    # dono, 22/07: concorrente que SUMIU da revisao e exatamente o caso —
+    # o estado persistido segura a ultima data vista dele
+    rev = tmp_path / "rev.html"
+    rev.write_text('<h1>x</h1><script>const ITENS = ['
+                   '{"v": [{"n": "Rio", "dt": "21/07/2026"},'
+                   '{"n": "JHC", "dt": "14/07/2026"}]}];</script>',
+                   encoding="utf-8")
+    import json as _json
+    (tmp_path / "concorrentes_vistos.json").write_text(
+        _json.dumps({"SUPER MARKET": "2026-07-08"}), encoding="utf-8")
+    p = pc.pesquisas_paradas(str(tmp_path), str(rev), "2026-07-22", 7)
+    assert [x["nome"] for x in p] == ["SUPER MARKET", "JHC"]   # 14d, 8d
+    assert p[0]["dias"] == 14 and p[1]["dias"] == 8            # Rio (1d) fora
+    estado = _json.loads((tmp_path / "concorrentes_vistos.json")
+                         .read_text(encoding="utf-8"))
+    assert estado["SUPER MARKET"] == "2026-07-08"              # nao esqueceu
+    assert estado["Rio"] == "2026-07-21"
+    pc.injetar_alerta_pesquisas(str(rev), p)
+    s = rev.read_text(encoding="utf-8")
+    assert 'id="alerta-pesquisas"' in s and "SUPER MARKET há 14d" in s
+    pc.injetar_alerta_pesquisas(str(rev), p)                   # idempotente
+    assert s.count("alerta-pesquisas") == rev.read_text(
+        encoding="utf-8").count("alerta-pesquisas")

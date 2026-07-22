@@ -389,6 +389,74 @@ def contar_concorrente(arquivo, hoje, frescor_dias=10):
     return {"acima": cont["kvi"], "abaixo": cont["alinha"]}
 
 
+def _concorrentes_do_html(arquivo):
+    """{concorrente: ultima_coleta ISO} visto nos ITENS da copia da revisao."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    m = re.search(r"const ITENS = (\[.*?\]);", html, re.S)
+    if not m:
+        return {}
+    vistos = {}
+    for it in json.loads(m.group(1)):
+        for vz in it.get("v") or []:
+            nome = (vz.get("n") or "").strip()
+            try:
+                dd, mm, aa = (vz.get("dt") or "").split("/")
+                iso = f"{aa}-{mm}-{dd}"
+            except (ValueError, AttributeError):
+                continue
+            if nome and (nome not in vistos or iso > vistos[nome]):
+                vistos[nome] = iso
+    return vistos
+
+
+def pesquisas_paradas(destino, arquivo, hoje, limiar_dias=7):
+    """Concorrentes cuja ULTIMA pesquisa registrada passou do limiar (dono,
+    22/07: alertar quando pararem de lancar pesquisa no modulo de
+    concorrencia). Estado em concorrentes_vistos.json: aprende cada
+    concorrente que ja apareceu e NUNCA o esquece — sumir da revisao e
+    exatamente o caso que o alerta pega."""
+    arq_estado = os.path.join(destino, "concorrentes_vistos.json")
+    estado = {}
+    if os.path.exists(arq_estado):
+        try:
+            with open(arq_estado, encoding="utf-8") as f:
+                estado = json.load(f)
+        except (OSError, ValueError):
+            estado = {}
+    for nome, iso in _concorrentes_do_html(arquivo).items():
+        if iso > estado.get(nome, ""):
+            estado[nome] = iso
+    with open(arq_estado, "w", encoding="utf-8") as f:
+        json.dump(estado, f, ensure_ascii=False)
+    parados = []
+    for nome, iso in estado.items():
+        try:
+            dias = _dias(iso, hoje)
+        except ValueError:
+            continue
+        if dias > limiar_dias:
+            parados.append({"nome": nome, "dias": dias, "ultima": iso})
+    parados.sort(key=lambda p: -p["dias"])
+    return parados
+
+
+def injetar_alerta_pesquisas(arquivo, parados):
+    """Faixa vermelha no TOPO da tela cheia da revisao com os concorrentes
+    de pesquisa parada (a previa do card mostra via chip, nao pela faixa)."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    if 'id="alerta-pesquisas"' in html or "</h1>" not in html:
+        return
+    itens = " · ".join(f"{p['nome']} há {p['dias']}d" for p in parados)
+    faixa = ('<div id="alerta-pesquisas" style="margin:10px 0;padding:9px '
+             '14px;border:1px solid #7a2e2e;background:#38191c;color:#ff8a80;'
+             'border-radius:10px;font-weight:600">⚠️ ATENÇÃO — pesquisa de '
+             f"concorrente PARADA (registrar no módulo do ERP): {itens}</div>")
+    with open(arquivo, "w", encoding="utf-8") as f:
+        f.write(html.replace("</h1>", "</h1>" + faixa, 1))
+
+
 def previa_concorrente(arquivo, hoje, frescor_dias=10):
     """Linhas da previa DIVIDIDA do card (dono, 22/07): metade "Itens acima
     de concorrencia" (g=kvi), metade "Sobe p/ vizinho" (g=alinha), so com
@@ -629,6 +697,15 @@ def rodar(cfg, usar_demo=False):
                     {"s": hoje, "v": len(pv["abaixo"])}]
         except Exception as e:  # noqa: BLE001
             erros["historico"] = f"previa concorrente: {e}"
+        try:
+            paradas = pesquisas_paradas(
+                destino, os.path.join(destino, q_conc["arquivo"]), hoje)
+            q_conc["pesquisas_paradas"] = paradas
+            if paradas:
+                injetar_alerta_pesquisas(
+                    os.path.join(destino, q_conc["arquivo"]), paradas)
+        except Exception as e:  # noqa: BLE001
+            erros["historico"] = f"alerta pesquisas: {e}"
     try:
         hist = historico_painel.mesclar_historico(destino, novas, gerado_em)
         payload["historico"] = hist.get("series") or {}

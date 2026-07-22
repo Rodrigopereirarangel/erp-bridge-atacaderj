@@ -559,7 +559,13 @@ const Q = {
   },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
-    kpis() { return []; },   // sem box da semana (dono, 20/07): o rotulo vive no link
+    // chip vermelho quando ha concorrente com pesquisa PARADA ha +7d
+    // (dono, 22/07); a faixa detalhada vive na tela cheia da revisao
+    kpis() {
+      const p = this.d.pesquisas_paradas || [];
+      return p.length ? [["bad", p.length,
+        "pesquisas paradas: " + p.map((x) => x.nome).join(", "), null]] : [];
+    },
     cols: [], linha: null,   // sem tabela: previa e a propria revisao embutida
     corpo() {
       if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
