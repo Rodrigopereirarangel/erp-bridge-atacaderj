@@ -183,6 +183,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (21ª): **Verba: bug do total + custo efetivo + renomes**
+  (517bb64+017f98f) — MEDIDO no ERP que vlSellOut é POR UNIDADE (constante
+  na linha p/ qt 2 ou 103): total virou SUM(qt×vlSellOut); CERV ITAIPAVA
+  "SABADO" R$ 7→R$ 189; chip vencidas ≤60d R$ 4,7 mil→**R$ 76,9 mil** (o
+  bug escondia 94%). Abaixo-do-custo agora usa CUSTO EFETIVO (custo −
+  verba vigente/un, query VERBA_VIGENTE): 17→10 itens (7 bancados por
+  verba saíram; tag verde "−verba"). Colunas do SellOut renomeadas
+  (Início/Fim promoção, Prazo máximo de pagamento fornecedor). Revisão:
+  aba Recuo fora, rodapé de gráficos fora, concorrentes d=false visíveis
+  (S30 só tem Rio Atacadão 85 + 1 ESTRELA). 163 testes.
 - 2026-07-22 (20ª): **SellOut só vencidas ≤60d** (fbb1ed4) — sai quem ainda
   está no prazo e o vencido há +60d; chip vermelho "vencidas ≤60d". Ao
   vivo: 141 itens · R$ 4.725,91 (vencidas entre 5 e 53 dias).
