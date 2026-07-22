@@ -583,7 +583,9 @@ ORDER BY data_pre DESC
 REC_SELLOUT = """
 WITH verba AS (
     SELECT v.cdPromocao, pr.cdSuperProduto,
-           CAST(SUM(v.vlSellOut) AS decimal(14,2)) AS total
+           -- vlSellOut e POR UNIDADE (medido 22/07: constante na linha
+           -- vendendo 2 ou 103 un) -> total = qt x verba
+           CAST(SUM(v.qtVenda * v.vlSellOut) AS decimal(14,2)) AS total
     FROM dbo.tbVendaPDV v
     JOIN dbo.tbProduto pr ON pr.cdProduto = v.cdProduto
     WHERE v.vlSellOut > 0
@@ -638,4 +640,21 @@ WHERE e.cdEstoqueTipo = 3 AND e.qtEstoqueFisico > 0
 GROUP BY sp.cdSuperProduto, sp.nmProdutoPai
 HAVING MAX(m.ult_entrada) >= '{avaria_desde}'
 ORDER BY valor DESC
+"""
+
+
+# Verba de sell-out VIGENTE hoje, por produto (dono, 22/07): banca rebaixa —
+# o "vendendo abaixo do custo" desconta a verba do custo (custo efetivo) e
+# quem fica no azul com ela sai da lista. MAX contra dupla contagem quando
+# ha mais de uma promocao vigente do mesmo super-produto.
+VERBA_VIGENTE = """
+SELECT p2.cdProduto AS codigo,
+       CAST(MAX(pi.vlVerbaComercial) AS decimal(12,4)) AS verba_un
+FROM dbo.tbPromocaoItem pi
+JOIN dbo.tbPromocao p ON p.cdPromocao = pi.cdPromocao
+    AND p.cdEmpresa = pi.cdEmpresa
+JOIN dbo.tbProduto p2 ON p2.cdSuperProduto = pi.cdSuperProduto
+WHERE pi.vlVerbaComercial IS NOT NULL AND pi.vlVerbaComercial > 0
+  AND GETDATE() BETWEEN p.dtInicio AND p.dtFim
+GROUP BY p2.cdProduto
 """

@@ -178,15 +178,23 @@ def montar_avaria(linhas, hoje, esquecido_dias=60):
     return itens
 
 
-def montar_abaixo_custo(catalogo, vendas):
+def montar_abaixo_custo(catalogo, vendas, verbas=None):
     """Produtos cujo preco VIGENTE (hierarquia do caixa: promocao vigente
-    MANDA; senao varejo) esta abaixo do custo — so quem teve venda na janela
-    recebida (ultimos 5 dias). Ordena pelo maior prejuizo estimado no periodo."""
+    MANDA; senao varejo) esta abaixo do CUSTO EFETIVO — custo menos a verba
+    de sell-out vigente por unidade (dono, 22/07: a verba banca a rebaixa;
+    quem fica no azul com ela sai da lista). So quem teve venda na janela
+    recebida (ultimos 5 dias). Ordena pelo maior prejuizo estimado."""
     qtd5 = {}
     for v in vendas or []:
         c = _cod(v.get("codigo"))
         try:
             qtd5[c] = qtd5.get(c, 0.0) + float(v.get("qtd_vendida") or 0)
+        except (TypeError, ValueError):
+            pass
+    verba_por_cod = {}
+    for r in verbas or []:
+        try:
+            verba_por_cod[_cod(r.get("codigo"))] = float(r.get("verba_un") or 0)
         except (TypeError, ValueError):
             pass
     itens = []
@@ -202,7 +210,8 @@ def montar_abaixo_custo(catalogo, vendas):
             preco, origem = float(varejo), "varejo"
         else:
             continue
-        custo = float(r.get("custo_atual") or 0)
+        verba = verba_por_cod.get(c, 0.0)
+        custo = float(r.get("custo_atual") or 0) - verba
         if custo <= 0 or preco >= custo:
             continue
         qtd = qtd5[c]
@@ -211,7 +220,8 @@ def montar_abaixo_custo(catalogo, vendas):
             "descricao": r.get("descricao"),
             "preco": round(preco, 2),
             "origem": origem,
-            "custo": round(custo, 2),
+            "custo": round(custo, 2),        # ja liquido da verba
+            "verba_un": round(verba, 2),
             "margem_pct": round((preco - custo) / custo * 100, 1),
             "qtd_5d": round(qtd, 2),
             "prejuizo_5d": round((custo - preco) * qtd, 2),
@@ -456,6 +466,7 @@ def rodar(cfg, usar_demo=False):
     # --- fontes SQL (cada quadrante falha sozinho) ---
     erros = {}
     cat = val = relamp = cob = sellout = ven5 = prep = avaria = None
+    verba_v = None
     aband = 0
     hist_sql = {}
     ven_hist = None
@@ -466,6 +477,7 @@ def rodar(cfg, usar_demo=False):
         relamp, cob = demo_data.promo_relampago(), demo_data.pedidos_cobranca()
         sellout = demo_data.receita_sellout()
         ven5 = demo_data.vendas(5)
+        verba_v = demo_data.verba_vigente()
         prep = demo_data.pre_pedidos()
         avaria = demo_data.avaria_saldo()
         aband = 2
@@ -498,6 +510,8 @@ def rodar(cfg, usar_demo=False):
                 # abaixo do custo: reusa a query VENDAS com janela de 5 dias
                 ven5 = _consulta(conn, queries.VENDAS.format(janela=5),
                                  "abaixo_custo", erros)
+                verba_v = _consulta(conn, queries.VERBA_VIGENTE,
+                                    "abaixo_custo", erros)
                 prep = _consulta(conn, queries.PRE_PEDIDOS.format(
                     prepedido_dias=int(cfgp["prepedido_dias"])),
                     "prepedidos", erros)
@@ -552,7 +566,7 @@ def rodar(cfg, usar_demo=False):
                 (None if cat is not None else erros.get("validade_relampago")),
                 "itens": []}
     if cat is not None and ven5 is not None:
-        q_abaixo["itens"] = montar_abaixo_custo(cat, ven5)
+        q_abaixo["itens"] = montar_abaixo_custo(cat, ven5, verba_v)
 
     q_prep = {"carimbo": gerado_em, "erro": erros.get("prepedidos"), "itens": []}
     if prep is not None:

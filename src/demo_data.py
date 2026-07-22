@@ -197,6 +197,11 @@ def historico_series(dias):
             "avaria": serie(52000, 3500)}
 
 
+def verba_vigente():
+    """Verbas de sell-out vigentes por produto (forma da VERBA_VIGENTE)."""
+    return [{"codigo": 2411, "verba_un": 1.5}]
+
+
 def avaria_saldo():
     """Saldo na area de troca/avaria (forma da query AVARIA_SALDO). Casos:
     esquecido ha muito tempo, recente, e sem movimentacao registrada."""

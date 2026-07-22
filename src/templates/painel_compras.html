@@ -421,8 +421,9 @@ const Q = {
                "vencidas ≤60d · " + rs(soma), null]];
     },
     cols: [{t: "Produto", k: "produto"},
-           {t: "Início", k: "inicio"}, {t: "Fim", k: "fim"},
-           {t: "Vencimento", k: "vencimento"},
+           {t: "Início promoção", k: "inicio"},
+           {t: "Fim promoção", k: "fim"},
+           {t: "Prazo máximo de pagamento fornecedor", k: "vencimento"},
            {t: "Total", k: "total", num: 1},
            {t: "Fornecedor", k: "fornecedor"},
            {t: "Tipo promoção", k: "tipo_promocao"}],
@@ -433,8 +434,9 @@ const Q = {
                    '<td class="desc">' + esc(i.fornecedor || "—") + "</td>",
                    esc(i.tipo_promocao || "—")],
     colsPrevia: [{t: "Produto", k: "produto"},
-                 {t: "Início", k: "inicio"}, {t: "Fim", k: "fim"},
-                 {t: "Vencimento", k: "vencimento"}],
+                 {t: "Início promo", k: "inicio"},
+                 {t: "Fim promo", k: "fim"},
+                 {t: "Prazo pagto", k: "vencimento"}],
     linhaPrevia: (i) => ['<td class="desc">' + esc(i.produto) + "</td>",
                    dbr(i.inicio), dbr(i.fim),
                    '<td class="num">' + vencSellTag(i) + "</td>"],
@@ -457,10 +459,14 @@ const Q = {
            {t: "Vend. 5d", k: "qtd_5d", num: 1},
            {t: "Prejuízo 5d", k: "prejuizo_5d", num: 1},
            {t: "Curva", k: "curva"}],
+    // custo mostrado ja e o EFETIVO (custo - verba de sell-out vigente/un,
+    // dono 22/07); a tag informa quando ha verba abatida
     linha: (i) => [esc(i.codigo), '<td class="desc">' + esc(i.descricao) + "</td>",
                    '<td class="num">' + rs(i.preco) + ' <span class="tag ' +
                      (i.origem === "promo" ? "warn" : "mut") + '">' + i.origem + "</span></td>",
-                   '<td class="num">' + rs(i.custo) + "</td>",
+                   '<td class="num">' + rs(i.custo) +
+                     (i.verba_un ? ' <span class="tag ok">−verba ' +
+                       rs(i.verba_un) + "</span>" : "") + "</td>",
                    '<td class="num"><span class="tag bad">' + i.margem_pct + "%</span></td>",
                    '<td class="num">' + nf.format(i.qtd_5d) + "</td>",
                    '<td class="num">' + rs(i.prejuizo_5d) + "</td>",
