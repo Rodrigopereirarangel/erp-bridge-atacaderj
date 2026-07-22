@@ -25,6 +25,7 @@ PADROES = {
     "cobranca_max_dias": 30,
     "cobranca_alerta_dias": 21,
     "prepedido_dias": 21,
+    "avaria_esquecido_dias": 60,
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
     "reload_minutos": 5,
@@ -151,6 +152,26 @@ def montar_prepedidos(linhas, hoje):
             "valor": float(r.get("valor") or 0),
         })
     itens.sort(key=lambda i: (i["dias"], -i["valor"]))
+    return itens
+
+
+def montar_avaria(linhas, hoje, esquecido_dias=60):
+    """Saldo parado na area de troca/avaria: idade = dias desde a ultima
+    movimentacao (tipo 3); "esquecido" = acima de esquecido_dias (dono,
+    22/07: regua de 60d). Ordena por R$ parado, maior primeiro."""
+    itens = []
+    for r in linhas or []:
+        ult = str(r.get("ultima_mov"))[:10] if r.get("ultima_mov") else None
+        idade = _dias(ult, hoje) if ult else None
+        itens.append({
+            "codigo": _cod(r.get("codigo")),
+            "descricao": r.get("descricao") or "",
+            "qtd": float(r.get("qtd") or 0),
+            "valor": float(r.get("valor") or 0),
+            "idade": idade,
+            "esquecido": idade is not None and idade > esquecido_dias,
+        })
+    itens.sort(key=lambda i: -i["valor"])
     return itens
 
 
@@ -461,7 +482,7 @@ def rodar(cfg, usar_demo=False):
 
     # --- fontes SQL (cada quadrante falha sozinho) ---
     erros = {}
-    cat = val = relamp = cob = sellout = ven5 = prep = None
+    cat = val = relamp = cob = sellout = ven5 = prep = avaria = None
     aband = 0
     hist_sql = {}
     ven_hist = None
@@ -473,6 +494,7 @@ def rodar(cfg, usar_demo=False):
         sellout = demo_data.receita_sellout()
         ven5 = demo_data.vendas(5)
         prep = demo_data.pre_pedidos()
+        avaria = demo_data.avaria_saldo()
         aband = 2
         ven_hist = demo_data.vendas(120)
         hist_sql = demo_data.historico_series(dias_hist)
@@ -506,6 +528,8 @@ def rodar(cfg, usar_demo=False):
                 prep = _consulta(conn, queries.PRE_PEDIDOS.format(
                     prepedido_dias=int(cfgp["prepedido_dias"])),
                     "prepedidos", erros)
+                avaria = _consulta(conn, queries.AVARIA_SALDO,
+                                   "avaria", erros)
                 # series historicas semanais (spec §13) — point-in-time
                 for nome, sql in historico_painel.sql_series(
                         dias_hist, max_d, int(cfgp["cobranca_dias_limiar"]),
@@ -560,6 +584,12 @@ def rodar(cfg, usar_demo=False):
     if prep is not None:
         q_prep["itens"] = montar_prepedidos(prep, hoje)
 
+    q_avaria = {"carimbo": gerado_em, "erro": erros.get("avaria"),
+                "itens": [], "esquecido_dias": int(cfgp["avaria_esquecido_dias"])}
+    if avaria is not None:
+        q_avaria["itens"] = montar_avaria(
+            avaria, hoje, int(cfgp["avaria_esquecido_dias"]))
+
     q_conc = {"carimbo": None, "erro": None, "rotulo": None, "arquivo": None}
     try:
         rv = copiar_revisao_pricing(cfgp.get("pricing_dados_dir"), destino)
@@ -584,6 +614,7 @@ def rodar(cfg, usar_demo=False):
         "sellout": q_sellout,
         "abaixo_custo": q_abaixo,
         "prepedidos": q_prep,
+        "avaria": q_avaria,
         "concorrente": q_conc,
     }
 
@@ -634,6 +665,7 @@ def rodar(cfg, usar_demo=False):
                              ("sellout", q_sellout["erro"]),
                              ("abaixo_custo", q_abaixo["erro"]),
                              ("prepedidos", q_prep["erro"]),
+                             ("avaria", q_avaria["erro"]),
                              ("concorrente", q_conc["erro"])) if e]
 
     # spec §8: falha de fonte nao aborta, mas deixa trilha no log do bridge —
@@ -649,6 +681,7 @@ def rodar(cfg, usar_demo=False):
                                 ("sellout", q_sellout["erro"]),
                                 ("abaixo_custo", q_abaixo["erro"]),
                                 ("prepedidos", q_prep["erro"]),
+                                ("avaria", q_avaria["erro"]),
                                 ("concorrente", q_conc["erro"])):
                     if e:
                         f.write(f"{gerado_em}  PAINEL {quad}: {e}\n")
@@ -661,6 +694,8 @@ def rodar(cfg, usar_demo=False):
               f"{len(q_cobranca['itens'])} cobranca (+{aband} abandonados), "
               f"{len(so_abertas)} sellout em aberto, "
               f"{len(q_abaixo['itens'])} abaixo do custo, "
-              f"{len(q_prep['itens'])} pre-pedidos"
+              f"{len(q_prep['itens'])} pre-pedidos, "
+              f"{len(q_avaria['itens'])} avaria "
+              f"(R$ {sum(i['valor'] for i in q_avaria['itens']):,.0f})"
               + (f" — AVISO em: {', '.join(avisos)}" if avisos else ""))
     return [resumo]

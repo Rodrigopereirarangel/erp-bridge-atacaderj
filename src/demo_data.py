@@ -193,7 +193,23 @@ def historico_series(dias):
         return [{"s": d, "v": round(base + (i % 5) * passo + i, 1)}
                 for i, d in enumerate(dias)]
     return {"validade_relampago": serie(120, 8), "cobranca": serie(9, 2),
-            "sellout": serie(140, 6), "prepedidos": serie(0, 1)}
+            "sellout": serie(140, 6), "prepedidos": serie(0, 1),
+            "avaria": serie(52000, 3500)}
+
+
+def avaria_saldo():
+    """Saldo na area de troca/avaria (forma da query AVARIA_SALDO). Casos:
+    esquecido ha muito tempo, recente, e sem movimentacao registrada."""
+    hoje = date.today()
+    return [
+        {"codigo": 9001, "descricao": "PEITO DE CHESTER DEMO KG",
+         "qtd": 1200.5, "valor": 18000.0,
+         "ultima_mov": (hoje - timedelta(days=200)).isoformat()},
+        {"codigo": 9002, "descricao": "ARROZ DEMO 1KG", "qtd": 300.0,
+         "valor": 1500.0, "ultima_mov": (hoje - timedelta(days=5)).isoformat()},
+        {"codigo": 9003, "descricao": "BISCOITO DEMO 200G", "qtd": 80.0,
+         "valor": 240.0, "ultima_mov": None},
+    ]
 
 
 def receita_sellout():

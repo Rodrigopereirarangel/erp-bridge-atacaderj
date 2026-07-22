@@ -244,3 +244,20 @@ poda dias soltos: só segundas + o ponto mais recente ficam na série.
   histórico de vendas atrás de si (janela ~120d); pedidos/curva não entram
   (o corte não os usa); se a régua mudar, o passado recalcula junto no
   próximo backfill.
+
+## 14. 8ª aba — ♻️ Troca / Avaria (aprovada pelo dono em 22/07)
+
+Saldo PARADO na área de troca/avaria (estoque tipo 3 do ERP; medido em
+22/07: 1.369 super-produtos, R$ 664,8 mil ao custo contábil). Fontes vivas
+descobertas na sonda: `tbEstoqueFisico` (qt por PRODUTO), `tbEstoqueContabil`
+(R$ por SUPERPRODUTO) e `tbEstoqueMovimento` (movimentos diários desde
+15/10/2025). A tabela `avaria` (carga inicial morta) e a MIS vazia NÃO servem.
+
+- Lista por superproduto: qtd, R$ parado (contábil, exato), "parado há"
+  (dias desde a última movimentação tipo 3); ordena por R$.
+- "Esquecido" = sem movimentação há mais de `avaria_esquecido_dias` (60):
+  tag vermelha + chip próprio; no detalhe, o terço de baixo é DIVIDIDO —
+  gráfico da evolução à esquerda, caixa dos esquecidos (top R$) à direita.
+- Série semanal `avaria` (R$ parado): contábil ATUAL menos o líquido dos
+  movimentos após cada data. Aproximação documentada: movimentos ao custo
+  do movimento vs contábil a custo médio (divergência pequena).

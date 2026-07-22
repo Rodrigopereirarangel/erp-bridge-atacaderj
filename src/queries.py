@@ -609,3 +609,27 @@ LEFT JOIN verba ve
 WHERE pi.dtPagamentoReceitaSellOut IS NOT NULL
 ORDER BY vencimento, produto
 """
+
+# Saldo parado na area de troca/avaria (estoque tipo 3 = "Avaria";
+# medido em 2026-07-22: 1.369 super-produtos, R$ 664,8 mil ao custo
+# contabil). Fisico e por PRODUTO, contabil por SUPERPRODUTO -> agrega no
+# super (nome exibido); ultima_mov vem de tbEstoqueMovimento tipo 3 e da a
+# idade ("esquecido" = sem mexer ha mais de avaria_esquecido_dias).
+AVARIA_SALDO = """
+SELECT sp.cdSuperProduto                           AS codigo,
+       sp.nmProdutoPai                             AS descricao,
+       CAST(SUM(e.qtEstoqueFisico) AS decimal(14,2)) AS qtd,
+       CAST(MAX(ec.vlEstoqueContabil) AS decimal(14,2)) AS valor,
+       CAST(MAX(m.ult) AS date)                    AS ultima_mov
+FROM dbo.tbEstoqueFisico e
+JOIN dbo.tbProduto p       ON p.cdProduto = e.cdProduto
+JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
+LEFT JOIN dbo.tbEstoqueContabil ec
+  ON ec.cdSuperProduto = sp.cdSuperProduto AND ec.cdEstoqueTipo = 3
+ AND ec.cdPessoaFilial = e.cdPessoaFilial
+OUTER APPLY (SELECT MAX(mm.dtMovimento) AS ult FROM dbo.tbEstoqueMovimento mm
+             WHERE mm.cdProduto = e.cdProduto AND mm.cdEstoqueTipo = 3) m
+WHERE e.cdEstoqueTipo = 3 AND e.qtEstoqueFisico > 0
+GROUP BY sp.cdSuperProduto, sp.nmProdutoPai
+ORDER BY valor DESC
+"""

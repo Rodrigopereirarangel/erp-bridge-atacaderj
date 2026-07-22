@@ -90,6 +90,22 @@ SELECT s.dia, (SELECT COUNT(*) FROM dbo.tbPrePedido pp
       AND (pp.dtPrePedidoAtendido IS NULL
            OR pp.dtPrePedidoAtendido > CAST(s.dia AS date))) AS v
 FROM {v}""",
+        # valor parado na avaria em cada data = contabil ATUAL menos o saldo
+        # liquido dos movimentos depois da data (entradas - saidas, ao custo
+        # do movimento; o contabil e custo medio — divergencia pequena e
+        # documentada)
+        "avaria": f"""
+SELECT s.dia,
+  (SELECT CAST(COALESCE(SUM(ec.vlEstoqueContabil), 0) AS decimal(14,2))
+   FROM dbo.tbEstoqueContabil ec WHERE ec.cdEstoqueTipo = 3)
+  - (SELECT CAST(COALESCE(SUM(CASE WHEN m.inEntrada = 1
+                                   THEN m.qtItem * m.vlItem
+                                   ELSE -m.qtItem * m.vlItem END), 0)
+             AS decimal(14,2))
+     FROM dbo.tbEstoqueMovimento m
+     WHERE m.cdEstoqueTipo = 3
+       AND m.dtMovimento > CAST(s.dia AS date)) AS v
+FROM {v}""",
     }
 
 

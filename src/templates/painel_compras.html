@@ -112,6 +112,17 @@
   #detalhe .grafico .glabel { font-size:.72rem; color:var(--fraco);
       text-transform:uppercase; letter-spacing:.06em; margin:0 0 .25rem .35rem }
   #detalhe .grafico svg { flex:1 1 auto; width:100%; min-height:0 }
+  /* avaria: grafico e caixa de esquecidos dividem o terco de baixo */
+  .grafico .gsplit { display:flex; gap:1rem; flex:1 1 auto; min-height:0 }
+  .grafico .gesq { flex:3; display:flex; flex-direction:column; min-width:0 }
+  .grafico .gforgot { flex:2; display:flex; flex-direction:column;
+      min-width:0; border-left:1px solid var(--borda); padding-left:1rem }
+  .grafico .frows { overflow:auto; min-height:0 }
+  .grafico .frow { display:flex; gap:.6rem; align-items:center;
+      padding:.16rem 0; font-size:.85rem; border-bottom:1px solid #1a2230 }
+  .grafico .frow .fdesc { flex:1; white-space:nowrap; overflow:hidden;
+      text-overflow:ellipsis }
+  .grafico .frow .fnum { color:var(--txt) }
   .gbar { fill:#2e4a74 } .gbar.atual { fill:var(--acc) } .gbar:hover { fill:#4a6ea8 }
   .gval { fill:var(--mut); font-size:13px; text-anchor:middle }
   .gdata { fill:var(--fraco); font-size:13px; text-anchor:middle }
@@ -459,6 +470,48 @@ const Q = {
                    '<td class="num">' + i.dias + "d</td>",
                    '<td class="num">' + rs(i.valor) + "</td>"],
   },
+  avaria: {
+    titulo: "♻️ Troca / Avaria", d: D.avaria,
+    filtroDica: "filtrar… produto ou código",
+    // dono (22/07): saldo parado na area de troca (estoque tipo 3), maior
+    // R$ primeiro; "esquecido" = sem movimentacao ha +60d (tag vermelha)
+    kpis() {
+      const it = this.d.itens;
+      const total = it.reduce((s, i) => s + (i.valor || 0), 0);
+      const esq = it.filter((i) => i.esquecido);
+      const esqRs = esq.reduce((s, i) => s + (i.valor || 0), 0);
+      return [[it.length ? "warn" : "ok", it.length,
+               "itens · " + rs(total) + " parados", null],
+              [esq.length ? "bad" : "ok", esq.length,
+               "esquecidos +" + (this.d.esquecido_dias || 60) + "d · " +
+                 rs(esqRs), {k: "idade", dir: -1}]];
+    },
+    cols: [{t: "Código", k: "codigo"}, {t: "Produto", k: "descricao"},
+           {t: "Qtd", k: "qtd", num: 1},
+           {t: "R$ parado", k: "valor", num: 1},
+           {t: "Parado há", k: "idade", num: 1}],
+    linha(i) {
+      return [esc(i.codigo),
+        '<td class="desc">' + esc(i.descricao) + "</td>",
+        '<td class="num">' + nf.format(i.qtd) + "</td>",
+        '<td class="num">' + rs(i.valor) + "</td>",
+        '<td class="num"><span class="tag ' +
+          (i.esquecido ? "bad" : "mut") + '">' +
+          (i.idade == null ? "—" : i.idade + "d") + "</span></td>"];
+    },
+    colsPrevia: [{t: "Produto", k: "descricao"},
+                 {t: "Qtd", k: "qtd", num: 1},
+                 {t: "R$ parado", k: "valor", num: 1},
+                 {t: "Parado há", k: "idade", num: 1}],
+    linhaPrevia(i) {
+      return ['<td class="desc">' + esc(i.descricao) + "</td>",
+        '<td class="num">' + nf.format(i.qtd) + "</td>",
+        '<td class="num">' + rs(i.valor) + "</td>",
+        '<td class="num"><span class="tag ' +
+          (i.esquecido ? "bad" : "mut") + '">' +
+          (i.idade == null ? "—" : i.idade + "d") + "</span></td>"];
+    },
+  },
   concorrente: {
     titulo: "🏷️ Preço concorrente", d: D.concorrente,
     kpis() { return []; },   // sem box da semana (dono, 20/07): o rotulo vive no link
@@ -662,16 +715,18 @@ const GRAFICO_ROTULO = {
   // cobranca SEM grafico (pedido do dono 21/07); a serie segue sendo gravada
   sellout: "itens com sell-out vigente (início–fim) · amostras semanais",
   abaixo_custo: "itens VENDIDOS abaixo do custo na semana",
+  avaria: "R$ parados na troca/avaria · amostras semanais",
   // prepedidos e cobranca SEM grafico (dono, 21/07); series seguem gravadas
 };
-function barrasSVG(s, compacto) {
+function barrasSVG(s, compacto, dinheiro) {
   // compacto = mini do card (1/4-1/5 da aba, dono 21/07): so barras+hover
   const W = 1600, H = 280, MT = compacto ? 10 : 24, MB = compacto ? 4 : 22;
   const max = Math.max.apply(null, s.map((p) =>
     (p.a != null || p.b != null) ? (p.a || 0) + (p.b || 0) : (p.v || 0)
   ).concat([1]));
   const bw = W / s.length;
-  const fv = (v) => String(Math.round(v));
+  const fv = (v) => dinheiro && v >= 1000
+    ? Math.round(v / 1000) + "k" : String(Math.round(v));
   let b = "";
   for (let i = 0; i < s.length; i++) {
     const ult = i === s.length - 1, x = (i * bw + bw * 0.12).toFixed(1);
@@ -698,7 +753,7 @@ function barrasSVG(s, compacto) {
       b += '<rect class="gbar' + (ult ? " atual" : "") +
         '" x="' + x + '" y="' + y.toFixed(1) +
         '" width="' + larg + '" height="' + h.toFixed(1) +
-        '" data-t="' + dbr(s[i].s) + " · " +
+        '" data-t="' + dbr(s[i].s) + " · " + (dinheiro ? "R$ " : "") +
         Math.round(tot).toLocaleString("pt-BR") + '"></rect>';
     }
     if (!compacto) {
@@ -715,14 +770,31 @@ function barrasSVG(s, compacto) {
 function grafico(id) {
   const s = (D.historico || {})[id];
   if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
-  return '<div class="grafico"><div class="glabel">' + GRAFICO_ROTULO[id] +
-    " · desde 06/04</div>" + barrasSVG(s, false) + "</div>";
+  const din = id === "avaria";
+  const corpo = '<div class="glabel">' + GRAFICO_ROTULO[id] +
+    " · desde 06/04</div>" + barrasSVG(s, false, din);
+  if (id !== "avaria")
+    return '<div class="grafico">' + corpo + "</div>";
+  // avaria (dono, 22/07): os ESQUECIDOS dividem o terco de baixo com o
+  // grafico — caixa ao lado com os maiores R$ parados sem mexer ha +60d
+  const esq = (D.avaria.itens || []).filter((i) => i.esquecido);
+  const totEsq = esq.reduce((t, i) => t + (i.valor || 0), 0);
+  const linhas = esq.slice(0, 12).map((i) =>
+    '<div class="frow"><span class="fdesc">' + esc(i.descricao) +
+    '</span><span class="fnum">' + rs(i.valor) +
+    '</span><span class="tag bad">' + i.idade + "d</span></div>").join("");
+  return '<div class="grafico"><div class="gsplit">' +
+    '<div class="gesq">' + corpo + "</div>" +
+    '<div class="gforgot"><div class="glabel">🔴 esquecidos +' +
+    (D.avaria.esquecido_dias || 60) + "d · " + esq.length + " itens · " +
+    rs(totEsq) + '</div><div class="frows">' + linhas + "</div></div>" +
+    "</div></div>";
 }
 function graficoMini(id) {
   const s = (D.historico || {})[id];
   if (!s || s.length < 2 || !GRAFICO_ROTULO[id]) return "";
   return '<div class="grafico-mini" title="' + esc(GRAFICO_ROTULO[id]) +
-    '">' + barrasSVG(s, true) + "</div>";
+    '">' + barrasSVG(s, true, id === "avaria") + "</div>";
 }
 const gtip = document.createElement("div");
 gtip.id = "gtip";

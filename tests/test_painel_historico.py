@@ -30,7 +30,7 @@ def test_values_dias_rejeita_data_invalida():
 def test_sql_series_interpola_regras_vigentes():
     sqls = hp.sql_series(["2026-04-06", "2026-04-13"], 30, 7, 21)
     assert set(sqls) == {"validade_relampago", "cobranca", "sellout",
-                         "prepedidos"}
+                         "prepedidos", "avaria"}
     assert "tbPromocaoRelampago" in sqls["validade_relampago"]
     assert "-30" in sqls["cobranca"] and ">= 7" in sqls["cobranca"]
     assert "-21" in sqls["prepedidos"]
