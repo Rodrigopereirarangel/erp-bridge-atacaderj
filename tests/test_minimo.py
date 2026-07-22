@@ -106,3 +106,25 @@ def test_curva_desconhecida_usa_limiar_padrao():
     u1, _ = minimo.calcular(vendas, FIM, None, janela=5, historico=40)
     u2, _ = minimo.calcular(vendas, FIM, "B", janela=5, historico=40)
     assert u1 == u2
+
+
+def test_fronteira_novo_um_dia_alem_vira_novo():
+    # primeira venda no indice 4 (= historico-janela+1): NAO cabe janela
+    # completa -> ramo "novo". Um dia antes (indice 3) seria o ramo normal
+    # (coberto por test_janelas_antes_da_primeira_venda_nao_contam).
+    vendas = _serie([0, 0, 0, 0, 6, 0, 6, 0])
+    u, m = minimo.calcular(vendas, FIM, "A", janela=5, historico=8,
+                           limiares={"A": 99})
+    # desde a 1a venda: [6,0,6,0] -> media 3 -> 3 x 5 = 15
+    assert (u, m) == (15.0, "novo")
+
+
+def test_fallback_com_ruptura_ignora_janelas_pre_primeira_venda():
+    # primeira venda no indice 2; janelas validas: [9,0,0,0,0]=9 e
+    # [0,0,0,0,3]=3, ambas com streak >=3 -> fallback mediana = 6.0.
+    # Se janelas PRE-primeira-venda entrassem ([0,0,9,0,0]=9, [0,9,0,0,0]=9),
+    # a mediana seria 9.0 -> o teste pegaria a regressao.
+    vendas = _serie([0, 0, 9, 0, 0, 0, 0, 3])
+    u, m = minimo.calcular(vendas, FIM, "A", janela=5, historico=8,
+                           limiares={"A": 3})
+    assert (u, m) == (6.0, "*")
