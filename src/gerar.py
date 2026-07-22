@@ -25,11 +25,17 @@ def _ler_csv(caminho):
 
 
 def _ler_ruas(caminho):
-    """Estado do deposito: {"15450": {"rua": 13, ...}} ou {"15450": 13}."""
+    """Estado do deposito: {"15450": {"rua": 13, ...}} ou {"15450": 13}.
+    Insumo OPCIONAL: ausente OU ilegivel -> sem corredor (aviso no log)."""
     if not caminho or not os.path.exists(caminho):
         return {}
-    with open(caminho, encoding="utf-8") as f:
-        bruto = json.load(f)
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            bruto = json.load(f)
+    except (OSError, ValueError) as e:
+        print(f"AVISO: estado de ruas ilegivel ({e}) - corredor sai vazio",
+              file=sys.stderr)
+        return {}
     ruas = {}
     for cod, v in bruto.items():
         rua = v.get("rua") if isinstance(v, dict) else v
@@ -103,6 +109,8 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:                      # noqa: BLE001
+        import traceback
         print(f"[ERRO] listagem NAO gerada (a anterior fica): {e}",
               file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)

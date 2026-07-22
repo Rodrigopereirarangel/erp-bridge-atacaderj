@@ -82,3 +82,14 @@ def test_estado_de_ruas_ausente_nao_derruba(tmp_path):
     assert r.returncode == 0          # sem ruas = coluna corredor vazia
     assert "OLEO SOJA SOYA 900ML" in open(cfg["saida_html"],
                                           encoding="utf-8").read()
+
+
+def test_estado_de_ruas_corrompido_nao_derruba(tmp_path):
+    config, cfg = _montar_insumos(tmp_path)
+    with open(cfg["entrada"]["ruas_estado_json"], "w", encoding="utf-8") as f:
+        f.write("{ nao e json")
+    r = _rodar(config)
+    assert r.returncode == 0          # opcional ilegivel = opcional ausente
+    assert "AVISO" in r.stderr
+    html = open(cfg["saida_html"], encoding="utf-8").read()
+    assert "OLEO SOJA SOYA 900ML" in html
