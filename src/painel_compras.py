@@ -370,6 +370,47 @@ def contar_concorrente(arquivo, hoje, frescor_dias=10):
     return {"acima": cont["kvi"], "abaixo": cont["alinha"]}
 
 
+def previa_concorrente(arquivo, hoje, frescor_dias=10):
+    """Linhas da previa DIVIDIDA do card (dono, 22/07): metade "Itens acima
+    de concorrencia" (g=kvi), metade "Sobe p/ vizinho" (g=alinha), so com
+    pesquisa fresca (<= frescor_dias, mesma regra da poda). Mantem a ordem
+    do proprio relatorio. Devolve None se o HTML nao tiver os dados."""
+    with open(arquivo, encoding="utf-8") as f:
+        html = f.read()
+    m = re.search(r"const ITENS = (\[.*?\]);", html, re.S)
+    if not m:
+        return None
+    hoje_d = date.fromisoformat(hoje)
+    out = {"acima": [], "abaixo": []}
+    zonas = {"kvi": "acima", "alinha": "abaixo"}
+    for it in json.loads(m.group(1)):
+        zona = zonas.get(it.get("g"))
+        if not zona:
+            continue
+        datas, ref = [], None
+        for vz in it.get("v") or []:
+            try:
+                dd, mm, aa = (vz.get("dt") or "").split("/")
+                datas.append(date(int(aa), int(mm), int(dd)))
+            except (ValueError, AttributeError):
+                pass
+            if ref is None or (vz.get("d") and not ref.get("d")):
+                ref = vz
+        if not datas or (hoje_d - max(datas)).days > frescor_dias:
+            continue
+        atual, sug = it.get("a"), it.get("s")
+        delta = (round((float(sug) - float(atual)) / float(atual) * 100, 1)
+                 if atual and sug else None)
+        out[zona].append({
+            "produto": it.get("p") or "",
+            "ref_nome": (ref or {}).get("n") or "",
+            "ref_preco": (ref or {}).get("p"),
+            "ref_data": (ref or {}).get("dt"),
+            "atual": atual, "sugerido": sug, "delta_pct": delta,
+        })
+    return out
+
+
 RODAPE_CONCORRENTE = """
 <div id="historico-concorrente" style="position:fixed;left:0;right:0;bottom:0;
 height:30vh;background:#0b0e13;border-top:1px solid #232b38;display:flex;
@@ -631,13 +672,16 @@ def rodar(cfg, usar_demo=False):
         novas["ruptura"] = [{"s": hoje, "a": c["a"], "b": c["b"]}]
     if q_conc.get("arquivo") and not q_conc["erro"]:
         try:
-            cc = contar_concorrente(
+            pv = previa_concorrente(
                 os.path.join(destino, q_conc["arquivo"]), hoje)
-            if cc is not None:
-                novas["concorrente_acima"] = [{"s": hoje, "v": cc["acima"]}]
-                novas["concorrente_abaixo"] = [{"s": hoje, "v": cc["abaixo"]}]
+            if pv is not None:
+                q_conc["previa"] = pv
+                novas["concorrente_acima"] = [
+                    {"s": hoje, "v": len(pv["acima"])}]
+                novas["concorrente_abaixo"] = [
+                    {"s": hoje, "v": len(pv["abaixo"])}]
         except Exception as e:  # noqa: BLE001
-            erros["historico"] = f"contagem concorrente: {e}"
+            erros["historico"] = f"previa concorrente: {e}"
     try:
         hist = historico_painel.mesclar_historico(destino, novas, gerado_em)
         payload["historico"] = hist.get("series") or {}

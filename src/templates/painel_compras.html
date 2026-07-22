@@ -128,6 +128,15 @@
   .gbar { fill:#2e4a74 } .gbar.atual { fill:var(--acc) } .gbar:hover { fill:#4a6ea8 }
   .gval { fill:var(--mut); font-size:13px; text-anchor:middle }
   .gdata { fill:var(--fraco); font-size:13px; text-anchor:middle }
+  /* previa dividida do concorrente: duas metades, cada uma com rolagem */
+  .previa-conc { flex:1 1 auto; min-height:0; display:flex;
+      flex-direction:column; gap:.35rem }
+  .previa-conc .metade { flex:1 1 50%; min-height:0; display:flex;
+      flex-direction:column }
+  .previa-conc .ztit { font-size:.72rem; color:var(--fraco); font-weight:650;
+      text-transform:uppercase; letter-spacing:.05em; padding:.15rem 0 }
+  .previa-conc .zrol { flex:1 1 auto; min-height:0; overflow:auto }
+  .previa-conc .mut { color:var(--fraco); font-size:.72rem }
   /* mini do card: ~1/5 da aba, so barras (hover mostra data+valor) */
   .quadro .grafico-mini { flex:0 0 19%; min-height:0;
       border-top:1px solid var(--borda); margin-top:2px; padding-top:2px }
@@ -520,8 +529,30 @@ const Q = {
     cols: [], linha: null,   // sem tabela: previa e a propria revisao embutida
     corpo() {
       if (!this.d.arquivo) return '<p style="color:var(--mut)">Sem revisão do pricing disponível.</p>';
-      // sem link (dono, 20/07): clicar em QUALQUER ponto do card ja abre a
-      // revisao em tela cheia (pointer-events:none no iframe -> clique e do card)
+      // previa DIVIDIDA (dono, 22/07): metade itens acima da concorrencia,
+      // metade "sobe p/ vizinho" — linhas nativas (pesquisa fresca <=10d);
+      // clicar em qualquer ponto do card segue abrindo a revisao completa
+      const pv = this.d.previa;
+      if (pv && (pv.acima.length || pv.abaixo.length)) {
+        const metade = (rot, itens) => '<div class="metade"><div class="ztit">' +
+          rot + " · " + itens.length + '</div><div class="zrol"><table>' +
+          '<tr><th>Produto</th><th>Concorrente</th><th class="num">Atual</th>' +
+          '<th class="num">Sugerido</th></tr>' +
+          itens.map((i) => '<tr><td class="desc">' + esc(i.produto) +
+            '</td><td class="desc">' + esc(i.ref_nome) +
+            (i.ref_preco != null ? " <b>" + rs(i.ref_preco) + "</b>" : "") +
+            (i.ref_data ? ' <span class="mut">' + esc(i.ref_data).slice(0, 5) +
+              "</span>" : "") +
+            '</td><td class="num mut">' + rs(i.atual) +
+            '</td><td class="num">' + rs(i.sugerido) +
+            (i.delta_pct != null ? ' <span class="tag ' +
+              (i.delta_pct < 0 ? "bad" : "ok") + '">' +
+              (i.delta_pct > 0 ? "+" : "") + i.delta_pct + "%</span>" : "") +
+            "</td></tr>").join("") + "</table></div></div>";
+        return '<div class="previa-conc">' +
+          metade("🔺 Itens acima de concorrência", pv.acima) +
+          metade("🔻 Sobe p/ vizinho", pv.abaixo) + "</div>";
+      }
       return '<div class="rolagem previa-frame"><iframe src="' +
         esc(this.d.arquivo) + '" title="revisão de preços"></iframe></div>';
     },
@@ -683,7 +714,8 @@ function pintarGrade() {
       if (TV) return;
       // clique/arrasto NA BARRA de rolagem interna: o alvo e o proprio
       // .rolagem (filhos recebem os cliques no conteudo) — nao abre detalhe
-      if (ev.target.classList && ev.target.classList.contains("rolagem")) return;
+      if (ev.target.classList && (ev.target.classList.contains("rolagem") ||
+          ev.target.classList.contains("zrol"))) return;
       // chip com ordenacao propria: abre a lista JA ordenada por esse aspecto
       const chip = ev.target.closest(".chip[data-k]");
       if (chip && id !== "concorrente") {
