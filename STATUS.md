@@ -183,6 +183,10 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (18ª): **Dashboard compacto p/ TV grande** (023862a) — fonte
+  menor SÓ nos cards (tabela .71rem, células justas, chips/tags menores,
+  mini-gráfico 16%); detalhe aberto intocado. Medido ao vivo: 7–9 linhas
+  visíveis por card (antes ~3); concorrente mostra as DUAS metades no card.
 - 2026-07-22 (17ª): **ML da ruptura — infra completa, veredito honesto**
   (detector abc7f59+c38b611; painel 4e60d8a) — rótulos retrospectivos
   (49.148 amostras, 4.418 rupturas reais 9%), bagging de 15 logísticas,
