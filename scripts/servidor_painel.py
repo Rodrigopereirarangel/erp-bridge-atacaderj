@@ -10,6 +10,7 @@ Trava anti-concorrencia: uma atualizacao por vez — pedido durante uma em
 andamento recebe 429 (o painel espera e recarrega). Roda como SYSTEM no
 boot, sem janela (ver register-painel-tasks.ps1).
 """
+import base64
 import json
 import os
 import shutil
@@ -29,9 +30,18 @@ def _cfg():
     with open(os.path.join(RAIZ, arq), encoding="utf-8") as f:
         cfg = json.load(f)
     p = cfg.get("painel") or {}
+    # usuario+senha (dono, 22/07): quando os DOIS estiverem no
+    # config.local.json (acesso_usuario/acesso_senha), o navegador pede
+    # login ao abrir do zero; vazios = sem login (nada quebra ate o dono
+    # definir as credenciais)
+    usuario = (p.get("acesso_usuario") or "").strip()
+    senha = (p.get("acesso_senha") or "").strip()
+    cred = None
+    if usuario and senha:
+        cred = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
     return (p.get("dir_saida") or os.path.join(RAIZ, "saida", "painel"),
             int(p.get("porta_http") or 8477),
-            p.get("detector_rounds_dir") or "")
+            p.get("detector_rounds_dir") or "", cred)
 
 
 def _atualizar_tudo(detector_rounds_dir):
@@ -66,7 +76,32 @@ def _atualizar_tudo(detector_rounds_dir):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def _autorizado(self):
+        cred = getattr(self.server, "credencial", None)
+        if not cred:
+            return True
+        return (self.headers.get("Authorization") or "") == "Basic " + cred
+
+    def _pede_login(self):
+        self.send_response(401)
+        self.send_header("WWW-Authenticate",
+                         'Basic realm="Painel de Compras AtacadeRJ"')
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):  # noqa: N802 — nome da stdlib
+        if not self._autorizado():
+            return self._pede_login()
+        return super().do_GET()
+
+    def do_HEAD(self):  # noqa: N802
+        if not self._autorizado():
+            return self._pede_login()
+        return super().do_HEAD()
+
     def do_POST(self):  # noqa: N802 — nome da stdlib
+        if not self._autorizado():
+            return self._pede_login()
         if self.path.rstrip("/") != "/atualizar":
             self.send_error(404)
             return
@@ -94,10 +129,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    destino, porta, rounds = _cfg()
+    destino, porta, rounds, cred = _cfg()
     srv = ThreadingHTTPServer(("0.0.0.0", porta),
                               partial(Handler, directory=destino))
     srv.detector_rounds_dir = rounds
+    srv.credencial = cred
     srv.serve_forever()
 
 
