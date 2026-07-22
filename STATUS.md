@@ -191,6 +191,17 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (22ª): **Investigação: concorrentes sumidos da revisão** — (1)
+  pesquisas dos outros mercados PARADAS no módulo de concorrência do
+  Solidcon: JHC 14/07, DOM/ESTRELA 13/07, SUPER MARKET 08/07; "Atacadão"
+  nunca teve registro; Rio Atacadão segue diário. Ação humana: voltar a
+  registrar pesquisas. (2) ACHADO GRAVE: S30 caiu 4.085→1.046 SKUs
+  ("3.572 sem preço de atacado") e re-rodar não resolve — MEDIDO no caixa
+  (DORSAL, filial 1 ativos): 6.035 itens com AtacadoPreco>0 mas só 3.080
+  com AtacadoQtde>0 (o catálogo exige os dois). Entre 17 e 22/07 zeraram
+  em massa as QUANTIDADES de atacado no caixa — provável efeito da limpeza
+  de dados em curso; se não for intencional, restaurar no ERP (pricing e
+  painel voltam sozinhos na geração seguinte).
 - 2026-07-22 (21ª): **Verba: bug do total + custo efetivo + renomes**
   (517bb64+017f98f) — MEDIDO no ERP que vlSellOut é POR UNIDADE (constante
   na linha p/ qt 2 ou 103): total virou SUM(qt×vlSellOut); CERV ITAIPAVA
