@@ -140,6 +140,8 @@ def main():
         linha = {"codigo": cod, "nome": p["descricao"],
                  "curva": p.get("curva") or "", "rua": rua,
                  "rua_rotulo": formato.rotulo_rua(rua),
+                 # unidades por caixa-mae; sem caixa (ou balanca) = 1 (dono)
+                 "cx_mae": int(embalagem) if embalagem and embalagem > 1 else 1,
                  "minimo": formato.exibir(unidades, embalagem, peso),
                  "marca": marca,
                  "ruptura": cod in em_ruptura}

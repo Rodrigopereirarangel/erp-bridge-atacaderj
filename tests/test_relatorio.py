@@ -47,3 +47,20 @@ def test_montar_escapa_html_no_nome():
     # todo '<' do JSON embutido vira < -> nenhuma tag pode "vazar"
     assert "<script> & CIA" not in html
     assert "\\u003cscript> & CIA" in html
+
+
+def test_montar_novidades_do_dono_22_07():
+    dados = {"COTACAO": [_linha(15450, "OLEO SOJA SOYA 900ML", rua=13,
+                                rotulo="A13 cons1", minimo="7 cx")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # busca por produto ao lado da busca de fornecedor
+    assert 'id="buscaProd"' in html
+    # botao salvar PDF (impressao nativa) nas duas vistas
+    assert 'id="pdf"' in html and 'id="pdfRes"' in html
+    assert "window.print" in html
+    # coluna cx mae presente; coluna curva NAO existe mais na tela
+    assert "cx m&atilde;e" in html
+    assert '"cx": 1' in html          # _linha nao tem cx_mae -> default 1
+    assert '"curva"' not in html      # blob sem curva
+    # identidade do painel (tema escuro operacional)
+    assert "--bg:#0b0e13" in html
