@@ -71,8 +71,7 @@ SELECT s.dia, (SELECT COUNT(DISTINCT p.cdPedido)
                     AND i.cdPessoaFilial = p.cdPessoaFilial
                     AND COALESCE(i.inAtendido, 0) = 0
                     AND i.qtPedidoItem > COALESCE(i.qtAtendida, 0))
-      AND (DATEDIFF(day, p.dtPedido, CAST(s.dia AS date)) >= {int(cobranca_dias_limiar)}
-           OR pc.dtEntregaPrevista < CAST(s.dia AS date))) AS v
+      AND DATEDIFF(day, p.dtPedido, CAST(s.dia AS date)) >= {int(cobranca_dias_limiar)}) AS v
 FROM {v}""",
         "sellout": f"""
 SELECT s.dia, (SELECT COUNT(*)

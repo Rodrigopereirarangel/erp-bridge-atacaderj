@@ -90,16 +90,18 @@ def cruzar_validade_relampago(relampago, validades, catalogo, hoje):
 
 
 def montar_cobranca(pedidos, hoje, limiar_dias=7):
-    """Pedidos que merecem cobranca: abertos ha >= limiar OU previsao vencida.
-    A query ja cortou na janela maxima (cobranca_max_dias); os mais velhos que
-    ela viram so o contador de 'abandonados' (fora daqui)."""
+    """Pedidos que merecem cobranca: abertos ha >= limiar_dias, e SO isso
+    (dono, 22/07: previsao vencida deixou de ser porta de entrada — pedido
+    de ontem com previsao de ontem furava a regra dos 7 dias; o atraso vs
+    previsao continua como coluna). A query ja cortou na janela maxima
+    (cobranca_max_dias); os mais velhos viram o contador de 'abandonados'."""
     itens = []
     for r in pedidos or []:
         dias = _dias(r["data_pedido"], hoje)
         prev = str(r["previsao_entrega"])[:10] if r.get("previsao_entrega") else None
         atraso = _dias(prev, hoje) if prev else 0
         atraso = atraso if atraso > 0 else 0
-        if dias < limiar_dias and atraso == 0:
+        if dias < limiar_dias:
             continue
         num = (r.get("telefone") or "").strip()
         ddd = (r.get("ddd") or "").strip()

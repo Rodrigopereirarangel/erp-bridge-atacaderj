@@ -30,12 +30,21 @@ def test_recente_sem_previsao_vencida_fica_fora():
     assert itens == []
 
 
-def test_recente_mas_previsao_vencida_entra():
+def test_recente_fica_fora_mesmo_com_previsao_vencida():
+    # dono, 22/07: previsao vencida DEIXOU de ser porta de entrada — so a
+    # regra dos >= 7 dias vale ("2 DEPOSITO" de 1d furava a lista)
     itens = pc.montar_cobranca(
         [_p(pedido=3, data_pedido="2026-07-17", previsao_entrega="2026-07-19")],
         HOJE, 7)
+    assert itens == []
+
+
+def test_velho_entra_e_atraso_da_previsao_continua_na_coluna():
+    itens = pc.montar_cobranca(
+        [_p(pedido=4, data_pedido="2026-07-10", previsao_entrega="2026-07-19")],
+        HOJE, 7)
     assert len(itens) == 1
-    assert itens[0]["dias_aberto"] == 3 and itens[0]["atraso_previsao"] == 1
+    assert itens[0]["dias_aberto"] == 10 and itens[0]["atraso_previsao"] == 1
 
 
 def test_ordena_crescente_por_dias_e_formata_telefone():
