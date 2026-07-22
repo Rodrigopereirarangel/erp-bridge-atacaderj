@@ -183,6 +183,16 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (17ª): **ML da ruptura — infra completa, veredito honesto**
+  (detector abc7f59+c38b611; painel 4e60d8a) — rótulos retrospectivos
+  (49.148 amostras, 4.418 rupturas reais 9%), bagging de 15 logísticas,
+  validação walk-forward, portão de promoção. RESULTADO: o modelo calibra
+  (Brier 0,058 vs 0,290) mas NÃO discrimina — vira preditor-constante da
+  taxa-base (precisão 4,6% no corte mais agressivo vs 17% da fórmula;
+  Brier de constante ≈ p(1-p) ≈ 0,054). A FÓRMULA conservadora de hoje
+  RANQUEIA melhor e FICA (portão segurou após fix: exige cobertura ≥50%
+  da base — 1º treino promoveu modelo de 0 alarmes, revertido). Treino
+  semanal dom 05:20 registrado no ponte: só promove se um dia vencer.
 - 2026-07-22 (16ª): **Botão 🔄 + grade 3/fileira** (a86d0d8..a83fa0b) —
   servidor próprio (servidor_painel.py, SYSTEM/boot) com POST /atualizar
   que roda a CADEIA inteira (movimentos ERP → rodada nova do detector →
