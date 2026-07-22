@@ -25,6 +25,12 @@ const { detectAll } = req("src/core/detect/detectAll.js");
 const cfgArq = ["config.local.json", "config.example.json"]
   .map((a) => path.join(det, a)).find((a) => fs.existsSync(a));
 const cfg = JSON.parse(fs.readFileSync(cfgArq, "utf8"));
+// modelo treinado (ml/): o replay usa a MESMA regua da rodada ao vivo
+const modeloArq = path.join(det, "data", "modelo.json");
+if (fs.existsSync(modeloArq)) {
+  try { cfg.modelo = JSON.parse(fs.readFileSync(modeloArq, "utf8")); }
+  catch (e) { /* corrompido: replay segue com a formula */ }
+}
 
 const inputDir = path.join(det, "data", "input");
 const vendasLinhas = fs.readFileSync(path.join(inputDir, "vendas.csv"), "utf8")
