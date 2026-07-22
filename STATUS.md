@@ -183,6 +183,17 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (15ª): **Método da ruptura reformado** (detector fcfa7ec; painel
+  f13ecfd) — causa raiz do surto de falsos positivos MEDIDA: às 05:00 as
+  vendas de ontem não existem na retaguarda (PDV sobe de manhã) → todo item
+  diário ganhava +1d parado falso. 4 mecanismos: guarda de dia não-carregado
+  (<60% da mediana = dado ausente), régua do próprio item (silêncio ≤ maior
+  silêncio da janela ≤0,65), 1º dia calado vale meio + Laplace, teto 97%.
+  RESULTADO ao vivo: corte 1.215→458; curva A 168→41; "2d" no corte 587→2;
+  prob máx 0,97; série recalculada (~150 A+B estável, sem tendência
+  artificial). **Prévia do concorrente DIVIDIDA**: acima (3) × sobe p/
+  vizinho (72), linhas nativas c/ concorrente, preço, data e delta %.
+  164+58 testes.
 - 2026-07-22 (14ª): **Avaria — visual do terço de baixo** (f8bd195..a4d522b)
   — esquecidos agora listam TODOS (1.009) com rolagem própria (dois bugs de
   flex: min-height:auto no .gforgot e no próprio .grafico esticavam o bloco
