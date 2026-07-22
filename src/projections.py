@@ -387,3 +387,36 @@ def catalogo_exposicao_csv(catalogo, caminho):
         ])
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
     return len(linhas)
+
+
+# ---------- Consumidor: listagem-fornecedor ----------
+
+def negociacao_csv(rows, caminho):
+    """Produto x fornecedor da tela de negociacao (dt_alteracao pode ser
+    NULL -> vazio). Regra 1 do app listagem-fornecedor."""
+    cab = ["codigo", "fornecedor", "dt_alteracao"]
+    linhas = [[r["codigo"], r["fornecedor"], r.get("dt_alteracao") or ""]
+              for r in rows]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
+def entradas_fornecedor_csv(rows, caminho):
+    """Entregas por produto x dia x fornecedor, qtd em UNIDADES."""
+    cab = ["codigo", "data", "fornecedor", "qtd"]
+    linhas = [[r["codigo"], r["data"], r["fornecedor"], r["qtd"]]
+              for r in rows]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
+
+
+def catalogo_listagem_csv(cat, caminho):
+    """Catalogo enxuto p/ a listagem: SEM custo e SEM preco (regra do repo:
+    valores nunca saem em arquivo de consumidor fora da cotacao)."""
+    cab = ["codigo", "descricao", "embalagem", "curva", "peso", "ativo"]
+    linhas = [[r["codigo"], r["descricao"],
+               r.get("embalagem") if r.get("embalagem") is not None else "",
+               r.get("curva") or "", r.get("peso"), r.get("ativo")]
+              for r in cat]
+    _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))
+    return len(linhas)
