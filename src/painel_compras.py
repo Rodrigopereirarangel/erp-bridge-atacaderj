@@ -369,8 +369,8 @@ gap:12px;padding:8px 10px;z-index:50;box-sizing:border-box"></div>
       var xc=(i*bw+bw/2).toFixed(1);
       b+='<rect x="'+(i*bw+bw*0.12).toFixed(1)+'" y="'+y.toFixed(1)+
         '" width="'+(bw*0.76).toFixed(1)+'" height="'+h.toFixed(1)+
-        '" fill="'+(i===s.length-1?"#58a6ff":"#2e4a74")+'"><title>'+s[i].s+
-        " \\u2014 "+Math.round(s[i].v)+'</title></rect>'+
+        '" fill="'+(i===s.length-1?"#58a6ff":"#2e4a74")+'" data-t="'+s[i].s+
+        " \\u00b7 "+Math.round(s[i].v)+'"></rect>'+
         '<text x="'+xc+'" y="'+(y-6).toFixed(1)+
         '" fill="#8e99a8" font-size="13" text-anchor="middle">'+
         Math.round(s[i].v)+'</text>';
@@ -392,6 +392,19 @@ gap:12px;padding:8px 10px;z-index:50;box-sizing:border-box"></div>
   }
   um("Itens acima de concorr\\u00eancia", S.acima);
   um("Itens abaixo de concorr\\u00eancia", S.abaixo);
+  var t=document.createElement("div");
+  t.style.cssText="position:fixed;display:none;z-index:99;pointer-events:none;"+
+    "background:#1b2330;border:1px solid #232b38;border-radius:8px;"+
+    "padding:4px 10px;font-size:13px;color:#e8edf4;white-space:nowrap";
+  document.body.appendChild(t);
+  document.addEventListener("mousemove",function(ev){
+    var r=ev.target.closest&&ev.target.closest("rect[data-t]");
+    if(!r){t.style.display="none";return;}
+    t.textContent=r.getAttribute("data-t");
+    t.style.display="block";
+    t.style.left=Math.min(ev.clientX+14,innerWidth-t.offsetWidth-8)+"px";
+    t.style.top=Math.max(ev.clientY-36,6)+"px";
+  });
 })();
 </script>
 """
