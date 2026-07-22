@@ -183,6 +183,9 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (20ª): **SellOut só vencidas ≤60d** (fbb1ed4) — sai quem ainda
+  está no prazo e o vencido há +60d; chip vermelho "vencidas ≤60d". Ao
+  vivo: 141 itens · R$ 4.725,91 (vencidas entre 5 e 53 dias).
 - 2026-07-22 (19ª): **Duas regras ajustadas pelo dono** (70b8007+4b3b320) —
   (1) Cobrança: previsão vencida DEIXOU de ser porta de entrada (pedido de
   1 dia "2 DEPOSITO" furava a regra); entra só com ≥7d aberto; série
