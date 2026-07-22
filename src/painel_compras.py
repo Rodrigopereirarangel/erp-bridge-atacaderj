@@ -337,9 +337,15 @@ def _podar_copia_revisao(arquivo):
                         '["kvi","Itens acima de concorrência"]')
     html = html.replace('"r": "KVI no piso"', '"r": "Acima (no piso)"')
     html = html.replace('"r": "KVI"', '"r": "Acima"')
+    # dono (22/07): aba "Recuo" fora da tela cheia (chip some; os itens da
+    # zona ficam inacessiveis de proposito)
+    html = html.replace(',["recuo","Recuo"]]', "]")
     html = html.replace(
         "</head>",
         '<style id="poda-copia">p.nota,#descricao{display:none!important}'
+        # dono (22/07): concorrentes NAO-considerados (d=false) vinham quase
+        # invisiveis — aparecem todos com o mesmo destaque
+        ".viz .ref{color:inherit!important;font-weight:600!important}"
         "</style></head>", 1)
     with open(arquivo, "w", encoding="utf-8") as f:
         f.write(html)
@@ -412,83 +418,6 @@ def previa_concorrente(arquivo, hoje, frescor_dias=10):
             "atual": atual, "sugerido": sug, "delta_pct": delta,
         })
     return out
-
-
-RODAPE_CONCORRENTE = """
-<div id="historico-concorrente" style="position:fixed;left:0;right:0;bottom:0;
-height:30vh;background:#0b0e13;border-top:1px solid #232b38;display:flex;
-gap:12px;padding:8px 10px;z-index:50;box-sizing:border-box"></div>
-<script id="historico-concorrente-js">
-(function(){
-  var S = /*__SERIES__*/null;
-  var box = document.getElementById("historico-concorrente");
-  if (!S || !box) return;
-  document.body.style.paddingBottom = "32vh";
-  function um(titulo, s){
-    if (!s || !s.length) return;
-    var W=800,H=260,MT=24,MB=22,max=1,i;
-    for(i=0;i<s.length;i++) if(s[i].v>max) max=s[i].v;
-    var bw=W/s.length,b="";
-    for(i=0;i<s.length;i++){
-      var h=Math.max(s[i].v/max*(H-MT-MB), s[i].v>0?2:0), y=H-MB-h;
-      var xc=(i*bw+bw/2).toFixed(1);
-      b+='<rect x="'+(i*bw+bw*0.12).toFixed(1)+'" y="'+y.toFixed(1)+
-        '" width="'+(bw*0.76).toFixed(1)+'" height="'+h.toFixed(1)+
-        '" fill="'+(i===s.length-1?"#58a6ff":"#2e4a74")+'" data-t="'+s[i].s+
-        " \\u00b7 "+Math.round(s[i].v)+'"></rect>'+
-        '<text x="'+xc+'" y="'+(y-6).toFixed(1)+
-        '" fill="#8e99a8" font-size="13" text-anchor="middle">'+
-        Math.round(s[i].v)+'</text>';
-      if(i===0||i===s.length-1||i%4===0){
-        var p=s[i].s.split("-");
-        b+='<text x="'+xc+'" y="'+(H-6)+
-          '" fill="#5c6572" font-size="13" text-anchor="middle">'+
-          p[2]+"/"+p[1]+'</text>';
-      }
-    }
-    var d=document.createElement("div");
-    d.style.cssText="flex:1;display:flex;flex-direction:column;min-width:0";
-    d.innerHTML='<div style="font-size:11px;color:#5c6572;'+
-      'text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px 4px">'+
-      titulo+" \\u00b7 amostras semanais</div>"+
-      '<svg style="flex:1;width:100%" viewBox="0 0 '+W+" "+H+
-      '" preserveAspectRatio="none">'+b+"</svg>";
-    box.appendChild(d);
-  }
-  um("Itens acima de concorr\\u00eancia", S.acima);
-  um("Itens abaixo de concorr\\u00eancia", S.abaixo);
-  var t=document.createElement("div");
-  t.style.cssText="position:fixed;display:none;z-index:99;pointer-events:none;"+
-    "background:#1b2330;border:1px solid #232b38;border-radius:8px;"+
-    "padding:4px 10px;font-size:13px;color:#e8edf4;white-space:nowrap";
-  document.body.appendChild(t);
-  document.addEventListener("mousemove",function(ev){
-    var r=ev.target.closest&&ev.target.closest("rect[data-t]");
-    if(!r){t.style.display="none";return;}
-    t.textContent=r.getAttribute("data-t");
-    t.style.display="block";
-    t.style.left=Math.min(ev.clientX+14,innerWidth-t.offsetWidth-8)+"px";
-    t.style.top=Math.max(ev.clientY-36,6)+"px";
-  });
-})();
-</script>
-"""
-
-
-def injetar_grafico_concorrente(arquivo, series):
-    """Anexa na COPIA da revisao o rodape fixo (ultimo terco da tela) com os
-    DOIS graficos semanais — itens acima e abaixo da concorrencia (dono,
-    21/07). A previa do painel esconde o rodape (poda do iframe)."""
-    with open(arquivo, encoding="utf-8") as f:
-        html = f.read()
-    if "historico-concorrente" in html:
-        return
-    dados = json.dumps(series, ensure_ascii=False).replace("</", "<\\/")
-    html = html.replace(
-        "</body>",
-        RODAPE_CONCORRENTE.replace("/*__SERIES__*/null", dados) + "</body>", 1)
-    with open(arquivo, "w", encoding="utf-8") as f:
-        f.write(html)
 
 
 def renderizar(payload):
@@ -692,14 +621,6 @@ def rodar(cfg, usar_demo=False):
     except Exception as e:  # noqa: BLE001 — historico nunca derruba o painel
         erros["historico"] = str(e)
         payload["historico"] = {}
-    if q_conc.get("arquivo") and not q_conc["erro"]:
-        try:
-            injetar_grafico_concorrente(
-                os.path.join(destino, q_conc["arquivo"]),
-                {"acima": payload["historico"].get("concorrente_acima") or [],
-                 "abaixo": payload["historico"].get("concorrente_abaixo") or []})
-        except Exception as e:  # noqa: BLE001
-            erros["historico"] = f"grafico concorrente: {e}"
 
     dados = json.dumps(payload, ensure_ascii=False, indent=1, default=str)
     projections._escrever_atomico(os.path.join(destino, "dados_painel.json"),

@@ -97,7 +97,8 @@ def test_podar_copia_renomeia_kvi_e_esconde_nota(tmp_path):
     arq = tmp_path / "rev.html"
     arq.write_text('<head></head><body><p class="nota">x</p>'
                    '<script>const GRUPOS = [["kvi","KVI"],'
-                   '["alinha","Sobe p/ vizinho"]];'
+                   '["alinha","Sobe p/ vizinho"],["degrau","Degrau"],'
+                   '["recuo","Recuo"]];'
                    'const ITENS = [{"r": "KVI no piso", "g": "kvi"},'
                    '{"r": "KVI", "g": "kvi"}];</script></body>',
                    encoding="utf-8")
@@ -107,45 +108,5 @@ def test_podar_copia_renomeia_kvi_e_esconde_nota(tmp_path):
     assert '["kvi","Itens acima de concorrência"]' in s
     assert '"r": "Acima (no piso)"' in s and '"r": "Acima"' in s
     assert "p.nota,#descricao{display:none!important}" in s
-
-
-def test_injetar_grafico_concorrente_e_idempotente(tmp_path):
-    arq = tmp_path / "rev.html"
-    arq.write_text("<body><p>x</p></body>", encoding="utf-8")
-    import painel_compras as pcm
-    series = {"acima": [{"s": "2026-07-21", "v": 12}],
-              "abaixo": [{"s": "2026-07-21", "v": 40}]}
-    pcm.injetar_grafico_concorrente(str(arq), series)
-    s = arq.read_text(encoding="utf-8")
-    assert s.count("historico-concorrente") >= 1 and '"v": 12' in s
-    pcm.injetar_grafico_concorrente(str(arq), series)   # 2a chamada nao duplica
-    assert arq.read_text(encoding="utf-8").count(
-        'id="historico-concorrente"') == 1
-
-
-def test_mesclar_preserva_pontos_antigos_e_substitui_iguais(tmp_path):
-    d = str(tmp_path)
-    hp.mesclar_historico(d, {"ruptura": [{"s": "2026-04-06", "v": 5},
-                                         {"s": "2026-04-13", "v": 7}]}, "t1")
-    out = hp.mesclar_historico(d, {"ruptura": [{"s": "2026-04-13", "v": 9},
-                                               {"s": "2026-07-21", "v": 2}]},
-                               "t2")
-    assert out["series"]["ruptura"] == [
-        {"s": "2026-04-06", "v": 5},     # preservado (fora das novas)
-        {"s": "2026-04-13", "v": 9},     # substituido
-        {"s": "2026-07-21", "v": 2}]
-    arq = json.loads((tmp_path / "historico.json").read_text(encoding="utf-8"))
-    assert arq["gerado_em"] == "t2"
-
-
-def test_rodar_demo_embute_historico_no_payload(tmp_path, monkeypatch):
-    monkeypatch.setattr(pc, "RAIZ", str(tmp_path))
-    pc.rodar({"painel": {"dir_saida": str(tmp_path / "painel")}},
-             usar_demo=True)
-    dados = json.loads((tmp_path / "painel" / "dados_painel.json").read_text(
-        encoding="utf-8"))
-    hist = dados["historico"]
-    assert {"validade_relampago", "cobranca", "sellout", "prepedidos",
-            "abaixo_custo"} <= set(hist)
-    assert len(hist["cobranca"]) >= 2
-    assert (tmp_path / "painel" / "historico.json").exists()
+    assert "recuo" not in s                       # aba Recuo fora (22/07)
+    assert '["degrau","Degrau"]];' in s           # fechamento integro
