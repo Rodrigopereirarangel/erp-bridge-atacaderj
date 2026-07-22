@@ -183,6 +183,15 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (16ª): **Botão 🔄 + grade 3/fileira** (a86d0d8..a83fa0b) —
+  servidor próprio (servidor_painel.py, SYSTEM/boot) com POST /atualizar
+  que roda a CADEIA inteira (movimentos ERP → rodada nova do detector →
+  painel) sob trava; botão 🔄 fixo (gira, recarrega; some na TV); a página
+  atualiza SOZINHA na 1ª abertura de cada guia (sessionStorage). Grade
+  virou 3 janelas/fileira (base 6 col) com altura ADAPTATIVA — fileiras
+  dividem a tela, gaveta redimensiona, última fileira reparte o espaço.
+  Testado ao vivo: POST ok (movimentos ok | detector 1.629 | painel ok);
+  8 cards, 3 linhas, sem rolagem. Servidor re-registrado no ponte.
 - 2026-07-22 (15ª): **Método da ruptura reformado** (detector fcfa7ec; painel
   f13ecfd) — causa raiz do surto de falsos positivos MEDIDA: às 05:00 as
   vendas de ontem não existem na retaguarda (PDV sobe de manhã) → todo item
