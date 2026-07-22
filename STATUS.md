@@ -191,6 +191,13 @@ python C:\Users\User\erp-bridge-atacaderj\src\bridge.py --only vendas-mensal
 
 ## Log de progresso
 
+- 2026-07-22 (25ª): **Painel na internet (Quick Tunnel de teste)** —
+  cloudflared 2026.7.2 instalado; tarefa "AtacadeRJ - Painel Tunel
+  Publico" (SYSTEM, boot, sem janela, log em cloudflared	unnel.log).
+  URL de teste: https://guestbook-improvement-blocks-anywhere.trycloudflare.com
+  (MUDA se o ponte reiniciar — nova URL no tunnel.log). Verificado de fora:
+  sem login 401, com login 200, HTTPS ok. Definitivo (URL fixa + Access)
+  aguarda domínio próprio (~R$ 40/ano no registro.br).
 - 2026-07-22 (24ª): **2º usuário do painel** (deaeec7) — servidor aceita
   lista acesso_usuarios; criado comprasmajestade@... no config.local do
   ponte. Verificado: os 2 usuários 200, intruso 401.
