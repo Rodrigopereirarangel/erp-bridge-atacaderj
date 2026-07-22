@@ -13,10 +13,13 @@ import queries    # noqa: E402
 
 
 def test_query_filtra_tipo3_com_saldo_e_ordena_por_valor():
-    sql = queries.AVARIA_SALDO
+    sql = queries.AVARIA_SALDO.format(avaria_desde="2026-03-01")
     assert "cdEstoqueTipo = 3" in sql and "qtEstoqueFisico > 0" in sql
     assert "tbEstoqueContabil" in sql and "tbEstoqueMovimento" in sql
     assert "ORDER BY valor DESC" in sql
+    # dono, 22/07: so quem ENTROU na area de marco em diante
+    assert "HAVING MAX(m.ult_entrada) >= '2026-03-01'" in sql
+    assert "inEntrada = 1" in sql
 
 
 def test_demo_tem_forma_da_query():

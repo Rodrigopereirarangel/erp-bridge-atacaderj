@@ -611,6 +611,8 @@ ORDER BY vencimento, produto
 """
 
 # Saldo parado na area de troca/avaria (estoque tipo 3 = "Avaria";
+# SO itens com ENTRADA na area >= {avaria_desde} (dono, 22/07: marco ate
+# hoje — a carga inicial de out/2025 e acumulos mais velhos ficam fora);
 # medido em 2026-07-22: 1.369 super-produtos, R$ 664,8 mil ao custo
 # contabil). Fisico e por PRODUTO, contabil por SUPERPRODUTO -> agrega no
 # super (nome exibido); ultima_mov vem de tbEstoqueMovimento tipo 3 e da a
@@ -627,9 +629,13 @@ JOIN dbo.tbSuperProduto sp ON sp.cdSuperProduto = p.cdSuperProduto
 LEFT JOIN dbo.tbEstoqueContabil ec
   ON ec.cdSuperProduto = sp.cdSuperProduto AND ec.cdEstoqueTipo = 3
  AND ec.cdPessoaFilial = e.cdPessoaFilial
-OUTER APPLY (SELECT MAX(mm.dtMovimento) AS ult FROM dbo.tbEstoqueMovimento mm
+OUTER APPLY (SELECT MAX(mm.dtMovimento) AS ult,
+                    MAX(CASE WHEN mm.inEntrada = 1
+                             THEN mm.dtMovimento END) AS ult_entrada
+             FROM dbo.tbEstoqueMovimento mm
              WHERE mm.cdProduto = e.cdProduto AND mm.cdEstoqueTipo = 3) m
 WHERE e.cdEstoqueTipo = 3 AND e.qtEstoqueFisico > 0
 GROUP BY sp.cdSuperProduto, sp.nmProdutoPai
+HAVING MAX(m.ult_entrada) >= '{avaria_desde}'
 ORDER BY valor DESC
 """

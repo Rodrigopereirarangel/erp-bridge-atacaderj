@@ -56,6 +56,7 @@
     "cobranca_alerta_dias": 21,
     "prepedido_dias": 21,
     "avaria_esquecido_dias": 60,
+    "avaria_desde": "2026-03-01",
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
     "reload_minutos": 5,

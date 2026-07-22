@@ -26,6 +26,7 @@ PADROES = {
     "cobranca_alerta_dias": 21,
     "prepedido_dias": 21,
     "avaria_esquecido_dias": 60,
+    "avaria_desde": "2026-03-01",
     "validade_urgente_dias": 30,
     "rodizio_segundos": 20,
     "reload_minutos": 5,
@@ -571,8 +572,9 @@ def rodar(cfg, usar_demo=False):
                 prep = _consulta(conn, queries.PRE_PEDIDOS.format(
                     prepedido_dias=int(cfgp["prepedido_dias"])),
                     "prepedidos", erros)
-                avaria = _consulta(conn, queries.AVARIA_SALDO,
-                                   "avaria", erros)
+                avaria = _consulta(conn, queries.AVARIA_SALDO.format(
+                    avaria_desde=str(cfgp["avaria_desde"])),
+                    "avaria", erros)
                 # series historicas semanais (spec §13) — point-in-time
                 for nome, sql in historico_painel.sql_series(
                         dias_hist, max_d, int(cfgp["cobranca_dias_limiar"]),
