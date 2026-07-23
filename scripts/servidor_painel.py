@@ -26,7 +26,11 @@ _trava = threading.Lock()
 # arquivos servidos SEM login (dono, 22/07): a listagem por fornecedor e
 # aberta para qualquer um da rede/Tailscale — o RESTO do painel continua
 # atras do Basic auth. So GET/HEAD; POST /atualizar segue protegido.
-PUBLICOS = {"/listagem-fornecedores.html"}
+# /listagem/overrides (GET+POST, dono 23/07): agrupamento de fornecedores
+# (filho->mae) e itens movidos a mao pela pagina da listagem — persiste em
+# JSON (painel.listagem_overrides_json) que o gerar.py da listagem tambem le.
+PUBLICOS = {"/listagem-fornecedores.html", "/listagem/overrides"}
+OVERRIDES_MAX = 2_000_000   # 2 MB: ~10x o tamanho plausivel do JSON
 
 
 def _cfg():
@@ -49,7 +53,8 @@ def _cfg():
              for us, se in pares} or None
     return (p.get("dir_saida") or os.path.join(RAIZ, "saida", "painel"),
             int(p.get("porta_http") or 8477),
-            p.get("detector_rounds_dir") or "", creds)
+            p.get("detector_rounds_dir") or "", creds,
+            p.get("listagem_overrides_json") or "")
 
 
 def _atualizar_tudo(detector_rounds_dir):
@@ -101,7 +106,58 @@ class Handler(SimpleHTTPRequestHandler):
     def _publico(self):
         return self.path.split("?", 1)[0] in PUBLICOS
 
+    def _e_overrides(self):
+        return self.path.split("?", 1)[0] == "/listagem/overrides"
+
+    def _overrides_get(self):
+        arq = getattr(self.server, "overrides_json", "")
+        if not arq:
+            self.send_error(404)
+            return
+        dados = {"grupos": {}, "itens": {}}
+        if os.path.exists(arq):
+            try:
+                with open(arq, encoding="utf-8") as f:
+                    dados = json.load(f)
+            except (OSError, ValueError):
+                pass                      # ilegivel -> devolve vazio
+        self._json(200, dados)
+
+    def _overrides_post(self):
+        arq = getattr(self.server, "overrides_json", "")
+        if not arq:
+            self.send_error(404)
+            return
+        tam = int(self.headers.get("Content-Length") or 0)
+        if not 0 < tam <= OVERRIDES_MAX:
+            self._json(413, {"ok": False, "erro": "tamanho invalido"})
+            return
+        try:
+            corpo = json.loads(self.rfile.read(tam).decode("utf-8"))
+            grupos = corpo.get("grupos") or {}
+            itens = corpo.get("itens") or {}
+            ok = (isinstance(grupos, dict) and isinstance(itens, dict)
+                  and all(isinstance(k, str) and isinstance(v, str)
+                          for k, v in grupos.items())
+                  and all(isinstance(k, str) and isinstance(v, str)
+                          for k, v in itens.items()))
+            if not ok:
+                raise ValueError("formato: grupos/itens devem ser str->str")
+        except (ValueError, UnicodeDecodeError) as e:
+            self._json(400, {"ok": False, "erro": str(e)[:200]})
+            return
+        os.makedirs(os.path.dirname(arq), exist_ok=True)
+        tmp = arq + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"grupos": grupos, "itens": itens}, f,
+                      ensure_ascii=False, indent=1)
+        os.replace(tmp, arq)
+        self._json(200, {"ok": True, "grupos": len(grupos),
+                         "itens": len(itens)})
+
     def do_GET(self):  # noqa: N802 — nome da stdlib
+        if self._e_overrides():
+            return self._overrides_get()
         if not self._publico() and not self._autorizado():
             return self._pede_login()
         return super().do_GET()
@@ -112,6 +168,8 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_HEAD()
 
     def do_POST(self):  # noqa: N802 — nome da stdlib
+        if self._e_overrides():           # publico, como a pagina que o usa
+            return self._overrides_post()
         if not self._autorizado():
             return self._pede_login()
         if self.path.rstrip("/") != "/atualizar":
@@ -141,11 +199,12 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    destino, porta, rounds, creds = _cfg()
+    destino, porta, rounds, creds, overrides = _cfg()
     srv = ThreadingHTTPServer(("0.0.0.0", porta),
                               partial(Handler, directory=destino))
     srv.detector_rounds_dir = rounds
     srv.credenciais = creds
+    srv.overrides_json = overrides
     srv.serve_forever()
 
 
