@@ -164,6 +164,16 @@
   button { background:#202836; color:var(--txt); border:1px solid var(--borda);
            border-radius:9px; padding:.45rem 1rem; font-size:.95rem; cursor:pointer }
   button:hover { background:#283246 }
+  /* abas de navegacao (dono, 23/07): painel <-> listagem por fornecedor,
+     unificando os apps de compras na mesma porta 8477 */
+  #abas { position:fixed; top:.55rem; right:1.05rem; z-index:20;
+          display:flex; gap:.4rem }
+  #abas .aba { padding:.22rem .8rem; font-size:.8rem; border-radius:999px;
+          color:var(--mut); background:var(--card2);
+          border:1px solid var(--borda); text-decoration:none }
+  #abas .aba:hover { border-color:#3a5a8c; color:var(--txt) }
+  #abas .aba.on { background:#1c3050; border-color:#3a5a8c; color:var(--txt) }
+  body.tv #abas { display:none }
   /* botao 🔄: gera os dados NA HORA (POST /atualizar do servidor proprio) */
   #atualizar { position:fixed; bottom:.6rem; right:1.05rem; z-index:20;
       font-size:1.2rem; line-height:1; padding:.4rem .55rem;
@@ -221,6 +231,8 @@
 </style>
 </head>
 <body>
+<nav id="abas"><span class="aba on">painel</span><a class="aba"
+ href="listagem-fornecedores.html">listagem por fornecedor</a></nav>
 <div class="grade" id="grade"></div>
 <div id="detalhe"></div>
 <button id="atualizar" title="atualizar agora (gera os dados de novo)">🔄</button>
