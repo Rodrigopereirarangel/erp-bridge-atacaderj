@@ -94,6 +94,12 @@ _TEMPLATE = """<!doctype html>
           border-bottom:1px solid var(--borda); padding:.7rem 0 .8rem }
  header h1 { font:700 1.15rem/1.2 "Segoe UI Variable Display", "Segoe UI",
              system-ui, sans-serif; letter-spacing:-.01em }
+ .abas { display:flex; gap:.4rem; margin-bottom:.5rem }
+ .abas .aba { padding:.22rem .8rem; font-size:.8rem; border-radius:999px;
+        color:var(--mut); background:var(--card2);
+        border:1px solid var(--borda); text-decoration:none }
+ .abas .aba:hover { border-color:#3a5a8c; color:var(--txt) }
+ .abas .aba.on { background:#1c3050; border-color:#3a5a8c; color:var(--txt) }
  header small { color:var(--mut); font-size:.74rem;
                 font-variant-numeric:tabular-nums }
  .buscas { display:flex; gap:.55rem; margin-top:.55rem }
@@ -213,7 +219,11 @@ _TEMPLATE = """<!doctype html>
    th.mao { color:#333 }
  }
 </style></head><body>
-<header><div class="miolo"><h1>Listagem por fornecedor</h1>
+<header><div class="miolo">
+<nav class="abas nao-imprime"><a class="aba" href="/"
+ title="abre o Painel de Compras (pede login)">painel de compras</a>
+<span class="aba on">listagem por fornecedor</span></nav>
+<h1>Listagem por fornecedor</h1>
 <small>dados de __DADOS_DE__</small>
 <div class="buscas">
 <input id="busca" type="search" placeholder="buscar fornecedor...">
