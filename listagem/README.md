@@ -1,4 +1,10 @@
-# listagem-fornecedor-atacaderj
+# listagem (dentro do erp-bridge-atacaderj)
+
+> 23/07/2026: projeto FUNDIDO no repo erp-bridge-atacaderj (pasta
+> `listagem/`), unificando os apps do setor de compras num repositório só
+> (decisão do dono; abas painel ↔ listagem na 8477). Histórico git
+> preservado via subtree. O repo antigo `listagem-fornecedor-atacaderj`
+> virou arquivo morto.
 
 Relatório HTML único: produtos por FORNECEDOR com código, nomenclatura,
 curva, corredor (ruas do depósito) e estoque mínimo (mediana de janelas
@@ -11,10 +17,14 @@ No PC-ponte:
 
 1. `cd C:\Users\User\erp-bridge-atacaderj && git pull && python src\bridge.py --only listagem`
    (gera saida\listagem\*.csv — 4 arquivos)
-2. `cd C:\Users\User\listagem-fornecedor-atacaderj && git pull && gerar-listagem.bat`
+2. `cd C:\Users\User\erp-bridge-atacaderj\listagem && gerar-listagem.bat`
+   (o `git pull` já veio no passo 1 — repo unificado)
 3. Abrir `saida\listagem-fornecedores.html` no navegador (PC ou celular).
 
-Config: copie `config.example.json` -> `config.local.json`. O caminho
+Config: copie `config.example.json` -> `config.local.json`. Overrides de
+agrupamento: na 1ª instalação, copie `data\listagem_overrides.seed.json`
+-> `data\listagem_overrides.json` (o VIVO fica fora do git — é ele que o
+POST /listagem/overrides edita e o gerar.py lê). O caminho
 `ruas_estado_json` é o estado do deposito-atacaderj — confira o caminho real
 no start do servidor de lá (parâmetro `estado_json`).
 
