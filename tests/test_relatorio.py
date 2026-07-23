@@ -83,3 +83,18 @@ def test_impressao_sem_emoji_nem_avisos():
     assert ".rupt, .marca { display:none !important }" in html
     # cabecalho de impressao sem legenda de avisos
     assert html.count("dados de x &middot; AtacadeRJ</div>") >= 1
+
+
+def test_ui_de_agrupamento_e_overrides():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    ovr = {"grupos": {"COCA COLA": "COCA COLA RJ ANDINA"}, "itens": {}}
+    html = relatorio.montar(relatorio.preparar(dados), "x", ovr)
+    # overrides embutidos como fallback + endpoint de persistencia
+    assert '"COCA COLA": "COCA COLA RJ ANDINA"' in html
+    assert html.count("/listagem/overrides") >= 2      # GET no boot + POST
+    # controles: agrupar filiais, definir mae, mover itens, dialogo e barra
+    for eid in ("btnAgrupar", "btnMae", "btnMover", "dlg", "barra", "dlForn"):
+        assert 'id="%s"' % eid in html
+    # o JS resolve corrente filho->mae e reordena por rua (campo ro)
+    assert "function resolve(" in html
+    assert "a.ro-b.ro" in html

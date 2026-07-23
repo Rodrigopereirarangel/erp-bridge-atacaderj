@@ -161,4 +161,38 @@ def test_mediana_zero_vira_ruptura_cronica_sem_numero(tmp_path):
     assert r.returncode == 0, r.stderr
     html = open(cfg["saida_html"], encoding="utf-8").read()
     assert "ruptura crônica" in html
-    assert '"minimo": "—"' in html or '"minimo": "\u2014"' in html
+    # piso do dono (23/07): nunca abaixo de 1 un/1 cx
+    assert '"minimo": "1 un"' in html
+
+
+def test_piso_de_1_caixa_mae_quando_tem_caixa(tmp_path):
+    # produto com caixa de 20 vendendo pouquissimo -> piso = 1 cx (20 un)
+    config, cfg = _montar_insumos(tmp_path)
+    hoje = date(2026, 7, 20)
+    d = lambda n: (hoje - timedelta(days=n)).isoformat()  # noqa: E731
+    with open(cfg["entrada"]["catalogo_csv"], "a", encoding="utf-8") as f:
+        f.write("555;REFRI RARO 2L;20;C;0;1\n")
+    with open(cfg["entrada"]["vendas_csv"], "a", encoding="utf-8") as f:
+        f.write(f"555;REFRI;{d(100)};1\n")
+        f.write(f"555;REFRI;{d(50)};1\n")
+    r = _rodar(config)
+    assert r.returncode == 0, r.stderr
+    html = open(cfg["saida_html"], encoding="utf-8").read()
+    assert '"codigo": 555' in html
+    assert html.count('"minimo": "1 cx"') >= 1
+
+
+def test_overrides_embutidos_no_html(tmp_path):
+    config, cfg = _montar_insumos(tmp_path)
+    ovr = tmp_path / "ovr.json"
+    ovr.write_text(json.dumps({"grupos": {"CAMIL SC": "CAMIL SP"},
+                               "itens": {"15450": "GARCIA"}}),
+                   encoding="utf-8")
+    cfg["entrada"]["overrides_json"] = str(ovr)
+    config.write_text(json.dumps(cfg), encoding="utf-8")
+    r = _rodar(config)
+    assert r.returncode == 0, r.stderr
+    html = open(cfg["saida_html"], encoding="utf-8").read()
+    assert '"CAMIL SC": "CAMIL SP"' in html      # grupos embutidos
+    assert '"15450": "GARCIA"' in html           # itens embutidos
+    assert '"ro":' in html                       # ordem de rua p/ o JS

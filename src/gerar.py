@@ -97,6 +97,25 @@ def _ler_ruptura(rounds_dir, hoje):
     return codigos
 
 
+def _ler_overrides(caminho):
+    """Agrupamento de fornecedores (filho->mae) + itens movidos a mao —
+    o MESMO arquivo que o servidor do painel edita via POST /listagem/
+    overrides. Vai embutido no HTML como fallback; a pagina busca a versao
+    fresca no servidor ao abrir. Opcional: ausente/ilegivel -> vazio."""
+    vazio = {"grupos": {}, "itens": {}}
+    if not caminho or not os.path.exists(caminho):
+        return vazio
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            bruto = json.load(f)
+        return {"grupos": dict(bruto.get("grupos") or {}),
+                "itens": dict(bruto.get("itens") or {})}
+    except (OSError, ValueError) as e:
+        print(f"AVISO: overrides ilegivel ({e}) - agrupamento vazio",
+              file=sys.stderr)
+        return vazio
+
+
 def main():
     ap = argparse.ArgumentParser(description="Listagem por fornecedor (HTML)")
     ap.add_argument("--config", default=os.path.join(RAIZ, "config.local.json"))
@@ -115,6 +134,9 @@ def main():
                    for r in _ler_csv(ent["negociacao_csv"])]
     ruas = _ler_ruas(ent.get("ruas_estado_json"))
     em_ruptura = _ler_ruptura(ent.get("ruptura_rounds_dir"), date.today())
+    overrides = _ler_overrides(ent.get("overrides_json") or
+                               os.path.join(RAIZ, "data",
+                                            "listagem_overrides.json"))
 
     vendas_por_cod = {}
     datas = []
@@ -135,16 +157,22 @@ def main():
         unidades, marca = minimo.calcular(
             vendas_por_cod.get(cod, {}), fim, p.get("curva") or None)
         # mediana zero so acontece no fallback com ruptura (janela limpa
-        # exige venda) — "0 un" leria como recomendacao de estoque zero;
-        # caso real 22/07: cervejas C12 com 2-4 vendas em 180d (dono)
+        # exige venda) — caso real 22/07: cervejas C12 com 2-4 vendas/180d
         if unidades == 0 and marca == "*":
-            unidades, marca = None, "ruptura_cronica"
+            marca = "ruptura_cronica"
         embalagem = float(p["embalagem"]) if p.get("embalagem") else None
         peso = str(p.get("peso")) == "1"
+        # piso do dono (23/07): estoque minimo NUNCA abaixo de 1 caixa-mae
+        # (ou 1 un/kg sem caixa) — vale tambem p/ sem-venda e ruptura cronica
+        piso = float(embalagem) if embalagem and embalagem > 1 else 1.0
+        unidades = piso if unidades is None else max(unidades, piso)
         rua = ruas.get(cod)
+        g, n, s = formato.ordem_rua(rua)
         linha = {"codigo": cod, "nome": p["descricao"],
                  "curva": p.get("curva") or "", "rua": rua,
                  "rua_rotulo": formato.rotulo_rua(rua),
+                 # ordem numerica p/ o JS reordenar apos agrupar/mover
+                 "ro": g * 100000 + n * 100 + s,
                  # unidades por caixa-mae; sem caixa (ou balanca) = 1 (dono)
                  "cx_mae": int(embalagem) if embalagem and embalagem > 1 else 1,
                  "minimo": formato.exibir(unidades, embalagem, peso),
@@ -155,7 +183,8 @@ def main():
 
     dados_de = datetime.fromtimestamp(
         os.path.getmtime(ent["vendas_csv"])).strftime("%d/%m/%Y %H:%M")
-    html = relatorio.montar(relatorio.preparar(por_fornecedor), dados_de)
+    html = relatorio.montar(relatorio.preparar(por_fornecedor), dados_de,
+                            overrides)
 
     destino = cfg["saida_html"]
     os.makedirs(os.path.dirname(destino) or ".", exist_ok=True)
