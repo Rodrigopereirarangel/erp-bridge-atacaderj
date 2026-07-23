@@ -609,6 +609,22 @@ const Q = {
         esc(this.d.arquivo) + '" title="revisão de preços"></iframe></div>';
     },
   },
+  listagem: {
+    // dono, 23/07: SO O LINK no dashboard (nao embutir o relatorio) —
+    // clicar no card abre a listagem por fornecedor em outra guia
+    titulo: "📋 Listagem por fornecedor", d: {},
+    kpis: () => [],
+    cols: [], linha: null,
+    corpo() {
+      return '<div style="flex:1 1 auto;display:flex;flex-direction:column;' +
+        'align-items:center;justify-content:center;gap:.6rem;color:var(--mut)">' +
+        '<div style="font-size:2.6rem">📋</div>' +
+        '<div>listagem de produtos por fornecedor<br>' +
+        '<span style="font-size:.78rem;color:var(--fraco)">estoque mínimo · ' +
+        'corredores · agrupamento de filiais · PDF</span></div>' +
+        '<div class="tag mut">clique para abrir</div></div>';
+    },
+  },
 };
 
 /* ---- layout das janelas: ordem + visibilidade, salvos NESTE navegador ----
@@ -780,6 +796,11 @@ function pintarGrade() {
           const w = window.open(Q.concorrente.d.arquivo);
           if (!w) location.href = Q.concorrente.d.arquivo;
         }
+        return;
+      }
+      if (id === "listagem") {         // card e SO um link (dono, 23/07)
+        const w = window.open("listagem-fornecedores.html");
+        if (!w) location.href = "listagem-fornecedores.html";
         return;
       }
       abrirDetalhe(id);
