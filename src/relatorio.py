@@ -133,6 +133,11 @@ _TEMPLATE = """<!doctype html>
           font-weight:400; white-space:nowrap; background:#222835;
           color:var(--mut) }
  .minimo { font-weight:650 }
+ /* 4 colunas de data em branco p/ preencher A MAO (dono, 22/07): traco
+    em toda linha; na impressao vira linha cinza p/ caneta */
+ th.mao { color:var(--mut) }
+ td.mao .lin { display:inline-block; width:3.6rem; height:1rem;
+               border-bottom:1px solid #3a4456 }
  .soprint { display:none }
  footer { color:var(--fraco); font-size:.74rem; padding-bottom:1rem }
  @media print {
@@ -149,6 +154,8 @@ _TEMPLATE = """<!doctype html>
    td.cod, .forn { color:#333 }
    tr:nth-child(even) td { background:#f3f3f3 !important }
    .marca { background:#eee; color:#333 }
+   th.mao { color:#333 }
+   td.mao .lin { border-bottom:1px solid #777 }
  }
 </style></head><body>
 <header><div class="miolo"><h1>Listagem por fornecedor</h1>
@@ -171,6 +178,8 @@ _TEMPLATE = """<!doctype html>
  <div class="tabela"><table><thead><tr>
  <th>c&oacute;digo</th><th>produto</th><th>corredor</th>
  <th class="num">cx m&atilde;e</th><th class="num">est. m&iacute;nimo</th>
+ <th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>
+ <th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>
  </tr></thead><tbody id="corpo"></tbody></table></div>
 </div>
 <div id="resultados" style="display:none">
@@ -227,7 +236,8 @@ function abrir(i){
     tr.innerHTML='<td class="cod">'+esc(p.codigo)+'</td><td class="desc">'+
       celProduto(p)+'</td><td>'+esc(p.rua)+
       '</td><td class="num">'+esc(p.cx)+
-      '</td><td class="num minimo">'+esc(p.minimo)+'</td>';
+      '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
+      '<td class="mao"><span class="lin"></span></td>'.repeat(4);
     corpo.appendChild(tr);});
   mostra('det');
   window.scrollTo(0,0);

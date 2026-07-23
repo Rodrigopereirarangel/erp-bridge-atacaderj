@@ -64,3 +64,11 @@ def test_montar_novidades_do_dono_22_07():
     assert '"curva"' not in html      # blob sem curva
     # identidade do painel (tema escuro operacional)
     assert "--bg:#0b0e13" in html
+
+
+def test_quatro_colunas_de_data_para_preencher_a_mao():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    assert html.count("data __/__/__") == 4          # 4 cabecalhos iguais
+    assert "'<td class=\"mao\"><span class=\"lin\"></span></td>'.repeat(4)" \
+        in html                                      # traco em toda linha
