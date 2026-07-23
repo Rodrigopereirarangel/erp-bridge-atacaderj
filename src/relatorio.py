@@ -265,7 +265,7 @@ _TEMPLATE = """<!doctype html>
  novo = estimativa proporcional (produto recente) &middot;
  sem venda 6m / ruptura cr&ocirc;nica = sem base de venda (m&iacute;nimo = piso de 1 cx/un) &middot;
  cx m&atilde;e = unidades por caixa (1 = sem caixa) &middot;
- &#9711; = marque 2+ fornecedores para agrupar filiais</footer>
+ &#9711; = marque fornecedor(es) e use "agrupar ao m&atilde;e" (ou deixar solto)</footer>
 </div>
 <div id="barra"></div>
 <div id="dlg"><div class="caixa">
@@ -469,11 +469,10 @@ function renderBarra(){
   var b=$('barra');
   var nf=Object.keys(selForn).length, ni=Object.keys(selItem).length;
   if(nf>0 && !modoItem){
-    b.innerHTML=(nf<2?'<span class="dica">marque 2+ para agrupar</span>':
-      '<button id="bDef" class="pill">\\ud83d\\udd17 agrupar selecionados ('+nf+')</button>')+
+    b.innerHTML='<button id="bDef" class="pill">\\ud83d\\udd17 agrupar ao m\\u00e3e ('+nf+')</button>'+
       '<button id="bCan" class="pill">limpar</button>';
     b.style.display='flex';
-    if(nf>=2)$('bDef').onclick=function(){dlgGrupo(Object.keys(selForn));};
+    $('bDef').onclick=function(){dlgGrupo(Object.keys(selForn));};
     $('bCan').onclick=function(){selForn={};renderLista($('busca').value);renderBarra();};
   } else if(modoItem){
     b.innerHTML=(ni?'<button id="bMov" class="pill">mover '+ni+' item(ns) para...</button>':
@@ -511,18 +510,24 @@ function dlgOpcoes(filtro, fonte){
 }
 function dlgGrupo(nomes){
   dlgModo='grupo'; dlgNomes=nomes;
-  $('dlgTitulo').textContent='Agrupar filiais \\u2014 quem \\u00e9 a m\\u00e3e?';
+  $('dlgTitulo').textContent='Agrupar ao m\\u00e3e \\u2014 quem \\u00e9 a m\\u00e3e?';
   $('dlgSituacao').textContent='marcados: '+nomes.join(' \\u00b7 ');
-  var fonte=[], maior='', q=-1;
+  // marcados primeiro (candidatos naturais), depois TODOS os outros —
+  // pesquisavel: da p/ agrupar 1 marcado a qualquer mae (dono, 23/07)
+  var marcados=[], resto=[], maior='', q=-1;
   DADOS.forEach(function(f){
-    if(nomes.indexOf(f.nome)<0)return;
-    fonte.push({nome:f.nome, extra:f.qtd+' produtos'});
-    if(f.qtd>q){q=f.qtd;maior=f.nome;}});
-  dlgEscolha=maior;
-  $('dlgBusca').value=''; $('dlgBusca').style.display='none';
+    if(nomes.indexOf(f.nome)>=0){
+      marcados.push({nome:f.nome, extra:f.qtd+' produtos \\u00b7 marcado'});
+      if(f.qtd>q){q=f.qtd;maior=f.nome;}
+    } else resto.push({nome:f.nome, extra:f.qtd+' produtos'});});
+  var fonte=marcados.concat(resto);
+  dlgEscolha=(nomes.length>1)?maior:'';
+  $('dlgBusca').value=''; $('dlgBusca').style.display='';
   $('dlgDesagrupar').style.display='';
+  $('dlgDesagrupar').textContent='deixar solto';
   dlgOpcoes('', fonte); window._dlgFonte=fonte;
   $('dlg').style.display='flex';
+  if(nomes.length===1)$('dlgBusca').focus();
 }
 function dlgMae(){
   dlgModo='mae'; dlgNomes=[abertoNome];
@@ -535,6 +540,7 @@ function dlgMae(){
   dlgEscolha='';
   $('dlgBusca').value=''; $('dlgBusca').style.display='';
   $('dlgDesagrupar').style.display=ms.length?'':'none';
+  $('dlgDesagrupar').textContent='desfazer grupo';
   dlgOpcoes('', fonte); window._dlgFonte=fonte;
   $('dlg').style.display='flex'; $('dlgBusca').focus();
 }
