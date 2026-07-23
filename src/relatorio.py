@@ -152,7 +152,9 @@ _TEMPLATE = """<!doctype html>
    td { background:#fff !important; color:#000; border-color:#ccc }
    td.cod, .forn { color:#333 }
    tr:nth-child(even) td { background:#f3f3f3 !important }
-   .marca { background:#eee; color:#333 }
+   /* PDF limpo (dono, 22/07): sem emoji de ruptura nem etiquetas de aviso
+      — o papel vai para o fornecedor, os avisos sao internos */
+   .rupt, .marca { display:none !important }
    th.mao { color:#333 }
  }
 </style></head><body>
@@ -171,8 +173,7 @@ _TEMPLATE = """<!doctype html>
   <button id="pdf" title="imprimir / salvar em PDF">&#128424; salvar PDF</button>
  </div>
  <h2 id="titulo"></h2>
- <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ &middot;
-  &#9888;&#65039; = poss&iacute;vel ruptura &middot; * = calculado com ruptura</div>
+ <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
  <div class="tabela"><table><thead><tr>
  <th>c&oacute;digo</th><th>produto</th><th>corredor</th>
  <th class="num">cx m&atilde;e</th><th class="num">est. m&iacute;nimo</th>
@@ -213,7 +214,8 @@ function mostra(alvo){ /* uma vista por vez */
   res.style.display   = (alvo==='res')   ? 'block' : 'none';
 }
 function celProduto(p){
-  return (p.rp?'<span title="possível ruptura">⚠️</span> ':'')+esc(p.nome)+
+  return (p.rp?'<span class="rupt" title="possível ruptura">⚠️</span> ':'')+
+         esc(p.nome)+
          (p.marca?' <span class="marca">'+esc(p.marca)+'</span>':'');
 }
 function renderLista(filtro){

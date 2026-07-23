@@ -73,3 +73,13 @@ def test_quatro_colunas_de_data_para_preencher_a_mao():
     # celula totalmente VAZIA, sem traco (dono, 22/07)
     assert "'<td class=\"mao\"></td>'.repeat(4)" in html
     assert 'class="lin"' not in html
+
+
+def test_impressao_sem_emoji_nem_avisos():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # emoji de ruptura ganha classe propria e o print esconde junto c/ marcas
+    assert 'class="rupt"' in html
+    assert ".rupt, .marca { display:none !important }" in html
+    # cabecalho de impressao sem legenda de avisos
+    assert html.count("dados de x &middot; AtacadeRJ</div>") >= 1
