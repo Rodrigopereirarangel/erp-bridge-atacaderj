@@ -1,0 +1,12 @@
+{
+  "_comentario": "copie para config.local.json e ajuste. ruas_estado_json = estado do deposito-atacaderj no ponte. ruptura_rounds_dir = rodadas do detector-estoque (mesmo dir do painel.detector_rounds_dir do bridge); opcional — sem ele o relatorio sai sem os alertas de possivel ruptura.",
+  "entrada": {
+    "catalogo_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\catalogo_listagem.csv",
+    "vendas_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\vendas_diarias.csv",
+    "entradas_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\entradas_fornecedor.csv",
+    "negociacao_csv": "C:\\Users\\User\\erp-bridge-atacaderj\\saida\\listagem\\negociacao.csv",
+    "ruas_estado_json": "C:\\Users\\User\\deposito-atacaderj\\data\\ruas.json",
+    "ruptura_rounds_dir": "C:\\Users\\User\\detector-ruptura-estoque-atacaderj\\data\\rounds"
+  },
+  "saida_html": "saida\\listagem-fornecedores.html"
+}
