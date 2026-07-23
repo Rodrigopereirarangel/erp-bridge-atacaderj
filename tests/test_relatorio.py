@@ -70,5 +70,6 @@ def test_quatro_colunas_de_data_para_preencher_a_mao():
     dados = {"COTACAO": [_linha(1, "X")]}
     html = relatorio.montar(relatorio.preparar(dados), "x")
     assert html.count("data __/__/__") == 4          # 4 cabecalhos iguais
-    assert "'<td class=\"mao\"><span class=\"lin\"></span></td>'.repeat(4)" \
-        in html                                      # traco em toda linha
+    # celula totalmente VAZIA, sem traco (dono, 22/07)
+    assert "'<td class=\"mao\"></td>'.repeat(4)" in html
+    assert 'class="lin"' not in html
