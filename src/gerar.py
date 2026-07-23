@@ -134,6 +134,11 @@ def main():
         cod = int(p["codigo"])
         unidades, marca = minimo.calcular(
             vendas_por_cod.get(cod, {}), fim, p.get("curva") or None)
+        # mediana zero so acontece no fallback com ruptura (janela limpa
+        # exige venda) — "0 un" leria como recomendacao de estoque zero;
+        # caso real 22/07: cervejas C12 com 2-4 vendas em 180d (dono)
+        if unidades == 0 and marca == "*":
+            unidades, marca = None, "ruptura_cronica"
         embalagem = float(p["embalagem"]) if p.get("embalagem") else None
         peso = str(p.get("peso")) == "1"
         rua = ruas.get(cod)

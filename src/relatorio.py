@@ -22,7 +22,8 @@ import formato
 
 COTACAO = "COTACAO"
 SEM_FORNECEDOR = "SEM FORNECEDOR"
-MARCAS_TXT = {"*": "*", "novo": "novo", "sem_venda": "sem venda 6m"}
+MARCAS_TXT = {"*": "*", "novo": "novo", "sem_venda": "sem venda 6m",
+              "ruptura_cronica": "ruptura crônica"}
 MAX_RESULTADOS = 300   # busca por produto: teto de linhas exibidas
 
 
@@ -197,6 +198,7 @@ _TEMPLATE = """<!doctype html>
  * = calculado com ruptura (pode estar subestimado) &middot;
  novo = estimativa proporcional (produto recente) &middot;
  sem venda 6m = nenhuma venda no hist&oacute;rico &middot;
+ ruptura cr&ocirc;nica = quase n&atilde;o vendeu nos 6m (sem base p/ m&iacute;nimo) &middot;
  cx m&atilde;e = unidades por caixa (1 = sem caixa)</footer>
 </div>
 <script>

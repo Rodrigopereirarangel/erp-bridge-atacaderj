@@ -143,3 +143,22 @@ def test_rounds_dir_configurado_mas_ausente_avisa_e_segue(tmp_path):
     r = _rodar(config)
     assert r.returncode == 0
     assert "AVISO" in r.stderr and "detector" in r.stderr
+
+
+def test_mediana_zero_vira_ruptura_cronica_sem_numero(tmp_path):
+    # caso real 22/07 (cervejas C12): 2 vendas isoladas em 180d -> todas as
+    # janelas com ruptura e mediana 0 -> "0 un" leria como estoque zero;
+    # tem que sair "—" com etiqueta "ruptura crônica"
+    config, cfg = _montar_insumos(tmp_path)
+    hoje = date(2026, 7, 20)
+    d = lambda n: (hoje - timedelta(days=n)).isoformat()  # noqa: E731
+    with open(cfg["entrada"]["catalogo_csv"], "a", encoding="utf-8") as f:
+        f.write("35886;CERV BUDWEISER LATAO 473ML C12;;E;0;1\n")
+    with open(cfg["entrada"]["vendas_csv"], "a", encoding="utf-8") as f:
+        f.write(f"35886;CERV;{d(170)};1\n")
+        f.write(f"35886;CERV;{d(80)};1\n")
+    r = _rodar(config)
+    assert r.returncode == 0, r.stderr
+    html = open(cfg["saida_html"], encoding="utf-8").read()
+    assert "ruptura crônica" in html
+    assert '"minimo": "—"' in html or '"minimo": "\u2014"' in html
