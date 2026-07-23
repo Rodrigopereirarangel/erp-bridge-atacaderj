@@ -4,15 +4,17 @@
 Identidade visual = a MESMA do Painel de Compras (erp-bridge
 src/templates/painel_compras.html) — manter as variaveis :root em dia.
 
-Agrupamento de FILIAIS (dono, 23/07): fornecedores com nomes praticamente
-iguais (COCA COLA / COCA COLA RJ ANDINA...) viram UM, com o nome da MAE
-(quem mais recebe mercadoria). O DADOS embutido vai CRU; quem aplica os
-overrides (grupos filho->mae + itens movidos a mao) e o JS — assim a
-edicao na pagina vale na hora E persiste: POST /listagem/overrides no
-servidor do painel grava o JSON que o gerar.py reembute na proxima geracao.
-So ha UMA implementacao da regra (JS); o Python so transporta.
-
-Piso do minimo (dono, 23/07) e aplicado no gerar.py; aqui so exibicao.
+Agrupamento de FILIAIS (dono, 23/07, UX revisada):
+- lista principal: cada fornecedor tem uma FLAG (circulo) sempre visivel;
+  marcou 2+ -> barra fixa "agrupar selecionados (N)" -> popup escolhe quem
+  e a MAE entre os marcados (padrao: o de mais produtos);
+- dentro do fornecedor: "definir mae" abre popup com a situacao atual
+  (agrupa quem / sem grupo) + CAIXA DE PESQUISA com lista filtrada para
+  relacionar a outro fornecedor (sem datalist nativo);
+- "mover itens": marca linhas -> popup com a mesma caixa de pesquisa.
+O DADOS embutido vai CRU; o JS aplica os overrides (grupos filho->mae +
+itens movidos) — edicao vale na hora E persiste via POST
+/listagem/overrides (servidor do painel), que o gerar.py reembute depois.
 
 ARMADILHA conhecida: visualizador do WhatsApp nao executa JavaScript."""
 import html as _html
@@ -59,6 +61,7 @@ def montar(fornecedores, dados_de, overrides=None):
                             "rua": p.get("rua_rotulo") or "",
                             "ro": p.get("ro", 999999),
                             "cx": p.get("cx_mae") or 1,
+                            "mv": p.get("mv", 0),
                             "minimo": p["minimo"],
                             "marca": MARCAS_TXT.get(p.get("marca") or "", ""),
                             "rp": 1 if p.get("ruptura") else 0}
@@ -82,14 +85,16 @@ _TEMPLATE = """<!doctype html>
          --txt:#e8edf4; --mut:#8e99a8; --fraco:#5c6572;
          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff }
  * { box-sizing:border-box; margin:0 }
+ ::selection { background:#2c4a75; color:#fff }
  body { background:var(--bg); color:var(--txt); padding-bottom:4rem;
         font:16px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif }
+ body.arraste, body.arraste * { user-select:none }
  .miolo { max-width:68rem; margin:0 auto; padding:0 .85rem }
  header { position:sticky; top:0; z-index:2; background:var(--card);
           border-bottom:1px solid var(--borda); padding:.7rem 0 .8rem }
  header h1 { font:700 1.15rem/1.2 "Segoe UI Variable Display", "Segoe UI",
              system-ui, sans-serif; letter-spacing:-.01em }
- header small { color:var(--fraco); font-size:.74rem;
+ header small { color:var(--mut); font-size:.74rem;
                 font-variant-numeric:tabular-nums }
  .buscas { display:flex; gap:.55rem; margin-top:.55rem }
  .buscas input { flex:1 1 50%; min-width:0; padding:.5rem .9rem; font-size:1rem;
@@ -103,29 +108,37 @@ _TEMPLATE = """<!doctype html>
  .acoes button:hover, .pill:hover { border-color:#3a5a8c; color:var(--txt) }
  .acoes button.on { background:#1c3050; border-color:#3a5a8c; color:var(--txt) }
  #pdf, #pdfRes { color:var(--acc) }
- #lista { display:grid; gap:.55rem; padding-top:.15rem; padding-bottom:.8rem }
- #lista button { display:flex; justify-content:space-between; align-items:center;
-        gap:.7rem; width:100%; text-align:left; padding:.65rem .85rem;
-        color:var(--txt); background:var(--card); cursor:pointer;
-        border:1px solid var(--borda); border-radius:14px;
-        transition:border-color .15s;
+ #lista { display:grid; gap:.55rem; padding-top:.8rem; padding-bottom:.8rem }
+ .cartao { display:flex; align-items:center; gap:.6rem;
+        background:var(--card); border:1px solid var(--borda);
+        border-radius:14px; transition:border-color .15s }
+ .cartao:hover { border-color:#31405a }
+ .cartao.sel { background:#16233a; border-color:#3a5a8c }
+ .flag { flex:none; width:1.35rem; height:1.35rem; margin-left:.7rem;
+        border:2px solid var(--mut); border-radius:50%; cursor:pointer }
+ .flag:hover { border-color:var(--acc) }
+ .cartao.sel .flag { background:var(--acc); border-color:var(--acc) }
+ .cartao button { flex:1 1 auto; display:flex; justify-content:space-between;
+        align-items:center; gap:.7rem; text-align:left; min-width:0;
+        padding:.65rem .85rem .65rem 0; color:var(--txt); background:none;
+        border:none; cursor:pointer;
         font:600 .95rem/1.3 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif }
- #lista button:hover { border-color:#31405a }
- #lista button.sel { background:#1c3050; border-color:#3a5a8c }
- #lista button b { font-weight:650; font-size:.72rem; color:var(--mut);
+ .cartao button b { font-weight:650; font-size:.72rem; color:var(--mut);
         background:var(--card2); border:1px solid var(--linha);
         border-radius:999px; padding:.02rem .55rem .08rem;
         font-variant-numeric:tabular-nums; flex:none }
  #titulo, #tituloRes { font:650 1.05rem/1.3 "Segoe UI Variable Display",
            "Segoe UI", system-ui, sans-serif; margin:.45rem 0 .1rem }
- .agrupa { color:var(--fraco); font-size:.76rem; margin:0 0 .55rem }
+ .agrupa { color:var(--mut); font-size:.76rem; margin:0 0 .55rem }
  .tabela { background:var(--card); border:1px solid var(--borda);
            border-radius:14px; overflow:auto; margin:.55rem 0 1rem }
  table { width:100%; border-collapse:collapse; font-size:.89rem }
- th { text-align:left; color:var(--fraco); font-size:.72rem; font-weight:650;
+ th { text-align:left; color:var(--mut); font-size:.72rem; font-weight:650;
       text-transform:uppercase; letter-spacing:.07em; padding:.45rem .65rem .4rem;
       border-bottom:1px solid var(--borda); position:sticky; top:0;
       background:var(--card); z-index:1; white-space:nowrap }
+ th.ord { cursor:pointer; user-select:none }
+ th.ord:hover { color:var(--txt) }
  td { padding:.34rem .65rem; border-bottom:1px solid var(--linha);
       white-space:nowrap }
  tr:last-child td { border-bottom:none }
@@ -139,26 +152,35 @@ _TEMPLATE = """<!doctype html>
  .cod { color:var(--mut); font-variant-numeric:tabular-nums }
  .forn { color:var(--mut); font-size:.82rem }
  .marca { border-radius:999px; padding:.08rem .55rem .12rem; font-size:.76rem;
-          font-weight:400; white-space:nowrap; background:#222835;
-          color:var(--mut) }
+          font-weight:400; white-space:nowrap; background:#2a3140;
+          border:1px solid #39424f; color:#b6c2d0 }
  .minimo { font-weight:650 }
  th.mao { color:var(--mut) }
  td.mao { min-width:4rem }
  #barra { position:fixed; left:0; right:0; bottom:0; z-index:3;
           background:var(--card); border-top:1px solid var(--borda);
-          padding:.6rem .85rem; display:none; gap:.55rem;
-          justify-content:center }
+          padding:.6rem .85rem; display:none; gap:.55rem; flex-wrap:wrap;
+          justify-content:center; align-items:center }
+ #barra .dica { color:var(--mut); font-size:.8rem }
  #barra button { font-size:.95rem; padding:.45rem 1.1rem }
  #dlg { position:fixed; inset:0; z-index:4; display:none;
         background:rgba(0,0,0,.55); align-items:center; justify-content:center }
  #dlg .caixa { background:var(--card); border:1px solid var(--borda);
         border-radius:14px; padding:1rem; width:min(28rem, 92vw) }
- #dlg h3 { font-size:1rem; margin-bottom:.6rem }
- #dlg .membros { color:var(--mut); font-size:.82rem; margin-bottom:.7rem;
-        max-height:8rem; overflow:auto }
+ #dlg h3 { font-size:1rem; margin-bottom:.45rem }
+ #dlg .situacao { color:var(--mut); font-size:.82rem; margin-bottom:.7rem }
  #dlg input { width:100%; padding:.5rem .8rem; font-size:1rem;
         color:var(--txt); background:var(--card2);
         border:1px solid var(--borda); border-radius:10px; outline:none }
+ #dlg input:focus { border-color:#3a5a8c }
+ #dlgLista { max-height:11rem; overflow:auto; margin-top:.5rem;
+        border:1px solid var(--linha); border-radius:10px }
+ #dlgLista div { padding:.42rem .7rem; cursor:pointer; font-size:.9rem;
+        border-bottom:1px solid var(--linha) }
+ #dlgLista div:last-child { border-bottom:none }
+ #dlgLista div:hover { background:var(--hover) }
+ #dlgLista div.on { background:#1c3050; color:var(--txt) }
+ #dlgLista div small { color:var(--fraco); margin-left:.4rem }
  #dlg .botoes { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.8rem;
         justify-content:flex-end }
  #dlg .botoes button { padding:.4rem 1rem; border-radius:999px; cursor:pointer;
@@ -170,7 +192,8 @@ _TEMPLATE = """<!doctype html>
         border-radius:999px; padding:.35rem 1rem; font-size:.85rem;
         display:none; z-index:5 }
  .soprint { display:none }
- footer { color:var(--fraco); font-size:.74rem; padding-bottom:1rem }
+ footer { color:var(--mut); font-size:.76rem; line-height:1.6;
+          padding-bottom:1rem }
  @media print {
    body { background:#fff; color:#000; padding-bottom:0;
           font:12px/1.35 "Segoe UI", system-ui, sans-serif }
@@ -199,24 +222,24 @@ _TEMPLATE = """<!doctype html>
 </div></header>
 <div class="miolo">
 <div id="telaLista">
- <div class="acoes nao-imprime">
-  <button id="btnAgrupar" title="juntar filiais do mesmo fornecedor">&#128279; agrupar filiais</button>
- </div>
  <div id="lista"></div>
 </div>
 <div id="detalhe" style="display:none">
  <div class="acoes nao-imprime">
   <button id="volta">&larr; fornecedores</button>
   <button id="pdf" title="imprimir / salvar em PDF">&#128424; salvar PDF</button>
-  <button id="btnMae" title="juntar este fornecedor a outro">&#128279; definir m&atilde;e</button>
+  <button id="btnMae" title="relacionar este fornecedor a outro">&#128279; definir m&atilde;e</button>
   <button id="btnMover" title="mandar itens para outro fornecedor">&#9745; mover itens</button>
  </div>
  <h2 id="titulo"></h2>
  <div class="agrupa" id="agrupaInfo"></div>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
  <div class="tabela"><table><thead><tr id="cabDet">
- <th>c&oacute;digo</th><th>produto</th><th>corredor</th>
- <th class="num">cx m&atilde;e</th><th class="num">est. m&iacute;nimo</th>
+ <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
+ <th class="ord" data-k="nome" data-rot="produto">produto</th>
+ <th class="ord" data-k="ro" data-rot="corredor">corredor</th>
+ <th class="num ord" data-k="cx" data-rot="cx m&atilde;e">cx m&atilde;e</th>
+ <th class="num ord" data-k="mv" data-rot="est. m&iacute;nimo">est. m&iacute;nimo</th>
  <th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>
  <th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>
  </tr></thead><tbody id="corpo"></tbody></table></div>
@@ -228,23 +251,28 @@ _TEMPLATE = """<!doctype html>
  </div>
  <h2 id="tituloRes"></h2>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
- <div class="tabela"><table><thead><tr>
- <th>c&oacute;digo</th><th>produto</th><th>fornecedor</th><th>corredor</th>
- <th class="num">cx m&atilde;e</th><th class="num">est. m&iacute;nimo</th>
+ <div class="tabela"><table><thead><tr id="cabRes">
+ <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
+ <th class="ord" data-k="nome" data-rot="produto">produto</th>
+ <th class="ord" data-k="forn" data-rot="fornecedor">fornecedor</th>
+ <th class="ord" data-k="ro" data-rot="corredor">corredor</th>
+ <th class="num ord" data-k="cx" data-rot="cx m&atilde;e">cx m&atilde;e</th>
+ <th class="num ord" data-k="mv" data-rot="est. m&iacute;nimo">est. m&iacute;nimo</th>
  </tr></thead><tbody id="corpoRes"></tbody></table></div>
 </div>
 <footer>&#9888;&#65039; = poss&iacute;vel ruptura AGORA (detector de estoque) &middot;
  * = calculado com ruptura (pode estar subestimado) &middot;
  novo = estimativa proporcional (produto recente) &middot;
  sem venda 6m / ruptura cr&ocirc;nica = sem base de venda (m&iacute;nimo = piso de 1 cx/un) &middot;
- cx m&atilde;e = unidades por caixa (1 = sem caixa)</footer>
+ cx m&atilde;e = unidades por caixa (1 = sem caixa) &middot;
+ &#9711; = marque 2+ fornecedores para agrupar filiais</footer>
 </div>
 <div id="barra"></div>
 <div id="dlg"><div class="caixa">
  <h3 id="dlgTitulo"></h3>
- <div class="membros" id="dlgMembros"></div>
- <input id="dlgNome" list="dlForn" placeholder="nome do fornecedor...">
- <datalist id="dlForn"></datalist>
+ <div class="situacao" id="dlgSituacao"></div>
+ <input id="dlgBusca" type="search" placeholder="pesquisar fornecedor...">
+ <div id="dlgLista"></div>
  <div class="botoes">
   <button id="dlgDesagrupar">desagrupar</button>
   <button id="dlgCancelar">cancelar</button>
@@ -255,11 +283,40 @@ _TEMPLATE = """<!doctype html>
 <script>
 var BRUTO = __DADOS__, OVR = __OVERRIDES__, MAX_RES = __MAX_RES__;
 var DADOS = [], MEMBROS = {};
-var abertoNome = null, modoForn = false, modoItem = false;
+var abertoNome = null, modoItem = false;
 var selForn = {}, selItem = {};
 var $ = function(id){return document.getElementById(id);};
 function esc(s){var d=document.createElement('div');
   d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}
+
+/* ---- ordenacao por coluna: 1o clique asc, 2o desc, 3o volta ao padrao */
+var ordDet={k:'',dir:1}, ordRes={k:'',dir:1};
+function sortLista(ps, ord, forn){
+  var arr=ps.slice();
+  if(!ord.k)return arr.sort(function(a,b){
+    return a.ro-b.ro || a.nome.localeCompare(b.nome);});
+  return arr.sort(function(a,b){
+    var va=(ord.k==='forn')?(forn?forn(a):''):(ord.k==='nome'?a.nome:a[ord.k]||0);
+    var vb=(ord.k==='forn')?(forn?forn(b):''):(ord.k==='nome'?b.nome:b[ord.k]||0);
+    if(typeof va==='string')return ord.dir*String(va).localeCompare(String(vb));
+    return ord.dir*(va-vb);});
+}
+function pintarSetas(idCab, ord){
+  var ths=$(idCab).querySelectorAll('th[data-k]');
+  for(var i=0;i<ths.length;i++){
+    var k=ths[i].getAttribute('data-k');
+    ths[i].innerHTML=ths[i].getAttribute('data-rot')+
+      (ord.k===k?(ord.dir>0?' \\u25b2':' \\u25bc'):'');
+  }
+}
+function ligaOrdenacao(idCab, ord, rerender){
+  $(idCab).addEventListener('click', function(e){
+    var k=e.target.getAttribute && e.target.getAttribute('data-k');
+    if(!k)return;
+    if(ord.k===k){ if(ord.dir===1)ord.dir=-1; else {ord.k='';ord.dir=1;} }
+    else { ord.k=k; ord.dir=1; }
+    rerender();});
+}
 
 /* ---- overrides: resolve filho->mae (com corrente e trava de ciclo) ---- */
 function resolve(nome){
@@ -286,9 +343,6 @@ function aplicar(){
       return a.ro-b.ro || a.nome.localeCompare(b.nome);});
     return {nome:n, qtd:ps.length, produtos:ps};});
   MEMBROS=membros;
-  var dl=$('dlForn'); dl.innerHTML='';
-  nomes.forEach(function(n){var o=document.createElement('option');
-    o.value=n; dl.appendChild(o);});
 }
 
 /* ---- persistencia ---- */
@@ -313,20 +367,24 @@ function celProduto(p){
          esc(p.nome)+
          (p.marca?' <span class="marca">'+esc(p.marca)+'</span>':'');
 }
+/* lista principal: FLAG sempre visivel (marca -> barra aparece) */
 function renderLista(filtro){
   var el=$('lista'); el.innerHTML='';
   DADOS.forEach(function(f){
     if(filtro && f.nome.toUpperCase().indexOf(filtro.toUpperCase())<0)return;
+    var c=document.createElement('div');
+    c.className='cartao'+(selForn[f.nome]?' sel':'');
+    var fl=document.createElement('span');
+    fl.className='flag'; fl.title='marcar para agrupar';
+    fl.onclick=function(e){e.stopPropagation();
+      if(selForn[f.nome])delete selForn[f.nome];
+      else selForn[f.nome]=true;
+      renderLista(filtro); renderBarra();};
     var b=document.createElement('button');
-    b.innerHTML=(modoForn?(selForn[f.nome]?'\\u2611 ':'\\u2610 '):'')+
-                esc(f.nome)+' <b>'+f.qtd+'</b>';
-    if(selForn[f.nome])b.className='sel';
-    b.onclick=function(){
-      if(modoForn){selForn[f.nome]=!selForn[f.nome];
-        if(!selForn[f.nome])delete selForn[f.nome];
-        renderLista(filtro); renderBarra();}
-      else abrir(f.nome);};
-    el.appendChild(b);});
+    b.innerHTML=esc(f.nome)+' <b>'+f.qtd+'</b>';
+    b.onclick=function(){abrir(f.nome);};
+    c.appendChild(fl); c.appendChild(b);
+    el.appendChild(c);});
 }
 function abrir(nome){
   var f=null;
@@ -339,7 +397,7 @@ function abrir(nome){
   var ms=Object.keys(MEMBROS[nome]||{});
   $('agrupaInfo').textContent=ms.length?('agrupa: '+ms.join(' \\u00b7 ')):'';
   var corpo=$('corpo'); corpo.innerHTML='';
-  f.produtos.forEach(function(p){
+  sortLista(f.produtos, ordDet).forEach(function(p){
     var tr=document.createElement('tr');
     var chk=modoItem?('<td class="chk nao-imprime">'+
       (selItem[p.codigo]?'\\u2611':'\\u2610')+'</td>'):'';
@@ -349,10 +407,14 @@ function abrir(nome){
       '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
       '<td class="mao"></td>'.repeat(4);
     if(modoItem){tr.className='selv'+(selItem[p.codigo]?' on':'');
-      tr.onclick=function(){selItem[p.codigo]=!selItem[p.codigo];
-        if(!selItem[p.codigo])delete selItem[p.codigo];
-        abrir(nome); renderBarra();};}
+      // toque marca; segurar e ARRASTAR marca varios de uma vez (dono)
+      tr.onmousedown=function(e){e.preventDefault();
+        window._drag=true; window._dragVal=!selItem[p.codigo];
+        marcaItem(tr, p.codigo, window._dragVal);};
+      tr.onmouseenter=function(){ if(window._drag)
+        marcaItem(tr, p.codigo, window._dragVal); };}
     corpo.appendChild(tr);});
+  pintarSetas('cabDet', ordDet);
   var cab=$('cabDet');
   var temChk=cab.firstChild && cab.firstChild.className==='chk nao-imprime';
   if(modoItem && !temChk){var th=document.createElement('th');
@@ -361,119 +423,187 @@ function abrir(nome){
   mostra('det');
 }
 function renderResultados(q){
-  var Q=q.toUpperCase(), achou=0, total=0;
-  var corpoRes=$('corpoRes'); corpoRes.innerHTML='';
+  var Q=q.toUpperCase(), achados=[];
   DADOS.forEach(function(f){
     f.produtos.forEach(function(p){
       if(p.nome.toUpperCase().indexOf(Q)<0 &&
          String(p.codigo).indexOf(Q)<0)return;
-      total++;
-      if(achou>=MAX_RES)return;
-      achou++;
-      var tr=document.createElement('tr');
-      tr.className='link';
-      tr.title='abrir '+f.nome;
-      tr.innerHTML='<td class="cod">'+esc(p.codigo)+'</td><td class="desc">'+
-        celProduto(p)+'</td><td class="forn">'+esc(f.nome)+'</td><td>'+esc(p.rua)+
-        '</td><td class="num">'+esc(p.cx)+
-        '</td><td class="num minimo">'+esc(p.minimo)+'</td>';
-      tr.onclick=function(){$('buscaProd').value=''; abrir(f.nome);};
-      corpoRes.appendChild(tr);});
+      achados.push({p:p, forn:f.nome});});
   });
+  var total=achados.length;
+  var ps=achados.map(function(a){return a.p;});
+  var fornDe={}; achados.forEach(function(a){fornDe[a.p.codigo]=a.forn;});
+  ps=sortLista(ps, ordRes, function(p){return fornDe[p.codigo];});
+  var corpoRes=$('corpoRes'); corpoRes.innerHTML='';
+  var mostrar=ps.slice(0, MAX_RES);
+  mostrar.forEach(function(p){
+    var nomeF=fornDe[p.codigo];
+    var tr=document.createElement('tr');
+    tr.className='link';
+    tr.title='abrir '+nomeF;
+    tr.innerHTML='<td class="cod">'+esc(p.codigo)+'</td><td class="desc">'+
+      celProduto(p)+'</td><td class="forn">'+esc(nomeF)+'</td><td>'+esc(p.rua)+
+      '</td><td class="num">'+esc(p.cx)+
+      '</td><td class="num minimo">'+esc(p.minimo)+'</td>';
+    tr.onclick=function(){$('buscaProd').value=''; abrir(nomeF);};
+    corpoRes.appendChild(tr);});
   $('tituloRes').textContent='produto: "'+q+'" \\u2014 '+total+
-    ' resultado'+(total===1?'':'s')+(total>achou?' (mostrando '+achou+')':'');
+    ' resultado'+(total===1?'':'s')+
+    (total>mostrar.length?' (mostrando '+mostrar.length+')':'');
+  pintarSetas('cabRes', ordRes);
   mostra('res');
 }
 
-/* ---- barra de acao dos modos de selecao ---- */
+/* ---- marcar item (toque ou arrasto) sem re-renderizar a tabela ---- */
+function marcaItem(tr, cod, val){
+  if(val)selItem[cod]=true; else delete selItem[cod];
+  tr.className='selv'+(val?' on':'');
+  if(tr.cells[0] && tr.cells[0].className.indexOf('chk')>=0)
+    tr.cells[0].textContent=val?'\\u2611':'\\u2610';
+  renderBarra();
+}
+document.addEventListener('mouseup', function(){window._drag=false;});
+
+/* ---- barra fixa: aparece quando ha selecao ---- */
 function renderBarra(){
   var b=$('barra');
-  if(modoForn){
-    var n=Object.keys(selForn).length;
-    b.innerHTML='<button id="bDef" class="pill">definir m\\u00e3e ('+n+')</button>'+
-                '<button id="bCan" class="pill">cancelar</button>';
+  var nf=Object.keys(selForn).length, ni=Object.keys(selItem).length;
+  if(nf>0 && !modoItem){
+    b.innerHTML=(nf<2?'<span class="dica">marque 2+ para agrupar</span>':
+      '<button id="bDef" class="pill">\\ud83d\\udd17 agrupar selecionados ('+nf+')</button>')+
+      '<button id="bCan" class="pill">limpar</button>';
     b.style.display='flex';
-    $('bDef').onclick=function(){if(n)dlgAbrir(Object.keys(selForn));};
-    $('bCan').onclick=sairModos;
+    if(nf>=2)$('bDef').onclick=function(){dlgGrupo(Object.keys(selForn));};
+    $('bCan').onclick=function(){selForn={};renderLista($('busca').value);renderBarra();};
   } else if(modoItem){
-    var m=Object.keys(selItem).length;
-    b.innerHTML='<button id="bMov" class="pill">mover '+m+' item(ns) para...</button>'+
-                '<button id="bCan" class="pill">cancelar</button>';
+    b.innerHTML=(ni?'<button id="bMov" class="pill">mover '+ni+' item(ns) para...</button>':
+      '<span class="dica">toque ou ARRASTE nas linhas para marcar</span>')+
+      '<button id="bTodos" class="pill">todos</button>'+
+      '<button id="bNenhum" class="pill">nenhum</button>'+
+      '<button id="bCan" class="pill">cancelar</button>';
     b.style.display='flex';
-    $('bMov').onclick=function(){if(m)dlgMover();};
-    $('bCan').onclick=sairModos;
+    if(ni)$('bMov').onclick=dlgItens;
+    $('bTodos').onclick=function(){
+      DADOS.forEach(function(f){ if(f.nome!==abertoNome)return;
+        f.produtos.forEach(function(p){selItem[p.codigo]=true;});});
+      abrir(abertoNome); renderBarra();};
+    $('bNenhum').onclick=function(){selItem={};abrir(abertoNome);renderBarra();};
+    $('bCan').onclick=function(){modoItem=false;selItem={};
+      document.body.className='';
+      $('btnMover').className='';renderBarra();abrir(abertoNome);};
   } else b.style.display='none';
 }
-function sairModos(){modoForn=false;modoItem=false;selForn={};selItem={};
-  renderBarra();
-  $('btnAgrupar').className=''; $('btnMover').className='';
-  if(abertoNome && $('detalhe').style.display!=='none')abrir(abertoNome);
-  else {renderLista($('busca').value); mostra('lista');}}
 
-/* ---- dialogo: agrupar / definir mae ---- */
-var dlgModo='';
-function dlgAbrir(nomes){
-  dlgModo='grupo'; window._dlgNomes=nomes;
+/* ---- dialogo com CAIXA DE PESQUISA (sem datalist nativo) ---- */
+var dlgModo='', dlgEscolha='', dlgNomes=[];
+function dlgOpcoes(filtro, fonte){
+  var el=$('dlgLista'); el.innerHTML='';
+  var Q=(filtro||'').toUpperCase(), n=0;
+  fonte.forEach(function(o){
+    if(Q && o.nome.toUpperCase().indexOf(Q)<0)return;
+    if(n++>=60)return;
+    var d=document.createElement('div');
+    d.innerHTML=esc(o.nome)+(o.extra?'<small>'+esc(o.extra)+'</small>':'');
+    if(o.nome===dlgEscolha)d.className='on';
+    d.onclick=function(){dlgEscolha=o.nome;dlgOpcoes(filtro,fonte);};
+    el.appendChild(d);});
+  if(!n){el.innerHTML='<div><small>nada encontrado</small></div>';}
+}
+function dlgGrupo(nomes){
+  dlgModo='grupo'; dlgNomes=nomes;
   $('dlgTitulo').textContent='Agrupar filiais \\u2014 quem \\u00e9 a m\\u00e3e?';
-  $('dlgMembros').textContent='membros: '+nomes.join(' \\u00b7 ');
-  var maior=nomes[0], q=0;
+  $('dlgSituacao').textContent='marcados: '+nomes.join(' \\u00b7 ');
+  var fonte=[], maior='', q=-1;
   DADOS.forEach(function(f){
-    if(nomes.indexOf(f.nome)>=0 && f.qtd>q){q=f.qtd;maior=f.nome;}});
-  $('dlgNome').value=maior;
+    if(nomes.indexOf(f.nome)<0)return;
+    fonte.push({nome:f.nome, extra:f.qtd+' produtos'});
+    if(f.qtd>q){q=f.qtd;maior=f.nome;}});
+  dlgEscolha=maior;
+  $('dlgBusca').value=''; $('dlgBusca').style.display='none';
   $('dlgDesagrupar').style.display='';
+  dlgOpcoes('', fonte); window._dlgFonte=fonte;
   $('dlg').style.display='flex';
 }
-function dlgMover(){
+function dlgMae(){
+  dlgModo='mae'; dlgNomes=[abertoNome];
+  $('dlgTitulo').textContent='Definir m\\u00e3e de '+abertoNome;
+  var ms=Object.keys(MEMBROS[abertoNome]||{});
+  $('dlgSituacao').textContent=ms.length?
+    ('hoje \\u00e9 M\\u00c3E de: '+ms.join(' \\u00b7 ')):'hoje: sem grupo';
+  var fonte=DADOS.filter(function(f){return f.nome!==abertoNome;})
+    .map(function(f){return {nome:f.nome, extra:f.qtd+' produtos'};});
+  dlgEscolha='';
+  $('dlgBusca').value=''; $('dlgBusca').style.display='';
+  $('dlgDesagrupar').style.display=ms.length?'':'none';
+  dlgOpcoes('', fonte); window._dlgFonte=fonte;
+  $('dlg').style.display='flex'; $('dlgBusca').focus();
+}
+function dlgItens(){
   dlgModo='itens';
   var m=Object.keys(selItem).length;
   $('dlgTitulo').textContent='Mover '+m+' item(ns) para qual fornecedor?';
-  $('dlgMembros').textContent='c\\u00f3digos: '+Object.keys(selItem).join(', ');
-  $('dlgNome').value='';
+  $('dlgSituacao').textContent='c\\u00f3digos: '+Object.keys(selItem).join(', ');
+  var fonte=DADOS.filter(function(f){return f.nome!==abertoNome;})
+    .map(function(f){return {nome:f.nome, extra:f.qtd+' produtos'};});
+  dlgEscolha='';
+  $('dlgBusca').value=''; $('dlgBusca').style.display='';
   $('dlgDesagrupar').style.display='none';
-  $('dlg').style.display='flex';
-  $('dlgNome').focus();
+  dlgOpcoes('', fonte); window._dlgFonte=fonte;
+  $('dlg').style.display='flex'; $('dlgBusca').focus();
 }
+$('dlgBusca').oninput=function(){dlgOpcoes(this.value, window._dlgFonte||[]);};
 $('dlgCancelar').onclick=function(){$('dlg').style.display='none';};
 $('dlgDesagrupar').onclick=function(){
-  (window._dlgNomes||[]).forEach(function(n){delete OVR.grupos[n];});
+  if(dlgModo==='grupo'){
+    dlgNomes.forEach(function(n){delete OVR.grupos[n];});
+  } else if(dlgModo==='mae'){
+    // desfaz o grupo deste fornecedor: solta todos os filhos dele
+    Object.keys(OVR.grupos).forEach(function(k){
+      if(resolve(k)===abertoNome)delete OVR.grupos[k];});
+  }
   $('dlg').style.display='none';
-  salvar(function(){aplicar();sairModos();});
+  salvar(function(){aplicar();selForn={};renderBarra();
+    renderLista($('busca').value);
+    if(abertoNome && $('detalhe').style.display!=='none')abrir(abertoNome);});
 };
 $('dlgOk').onclick=function(){
-  var alvo=$('dlgNome').value.trim();
-  if(!alvo)return;
+  if(!dlgEscolha)return;
+  var alvo=dlgEscolha;
   if(dlgModo==='grupo'){
-    var nomes=window._dlgNomes||[];
-    nomes.forEach(function(n){
-      if(n!==alvo)OVR.grupos[n]=alvo;});
-    // quem apontava para um dos filhos passa a apontar para a mae
+    dlgNomes.forEach(function(n){if(n!==alvo)OVR.grupos[n]=alvo;});
     Object.keys(OVR.grupos).forEach(function(k){
-      if(nomes.indexOf(OVR.grupos[k])>=0 && OVR.grupos[k]!==alvo)
+      if(dlgNomes.indexOf(OVR.grupos[k])>=0 && OVR.grupos[k]!==alvo)
         OVR.grupos[k]=alvo;});
     delete OVR.grupos[alvo];             // mae nao pode ser filha
+  } else if(dlgModo==='mae'){
+    OVR.grupos[abertoNome]=alvo;
+    Object.keys(OVR.grupos).forEach(function(k){
+      if(OVR.grupos[k]===abertoNome && k!==abertoNome)OVR.grupos[k]=alvo;});
+    delete OVR.grupos[alvo];
   } else {
     Object.keys(selItem).forEach(function(c){OVR.itens[c]=alvo;});
   }
   $('dlg').style.display='none';
-  var alvoFinal=resolve(alvo);
+  var destino=resolve(alvo);
   salvar(function(){aplicar();
-    if(dlgModo==='itens'){modoItem=false;selItem={};renderBarra();
-      $('btnMover').className='';abrir(abertoNome||alvoFinal);}
-    else sairModos();});
+    selForn={}; renderBarra();
+    if(dlgModo==='itens'){modoItem=false;selItem={};
+      document.body.className='';
+      $('btnMover').className='';abrir(abertoNome||destino);}
+    else if(dlgModo==='mae'){abrir(destino);}
+    else {renderLista($('busca').value);mostra('lista');}});
 };
 
 /* ---- botoes fixos ---- */
-$('btnAgrupar').onclick=function(){
-  modoForn=!modoForn; selForn={};
-  this.className=modoForn?'on':'';
-  renderLista($('busca').value); renderBarra();};
-$('btnMae').onclick=function(){
-  if(abertoNome)dlgAbrir([abertoNome]);};
+$('btnMae').onclick=function(){if(abertoNome)dlgMae();};
 $('btnMover').onclick=function(){
   modoItem=!modoItem; selItem={};
   this.className=modoItem?'on':'';
+  document.body.className=modoItem?'arraste':'';
   abrir(abertoNome); renderBarra();};
-$('volta').onclick=function(){sairModos();mostra('lista');};
+$('volta').onclick=function(){modoItem=false;selItem={};
+  document.body.className='';
+  $('btnMover').className='';renderBarra();mostra('lista');};
 $('voltaRes').onclick=function(){$('buscaProd').value='';mostra('lista');};
 $('pdf').onclick=function(){window.print();};
 $('pdfRes').onclick=function(){window.print();};
@@ -486,6 +616,9 @@ $('buscaProd').oninput=function(){
 };
 
 /* ---- arranque: aplica o embutido e busca a versao fresca no servidor ---- */
+ligaOrdenacao('cabDet', ordDet, function(){if(abertoNome)abrir(abertoNome);});
+ligaOrdenacao('cabRes', ordRes, function(){
+  renderResultados($('buscaProd').value.trim());});
 aplicar(); renderLista('');
 fetch('/listagem/overrides').then(function(r){return r.json();})
  .then(function(j){ if(j && j.grupos){OVR=j; aplicar();

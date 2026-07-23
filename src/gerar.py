@@ -175,6 +175,8 @@ def main():
                  "ro": g * 100000 + n * 100 + s,
                  # unidades por caixa-mae; sem caixa (ou balanca) = 1 (dono)
                  "cx_mae": int(embalagem) if embalagem and embalagem > 1 else 1,
+                 # valor numerico do minimo (em unidades) p/ ordenar coluna
+                 "mv": round(unidades, 2),
                  "minimo": formato.exibir(unidades, embalagem, peso),
                  "marca": marca,
                  "ruptura": cod in em_ruptura}

@@ -92,9 +92,27 @@ def test_ui_de_agrupamento_e_overrides():
     # overrides embutidos como fallback + endpoint de persistencia
     assert '"COCA COLA": "COCA COLA RJ ANDINA"' in html
     assert html.count("/listagem/overrides") >= 2      # GET no boot + POST
-    # controles: agrupar filiais, definir mae, mover itens, dialogo e barra
-    for eid in ("btnAgrupar", "btnMae", "btnMover", "dlg", "barra", "dlForn"):
+    # controles: flags de agrupar, definir mae, mover itens, dialogo com
+    # caixa de PESQUISA, barra fixa (UX v2 do dono, 23/07)
+    for eid in ("btnMae", "btnMover", "dlg", "barra", "dlgBusca", "dlgLista"):
         assert 'id="%s"' % eid in html
+    assert "fl.className='flag'" in html     # flag sempre visivel na lista
     # o JS resolve corrente filho->mae e reordena por rua (campo ro)
     assert "function resolve(" in html
     assert "a.ro-b.ro" in html
+
+
+def test_ordenacao_arrasto_todos_e_contraste():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # cabecalhos ordenaveis nas DUAS tabelas (asc/desc/padrao)
+    assert html.count('data-k="mv"') == 2
+    assert html.count('data-k="ro"') == 2
+    assert 'data-k="forn"' in html           # so na busca de produto
+    assert "ligaOrdenacao('cabDet'" in html
+    assert "ligaOrdenacao('cabRes'" in html
+    # arrastar para marcar + selecionar todos/nenhum
+    assert "onmousedown" in html and "onmouseenter" in html
+    assert "bTodos" in html and "bNenhum" in html
+    # contraste: selecao de texto legivel
+    assert "::selection" in html
