@@ -231,7 +231,7 @@ _TEMPLATE = """<!doctype html>
  <div class="acoes nao-imprime">
   <button id="volta">&larr; fornecedores</button>
   <button id="pdf" title="imprimir / salvar em PDF">&#128424; salvar PDF</button>
-  <button id="btnMae" title="relacionar este fornecedor a outro">&#128279; definir m&atilde;e</button>
+  <button id="btnMae" title="relacionar este fornecedor a outro">&#128279; atrelar ao fornecedor m&atilde;e</button>
   <button id="btnMover" title="mandar itens para outro fornecedor">&#9745; mover itens</button>
  </div>
  <h2 id="titulo"></h2>
@@ -534,7 +534,7 @@ function dlgGrupo(nomes){
 }
 function dlgMae(){
   dlgModo='mae'; dlgNomes=[abertoNome];
-  $('dlgTitulo').textContent='Definir m\\u00e3e de '+abertoNome;
+  $('dlgTitulo').textContent='Atrelar '+abertoNome+' a qual fornecedor m\\u00e3e?';
   var ms=Object.keys(MEMBROS[abertoNome]||{});
   $('dlgSituacao').textContent=ms.length?
     ('hoje \\u00e9 M\\u00c3E de: '+ms.join(' \\u00b7 ')):'hoje: sem grupo';
