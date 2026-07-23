@@ -222,6 +222,9 @@ _TEMPLATE = """<!doctype html>
 </div></header>
 <div class="miolo">
 <div id="telaLista">
+ <div class="acoes nao-imprime">
+  <button id="btnTodosForn" title="marca/desmarca todos os fornecedores vis&iacute;veis (respeita a busca)">&#9711; marcar todos os vis&iacute;veis</button>
+ </div>
  <div id="lista"></div>
 </div>
 <div id="detalhe" style="display:none">
@@ -601,6 +604,15 @@ $('dlgOk').onclick=function(){
 };
 
 /* ---- botoes fixos ---- */
+$('btnTodosForn').onclick=function(){
+  var filtro=($('busca').value||'').toUpperCase();
+  var visiveis=DADOS.filter(function(f){
+    return !filtro || f.nome.toUpperCase().indexOf(filtro)>=0;});
+  var todosJa=visiveis.length && visiveis.every(function(f){
+    return selForn[f.nome];});
+  visiveis.forEach(function(f){
+    if(todosJa)delete selForn[f.nome]; else selForn[f.nome]=true;});
+  renderLista($('busca').value); renderBarra();};
 $('btnMae').onclick=function(){if(abertoNome)dlgMae();};
 $('btnMover').onclick=function(){
   modoItem=!modoItem; selItem={};

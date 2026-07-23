@@ -114,5 +114,6 @@ def test_ordenacao_arrasto_todos_e_contraste():
     # arrastar para marcar + selecionar todos/nenhum
     assert "onmousedown" in html and "onmouseenter" in html
     assert "bTodos" in html and "bNenhum" in html
+    assert 'id="btnTodosForn"' in html    # marcar todos os fornecedores visiveis
     # contraste: selecao de texto legivel
     assert "::selection" in html
