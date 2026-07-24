@@ -160,3 +160,13 @@ def test_impressao_compacta_economiza_papel():
     assert "tr.grupo" in html
     assert "function linhasImpressao(" in html
     assert "thead { display:table-header-group }" in html
+
+
+def test_ean_nao_vaza_e_tem_selo():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    assert "function celEan(" in html
+    assert 'class="eant"' in html                 # selo CX/UN
+    # overflow:hidden impede o EAN de trepar na coluna vizinha no papel
+    assert "overflow:hidden }" in html
+    assert "col.c-ean { width:31mm }" in html

@@ -168,6 +168,8 @@ def main():
         unidades = piso if unidades is None else max(unidades, piso)
         rua = ruas.get(cod)
         g, n, s = formato.ordem_rua(rua)
+        ean_num, ean_tipo = formato.ean_exibir(p.get("ean_cx"),
+                                               p.get("ean_un"))
         # corredor DO SISTEMA (dono, 24/07): vem do ERP a cada geracao, nunca
         # congelado. A rua do deposito (app de setorizacao) continua atras,
         # so como ORDEM do percurso e etiqueta pequena.
@@ -177,7 +179,7 @@ def main():
                  # VAREJO); sem endereco, cai no corredor mercadologico
                  "corredor_erp": formato.corredor_curto(
                      p.get("endereco") or p.get("corredor_erp")),
-                 "ean": formato.ean_exibir(p.get("ean_cx"), p.get("ean_un")),
+                 "ean": ean_num, "ean_tipo": ean_tipo,
                  "rua_rotulo": formato.rotulo_rua(rua),
                  # ordem numerica p/ o JS reordenar apos agrupar/mover
                  "ro": g * 100000 + n * 100 + s,

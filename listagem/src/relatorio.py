@@ -61,6 +61,7 @@ def montar(fornecedores, dados_de, overrides=None):
                             "rua": p.get("rua_rotulo") or "",
                             "cor": p.get("corredor_erp") or "",
                             "ean": p.get("ean") or "",
+                            "et": p.get("ean_tipo") or "",
                             "ro": p.get("ro", 999999),
                             "cx": p.get("cx_mae") or 1,
                             "mv": p.get("mv", 0),
@@ -154,6 +155,9 @@ _TEMPLATE = """<!doctype html>
  th:last-child, td:last-child { border-right:none }
  tr:last-child td { border-bottom:none }
  .ean { font-size:.82rem; letter-spacing:.01em }
+ .eant { font-size:.66rem; color:var(--mut); background:var(--card2);
+         border:1px solid var(--linha); border-radius:4px;
+         padding:0 .25rem; margin-left:.15rem }
  .rua { color:var(--fraco); font-size:.76rem }
  td.desc { white-space:normal; width:99% }
  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums }
@@ -216,12 +220,18 @@ _TEMPLATE = """<!doctype html>
    table { table-layout:fixed; width:100% }
    th { padding:1.5pt 3pt !important; font-size:6.6pt !important;
         letter-spacing:.03em !important }
-   td { padding:1pt 3pt !important; font-size:8.6pt }
+   /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
+      coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
+   td { padding:1pt 3pt !important; font-size:8.6pt; overflow:hidden }
+   th { overflow:hidden }
    /* larguras fixas: sobra o maximo p/ o nome do produto (1 linha na
       maioria); nome longo ainda quebra, e so nele que gastamos altura */
-   col.c-cod { width:9mm } col.c-ean { width:23mm } col.c-cor { width:14mm }
+   col.c-cod { width:11mm } col.c-ean { width:31mm } col.c-cor { width:15mm }
    col.c-forn { width:26mm } col.c-cx { width:9mm } col.c-min { width:13mm }
-   col.c-mao { width:13mm }
+   col.c-mao { width:12mm }
+   td.ean { font-size:7.6pt; letter-spacing:0 }
+   .eant { font-size:6.4pt; color:#000; background:#e0e0e0;
+           border:1px solid #999; border-radius:2px; padding:0 2px }
    td.desc { white-space:normal; word-break:break-word }
    .tabela { break-inside:auto }
    tr { break-inside:avoid; page-break-inside:avoid }
@@ -428,6 +438,11 @@ function celProduto(p){
          esc(p.nome)+
          (p.marca?' <span class="marca">'+esc(p.marca)+'</span>':'');
 }
+/* EAN unico por linha + selo CX/UN p/ o operador saber o que bipar */
+function celEan(p){
+  return '<td class="cod ean">'+esc(p.ean)+
+    (p.et?' <span class="eant">'+esc(p.et)+'</span>':'')+'</td>';
+}
 /* corredor DO SISTEMA (ERP) + rua do deposito em cinza, quando marcada */
 function celCorredor(p){
   return '<td>'+esc(p.cor||'\\u2014')+
@@ -473,7 +488,7 @@ function abrir(nome){
     var chk=modoItem?('<td class="chk nao-imprime">'+
       (selItem[p.codigo]?'\\u2611':'\\u2610')+'</td>'):'';
     tr.innerHTML=chk+'<td class="cod">'+esc(p.codigo)+
-      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+      '</td>'+celEan(p)+'<td class="desc">'+
       celProduto(p)+'</td>'+celCorredor(p)+
       '<td class="num">'+esc(p.cx)+
       '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
@@ -514,7 +529,7 @@ function renderResultados(q){
     tr.className='link';
     tr.title='abrir '+nomeF;
     tr.innerHTML='<td class="cod">'+esc(p.codigo)+
-      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+      '</td>'+celEan(p)+'<td class="desc">'+
       celProduto(p)+'</td><td class="forn">'+esc(nomeF)+'</td>'+
       celCorredor(p)+'<td class="num">'+esc(p.cx)+
       '</td><td class="num minimo">'+esc(p.minimo)+'</td>';
@@ -540,7 +555,7 @@ function linhasImpressao(f){
     f.qtd+' produtos</td></tr>'+
     sortLista(f.produtos, ordDet).map(function(p){
       return '<tr><td class="cod">'+esc(p.codigo)+
-        '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+        '</td>'+celEan(p)+'<td class="desc">'+
         esc(p.nome)+'</td>'+celCorredor(p)+
         '<td class="num">'+esc(p.cx)+
         '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+

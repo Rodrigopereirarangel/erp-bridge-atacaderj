@@ -204,7 +204,7 @@ def test_ean_e_corredor_do_sistema_saem_no_html(tmp_path):
     assert r.returncode == 0, r.stderr
     html = open(cfg["saida_html"], encoding="utf-8").read()
     # EAN da caixa-mae manda; "CORREDOR 60" vira "60" (corredor_curto)
-    assert '"ean": "17891107101628"' in html
+    assert '"ean": "17891107101628"' in html and '"et": "CX"' in html
     assert '"cor": "AT 2"' in html      # endereco do sistema manda
     # sem EAN de caixa: cai no da unidade marcado, ou vazio
     assert '"ean": ""' in html            # 222 nao tem EAN nenhum

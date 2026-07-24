@@ -55,13 +55,14 @@ def corredor_curto(nome):
 
 
 def ean_exibir(ean_cx, ean_un):
-    """EAN p/ conferencia (dono, 24/07): o da CAIXA-MAE manda; sem ele,
-    o da unidade marcado "(un)". Sem nenhum -> vazio."""
+    """EAN p/ conferencia (dono, 24/07): SO um por linha — o da CAIXA-MAE
+    manda; sem ele, o da unidade. Devolve (numero, tipo) com tipo "CX" ou
+    "UN" p/ o operador saber o que esta bipando; sem EAN -> ("", "")."""
     cx = str(ean_cx or "").strip()
     if cx:
-        return cx
+        return cx, "CX"
     un = str(ean_un or "").strip()
-    return f"{un} (un)" if un else ""
+    return (un, "UN") if un else ("", "")
 
 
 def ordem_rua(rua):
