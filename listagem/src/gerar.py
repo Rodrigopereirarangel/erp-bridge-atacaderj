@@ -173,7 +173,10 @@ def main():
         # so como ORDEM do percurso e etiqueta pequena.
         linha = {"codigo": cod, "nome": p["descricao"],
                  "curva": p.get("curva") or "", "rua": rua,
-                 "corredor_erp": formato.corredor_curto(p.get("corredor_erp")),
+                 # corredor exibido = ENDERECO do sistema (ATACADO 1/2,
+                 # VAREJO); sem endereco, cai no corredor mercadologico
+                 "corredor_erp": formato.corredor_curto(
+                     p.get("endereco") or p.get("corredor_erp")),
                  "ean": formato.ean_exibir(p.get("ean_cx"), p.get("ean_un")),
                  "rua_rotulo": formato.rotulo_rua(rua),
                  # ordem numerica p/ o JS reordenar apos agrupar/mover

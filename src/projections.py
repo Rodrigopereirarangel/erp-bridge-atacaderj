@@ -417,12 +417,13 @@ def catalogo_listagem_csv(cat, caminho):
     + corredor do ERP (classificacao mercadologica) — a listagem passa a
     mostrar o corredor DO SISTEMA, relido a cada geracao (nao congelado)."""
     cab = ["codigo", "descricao", "embalagem", "curva", "peso",
-           "ean_cx", "ean_un", "corredor_erp", "ativo"]
+           "ean_cx", "ean_un", "corredor_erp", "endereco", "ativo"]
     linhas = [[r["codigo"], r["descricao"],
                r.get("embalagem") if r.get("embalagem") is not None else "",
                r.get("curva") or "", r.get("peso"),
                r.get("ean_cx") or "", r.get("ean_un") or "",
                str(r.get("corredor") or "").strip(),
+               str(r.get("endereco_atacado") or "").strip(),
                r.get("ativo")]
               for r in cat]
     _escrever_atomico(caminho, _csv_ponto_virgula(cab, linhas))

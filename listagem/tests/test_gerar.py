@@ -14,10 +14,10 @@ def _montar_insumos(tmp_path):
     hoje = date(2026, 7, 20)
     d = lambda n: (hoje - timedelta(days=n)).isoformat()  # noqa: E731
     (tmp_path / "catalogo.csv").write_text(
-        "codigo;descricao;embalagem;curva;peso;ean_cx;ean_un;corredor_erp;ativo\n"
-        "15450;OLEO SOJA SOYA 900ML;20;A;0;17891107101628;7891107101621;CORREDOR 60;1\n"
-        "222;QUEIJO MEIA CURA;;B;1;;;LATICINIO;1\n"
-        "333;PRODUTO INATIVO;10;C;0;;;CORREDOR 20;0\n", encoding="utf-8")
+        "codigo;descricao;embalagem;curva;peso;ean_cx;ean_un;corredor_erp;endereco;ativo\n"
+        "15450;OLEO SOJA SOYA 900ML;20;A;0;17891107101628;7891107101621;CORREDOR 60;ATACADO 2;1\n"
+        "222;QUEIJO MEIA CURA;;B;1;;;LATICINIO;VAREJO;1\n"
+        "333;PRODUTO INATIVO;10;C;0;;;CORREDOR 20;ATACADO 1;0\n", encoding="utf-8")
     # 15450 vende 2/dia nos ultimos 180 dias -> mediana 90 un -> 5 cx
     vendas = "codigo;descricao;data;qtd_vendida\n"
     for n in range(180):
@@ -153,7 +153,7 @@ def test_mediana_zero_vira_ruptura_cronica_sem_numero(tmp_path):
     hoje = date(2026, 7, 20)
     d = lambda n: (hoje - timedelta(days=n)).isoformat()  # noqa: E731
     with open(cfg["entrada"]["catalogo_csv"], "a", encoding="utf-8") as f:
-        f.write("35886;CERV BUDWEISER LATAO 473ML C12;;E;0;;;CORREDOR 10(FRIA);1\n")
+        f.write("35886;CERV BUDWEISER LATAO 473ML C12;;E;0;;;CORREDOR 10(FRIA);ATACADO 1;1\n")
     with open(cfg["entrada"]["vendas_csv"], "a", encoding="utf-8") as f:
         f.write(f"35886;CERV;{d(170)};1\n")
         f.write(f"35886;CERV;{d(80)};1\n")
@@ -171,7 +171,7 @@ def test_piso_de_1_caixa_mae_quando_tem_caixa(tmp_path):
     hoje = date(2026, 7, 20)
     d = lambda n: (hoje - timedelta(days=n)).isoformat()  # noqa: E731
     with open(cfg["entrada"]["catalogo_csv"], "a", encoding="utf-8") as f:
-        f.write("555;REFRI RARO 2L;20;C;0;;;CORREDOR 30;1\n")
+        f.write("555;REFRI RARO 2L;20;C;0;;;CORREDOR 30;ATACADO 2;1\n")
     with open(cfg["entrada"]["vendas_csv"], "a", encoding="utf-8") as f:
         f.write(f"555;REFRI;{d(100)};1\n")
         f.write(f"555;REFRI;{d(50)};1\n")
@@ -205,7 +205,7 @@ def test_ean_e_corredor_do_sistema_saem_no_html(tmp_path):
     html = open(cfg["saida_html"], encoding="utf-8").read()
     # EAN da caixa-mae manda; "CORREDOR 60" vira "60" (corredor_curto)
     assert '"ean": "17891107101628"' in html
-    assert '"cor": "60"' in html
+    assert '"cor": "AT 2"' in html      # endereco do sistema manda
     # sem EAN de caixa: cai no da unidade marcado, ou vazio
     assert '"ean": ""' in html            # 222 nao tem EAN nenhum
-    assert '"cor": "LATICINIO"' in html   # nome que nao e "CORREDOR n"
+    assert '"cor": "VAREJO"' in html

@@ -92,6 +92,15 @@ SELECT
     -- catalogo: ~UN 4.484 / ~CX 1.768 itens ativos — quem nao tem sai vazio.
     ean_cx.ean                       AS ean_cx,
     ean_un.ean                       AS ean_un,
+    -- ENDERECO do produto no sistema (tela "Pega": Cod/Produto/Emb/Bairro/
+    -- Endereco) — dono, 24/07: e ESTE o "corredor" que a listagem deve
+    -- mostrar, sempre relido (nunca congelado). FONTE medida 2026-07-24:
+    -- dbo.tbProdutoPega, 1 linha por produto x embalagem;
+    -- Bairro A = 'ATACADO 1', B = 'ATACADO 2', V = 'VAREJO'.
+    -- Um produto tem varias linhas (UN no varejo + CX/FD no atacado) ->
+    -- vale a do ATACADO com a MAIOR embalagem (a caixa-mae que se repoe);
+    -- so quem nao tem linha de atacado cai no VAREJO.
+    pega.endereco                    AS endereco_atacado,
     CAST(p.inAtivo AS int)           AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
@@ -135,6 +144,19 @@ LEFT JOIN (SELECT SEQPRODUTO, MAX(EAN) AS ean
              FROM dbo.VW_NEOGRID_PRODUTO_EAN
             WHERE TIPO_EMBALAGEM = 'UN' GROUP BY SEQPRODUTO) ean_un
        ON ean_un.SEQPRODUTO = p.cdProduto
+LEFT JOIN (
+    SELECT cdProduto, endereco FROM (
+        SELECT pg.cdProduto,
+               LTRIM(RTRIM(pg.Endereco)) AS endereco,
+               ROW_NUMBER() OVER (
+                   PARTITION BY pg.cdProduto
+                   ORDER BY CASE WHEN LTRIM(RTRIM(pg.Bairro)) IN ('A','B')
+                                 THEN 0 ELSE 1 END,   -- atacado antes do varejo
+                            pg.qtEmbalagem DESC) AS rn
+        FROM dbo.tbProdutoPega pg
+        WHERE pg.cdPessoaFilial = 1
+    ) x WHERE rn = 1
+) pega ON pega.cdProduto = p.cdProduto
 LEFT JOIN (
     SELECT cdProduto, MIN(promo_vigente) AS promo_vigente FROM (
         SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente

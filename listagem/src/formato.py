@@ -39,13 +39,16 @@ def rotulo_rua(rua):
 
 
 def corredor_curto(nome):
-    """Corredor do ERP enxuto p/ caber na coluna: "CORREDOR 130(DOCE)" ->
-    "130(DOCE)"; nomes que nao sao "CORREDOR n" (CONGELADOS, VITRINE...)
-    passam inteiros. Dono, 24/07: o corredor vem do sistema, sempre."""
+    """Endereco do sistema (tela Pega) enxuto p/ a coluna corredor:
+    "ATACADO 1" -> "AT 1", "ATACADO 2" -> "AT 2", "VAREJO" -> "VAREJO"
+    (dono, 24/07). Serve tambem p/ o corredor mercadologico antigo
+    ("CORREDOR 130(DOCE)" -> "130(DOCE)"), caso volte a ser usado."""
     txt = str(nome or "").strip()
     if not txt or txt.upper() == "SEM CLASSIFICACAO":
         return ""
     sem = txt.upper()
+    if sem.startswith("ATACADO"):
+        return "AT " + txt[len("ATACADO"):].strip()
     if sem.startswith("CORREDOR"):
         return txt[len("CORREDOR"):].strip()
     return txt
