@@ -40,12 +40,16 @@ def test_entradas_fornecedor_csv(tmp_path):
 def test_catalogo_listagem_csv_sem_preco_nem_custo(tmp_path):
     cat = [{"codigo": 15450, "descricao": "OLEO SOJA SOYA 900ML",
             "embalagem": 20, "curva": "A", "peso": 0, "ativo": 1,
+            "ean_cx": 17891107101628, "ean_un": 7891107101621,
+            "corredor": "CORREDOR 60 ",
             "custo_atual": 6.0, "preco_varejo": 8.0}]
     arq = str(tmp_path / "catalogo_listagem.csv")
     assert projections.catalogo_listagem_csv(cat, arq) == 1
     linhas = _ler(arq)
-    assert linhas[0] == "codigo;descricao;embalagem;curva;peso;ativo"
-    assert linhas[1] == "15450;OLEO SOJA SOYA 900ML;20;A;0;1"
+    assert linhas[0] == ("codigo;descricao;embalagem;curva;peso;"
+                         "ean_cx;ean_un;corredor_erp;ativo")
+    assert linhas[1] == ("15450;OLEO SOJA SOYA 900ML;20;A;0;"
+                         "17891107101628;7891107101621;CORREDOR 60;1")
     assert "6.0" not in linhas[1] and "8.0" not in linhas[1]
 
 
@@ -54,4 +58,4 @@ def test_catalogo_listagem_curva_vazia_sai_vazia(tmp_path):
             "curva": None, "peso": 0, "ativo": 1}]
     arq = str(tmp_path / "c.csv")
     projections.catalogo_listagem_csv(cat, arq)
-    assert _ler(arq)[1] == "1;X;;;0;1"
+    assert _ler(arq)[1] == "1;X;;;0;;;;1"

@@ -168,8 +168,13 @@ def main():
         unidades = piso if unidades is None else max(unidades, piso)
         rua = ruas.get(cod)
         g, n, s = formato.ordem_rua(rua)
+        # corredor DO SISTEMA (dono, 24/07): vem do ERP a cada geracao, nunca
+        # congelado. A rua do deposito (app de setorizacao) continua atras,
+        # so como ORDEM do percurso e etiqueta pequena.
         linha = {"codigo": cod, "nome": p["descricao"],
                  "curva": p.get("curva") or "", "rua": rua,
+                 "corredor_erp": formato.corredor_curto(p.get("corredor_erp")),
+                 "ean": formato.ean_exibir(p.get("ean_cx"), p.get("ean_un")),
                  "rua_rotulo": formato.rotulo_rua(rua),
                  # ordem numerica p/ o JS reordenar apos agrupar/mover
                  "ro": g * 100000 + n * 100 + s,

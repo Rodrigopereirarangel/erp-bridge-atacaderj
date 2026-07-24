@@ -69,7 +69,8 @@ def test_montar_novidades_do_dono_22_07():
 def test_quatro_colunas_de_data_para_preencher_a_mao():
     dados = {"COTACAO": [_linha(1, "X")]}
     html = relatorio.montar(relatorio.preparar(dados), "x")
-    assert html.count("data __/__/__") == 4          # 4 cabecalhos iguais
+    # 4 na tabela da tela + 4 no gerador da impressao multipla
+    assert html.count("data __/__/__") == 8
     # celula totalmente VAZIA, sem traco (dono, 22/07)
     assert "'<td class=\"mao\"></td>'.repeat(4)" in html
     assert 'class="lin"' not in html
@@ -117,3 +118,20 @@ def test_ordenacao_arrasto_todos_e_contraste():
     assert 'id="btnTodosForn"' in html    # marcar todos os fornecedores visiveis
     # contraste: selecao de texto legivel
     assert "::selection" in html
+
+
+def test_coluna_ean_linhas_e_impressao_multipla():
+    dados = {"COTACAO": [_linha(1, "X")], "GARCIA": [_linha(2, "Y")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # coluna EAN nas duas tabelas + ordenavel
+    assert html.count('data-k="ean"') == 2
+    # linhas verticais separando colunas (tela e papel)
+    assert "th, td { border-right:1px solid var(--linha) }" in html
+    assert "th, td { border-right:1px solid #bbb }" in html
+    # imprimir varios fornecedores num PDF so, sem quebra de folha entre eles
+    assert "function imprimirVarios(" in html
+    assert 'id="multi"' in html
+    assert "body.multi #multi { display:block !important }" in html
+    assert "page-break-after:avoid" in html      # so o titulo nao se separa
+    # corredor do sistema + rua do deposito em cinza
+    assert "function celCorredor(" in html

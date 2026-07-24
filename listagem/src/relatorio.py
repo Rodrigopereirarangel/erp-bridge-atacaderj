@@ -59,6 +59,8 @@ def montar(fornecedores, dados_de, overrides=None):
               "produtos": [{"codigo": p["codigo"],
                             "nome": p["nome"],
                             "rua": p.get("rua_rotulo") or "",
+                            "cor": p.get("corredor_erp") or "",
+                            "ean": p.get("ean") or "",
                             "ro": p.get("ro", 999999),
                             "cx": p.get("cx_mae") or 1,
                             "mv": p.get("mv", 0),
@@ -147,7 +149,12 @@ _TEMPLATE = """<!doctype html>
  th.ord:hover { color:var(--txt) }
  td { padding:.34rem .65rem; border-bottom:1px solid var(--linha);
       white-space:nowrap }
+ /* linhas VERTICAIS separando as colunas (dono, 24/07) */
+ th, td { border-right:1px solid var(--linha) }
+ th:last-child, td:last-child { border-right:none }
  tr:last-child td { border-bottom:none }
+ .ean { font-size:.82rem; letter-spacing:.01em }
+ .rua { color:var(--fraco); font-size:.76rem }
  td.desc { white-space:normal; width:99% }
  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums }
  tr:nth-child(even) td { background:rgba(255,255,255,.015) }
@@ -204,6 +211,8 @@ _TEMPLATE = """<!doctype html>
    body { background:#fff; color:#000; padding-bottom:0;
           font:12px/1.35 "Segoe UI", system-ui, sans-serif }
    header, footer, .acoes, #lista, #barra, #dlg, #toast { display:none !important }
+   body.multi #detalhe, body.multi #resultados { display:none !important }
+   body.multi #multi { display:block !important }
    .nao-imprime { display:none !important }
    .miolo { max-width:none; padding:0 }
    .soprint { display:block; color:#333; font-size:11px; margin:0 0 6px }
@@ -213,7 +222,15 @@ _TEMPLATE = """<!doctype html>
    th { position:static; background:#fff !important; color:#000;
         border-bottom:1px solid #999 }
    td { background:#fff !important; color:#000; border-color:#ccc }
-   td.cod, .forn { color:#333 }
+   /* grade completa no papel: colunas separadas por linha (dono, 24/07) */
+   th, td { border-right:1px solid #bbb }
+   th:last-child, td:last-child { border-right:none }
+   td.cod, .forn, .rua { color:#333 }
+   /* varios fornecedores no MESMO PDF: seguem na mesma folha, sem
+      quebra forcada — so nao partem o titulo do bloco (dono, 24/07) */
+   #multi h2 { color:#000; font:650 1rem/1.3 "Segoe UI", system-ui, sans-serif;
+               margin:10px 0 4px; break-after:avoid; page-break-after:avoid }
+   #multi .tabela { margin-bottom:10px }
    tr:nth-child(even) td { background:#f3f3f3 !important }
    .rupt, .marca { display:none !important }
    th.mao { color:#333 }
@@ -249,6 +266,7 @@ _TEMPLATE = """<!doctype html>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
  <div class="tabela"><table><thead><tr id="cabDet">
  <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
+ <th class="ord" data-k="ean" data-rot="EAN">EAN</th>
  <th class="ord" data-k="nome" data-rot="produto">produto</th>
  <th class="ord" data-k="ro" data-rot="corredor">corredor</th>
  <th class="num ord" data-k="cx" data-rot="cx m&atilde;e">cx m&atilde;e</th>
@@ -257,6 +275,7 @@ _TEMPLATE = """<!doctype html>
  <th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>
  </tr></thead><tbody id="corpo"></tbody></table></div>
 </div>
+<div id="multi" style="display:none"></div>
 <div id="resultados" style="display:none">
  <div class="acoes nao-imprime">
   <button id="voltaRes">&larr; fornecedores</button>
@@ -266,6 +285,7 @@ _TEMPLATE = """<!doctype html>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
  <div class="tabela"><table><thead><tr id="cabRes">
  <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
+ <th class="ord" data-k="ean" data-rot="EAN">EAN</th>
  <th class="ord" data-k="nome" data-rot="produto">produto</th>
  <th class="ord" data-k="forn" data-rot="fornecedor">fornecedor</th>
  <th class="ord" data-k="ro" data-rot="corredor">corredor</th>
@@ -278,7 +298,9 @@ _TEMPLATE = """<!doctype html>
  novo = estimativa proporcional (produto recente) &middot;
  sem venda 6m / ruptura cr&ocirc;nica = sem base de venda (m&iacute;nimo = piso de 1 cx/un) &middot;
  cx m&atilde;e = unidades por caixa (1 = sem caixa) &middot;
- &#9711; = marque fornecedor(es) e use "agrupar ao m&atilde;e" (ou deixar solto)</footer>
+ &#9711; = marque fornecedor(es) p/ agrupar ao m&atilde;e ou imprimir v&aacute;rios num PDF s&oacute; &middot;
+ EAN = c&oacute;digo de barras da caixa-m&atilde;e (ou da unidade, marcado "un") &middot;
+ corredor = do sistema (ERP), com a rua do dep&oacute;sito em cinza</footer>
 </div>
 <div id="barra"></div>
 <div id="dlg"><div class="caixa">
@@ -380,6 +402,11 @@ function celProduto(p){
          esc(p.nome)+
          (p.marca?' <span class="marca">'+esc(p.marca)+'</span>':'');
 }
+/* corredor DO SISTEMA (ERP) + rua do deposito em cinza, quando marcada */
+function celCorredor(p){
+  return '<td>'+esc(p.cor||'\\u2014')+
+    (p.rua?' <span class="rua">'+esc(p.rua)+'</span>':'')+'</td>';
+}
 /* lista principal: FLAG sempre visivel (marca -> barra aparece) */
 function renderLista(filtro){
   var el=$('lista'); el.innerHTML='';
@@ -414,9 +441,10 @@ function abrir(nome){
     var tr=document.createElement('tr');
     var chk=modoItem?('<td class="chk nao-imprime">'+
       (selItem[p.codigo]?'\\u2611':'\\u2610')+'</td>'):'';
-    tr.innerHTML=chk+'<td class="cod">'+esc(p.codigo)+'</td><td class="desc">'+
-      celProduto(p)+'</td><td>'+esc(p.rua)+
-      '</td><td class="num">'+esc(p.cx)+
+    tr.innerHTML=chk+'<td class="cod">'+esc(p.codigo)+
+      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+      celProduto(p)+'</td>'+celCorredor(p)+
+      '<td class="num">'+esc(p.cx)+
       '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
       '<td class="mao"></td>'.repeat(4);
     if(modoItem){tr.className='selv'+(selItem[p.codigo]?' on':'');
@@ -454,9 +482,10 @@ function renderResultados(q){
     var tr=document.createElement('tr');
     tr.className='link';
     tr.title='abrir '+nomeF;
-    tr.innerHTML='<td class="cod">'+esc(p.codigo)+'</td><td class="desc">'+
-      celProduto(p)+'</td><td class="forn">'+esc(nomeF)+'</td><td>'+esc(p.rua)+
-      '</td><td class="num">'+esc(p.cx)+
+    tr.innerHTML='<td class="cod">'+esc(p.codigo)+
+      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+      celProduto(p)+'</td><td class="forn">'+esc(nomeF)+'</td>'+
+      celCorredor(p)+'<td class="num">'+esc(p.cx)+
       '</td><td class="num minimo">'+esc(p.minimo)+'</td>';
     tr.onclick=function(){$('buscaProd').value=''; abrir(nomeF);};
     corpoRes.appendChild(tr);});
@@ -465,6 +494,38 @@ function renderResultados(q){
     (total>mostrar.length?' (mostrando '+mostrar.length+')':'');
   pintarSetas('cabRes', ordRes);
   mostra('res');
+}
+
+/* ---- imprimir VARIOS fornecedores num PDF so (dono, 24/07) ----
+   os blocos seguem na MESMA folha, um atras do outro — nada de uma folha
+   por fornecedor (era o desperdicio que o dono apontou). */
+function tabelaImpressao(f){
+  var linhas=sortLista(f.produtos, ordDet).map(function(p){
+    return '<tr><td class="cod">'+esc(p.codigo)+
+      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+      esc(p.nome)+'</td>'+celCorredor(p)+
+      '<td class="num">'+esc(p.cx)+
+      '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
+      '<td class="mao"></td>'.repeat(4)+'</tr>';}).join('');
+  return '<h2>'+esc(f.nome)+' \\u2014 '+f.qtd+' produtos</h2>'+
+    '<div class="tabela"><table><thead><tr>'+
+    '<th>c\\u00f3digo</th><th>EAN</th><th>produto</th><th>corredor</th>'+
+    '<th class="num">cx m\\u00e3e</th><th class="num">est. m\\u00ednimo</th>'+
+    '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
+    '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
+    '</tr></thead><tbody>'+linhas+'</tbody></table></div>';
+}
+function imprimirVarios(nomes){
+  var alvo=$('multi'), html='', n=0;
+  DADOS.forEach(function(f){
+    if(nomes.indexOf(f.nome)<0)return;
+    html+=tabelaImpressao(f); n++;});
+  if(!n)return;
+  alvo.innerHTML=html;
+  document.body.classList.add('multi');
+  window.print();
+  setTimeout(function(){document.body.classList.remove('multi');
+    alvo.innerHTML='';}, 500);
 }
 
 /* ---- marcar item (toque ou arrasto) sem re-renderizar a tabela ---- */
@@ -483,8 +544,10 @@ function renderBarra(){
   var nf=Object.keys(selForn).length, ni=Object.keys(selItem).length;
   if(nf>0 && !modoItem){
     b.innerHTML='<button id="bDef" class="pill">\\ud83d\\udd17 agrupar ao m\\u00e3e ('+nf+')</button>'+
+      '<button id="bImp" class="pill">\\ud83d\\udda8 imprimir ('+nf+') num PDF</button>'+
       '<button id="bCan" class="pill">limpar</button>';
     b.style.display='flex';
+    $('bImp').onclick=function(){imprimirVarios(Object.keys(selForn));};
     $('bDef').onclick=function(){dlgGrupo(Object.keys(selForn));};
     $('bCan').onclick=function(){selForn={};renderLista($('busca').value);renderBarra();};
   } else if(modoItem){

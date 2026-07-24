@@ -38,6 +38,29 @@ def rotulo_rua(rua):
     return f"A{rua} {nome}" if nome else f"A{rua}"
 
 
+def corredor_curto(nome):
+    """Corredor do ERP enxuto p/ caber na coluna: "CORREDOR 130(DOCE)" ->
+    "130(DOCE)"; nomes que nao sao "CORREDOR n" (CONGELADOS, VITRINE...)
+    passam inteiros. Dono, 24/07: o corredor vem do sistema, sempre."""
+    txt = str(nome or "").strip()
+    if not txt or txt.upper() == "SEM CLASSIFICACAO":
+        return ""
+    sem = txt.upper()
+    if sem.startswith("CORREDOR"):
+        return txt[len("CORREDOR"):].strip()
+    return txt
+
+
+def ean_exibir(ean_cx, ean_un):
+    """EAN p/ conferencia (dono, 24/07): o da CAIXA-MAE manda; sem ele,
+    o da unidade marcado "(un)". Sem nenhum -> vazio."""
+    cx = str(ean_cx or "").strip()
+    if cx:
+        return cx
+    un = str(ean_un or "").strip()
+    return f"{un} (un)" if un else ""
+
+
 def ordem_rua(rua):
     """Ordena pelo NUMERO EXIBIDO: a rua interna 26 aparece como "A24
     vitrine" e por isso ordena logo apos a 24 ROTATIVO e ANTES da A25

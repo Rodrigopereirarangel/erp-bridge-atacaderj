@@ -85,6 +85,13 @@ SELECT
     -- em vez de un e marca com balanca (dono, 18/07)
     CASE WHEN LOWER(RTRIM(sp.cdUnidadeMedida)) IN ('kg','g')
          THEN 1 ELSE 0 END           AS peso,
+    -- EAN por embalagem (dono, 24/07: conferencia no PDF da listagem).
+    -- FONTE medida 2026-07-24: VW_NEOGRID_PRODUTO_EAN tem 1 linha por EAN
+    -- com TIPO_EMBALAGEM CX/UN; um produto pode ter VARIOS EAN de unidade
+    -- (Rosca Mabel tem 3) -> MAX pega um determinstico. Cobertura no
+    -- catalogo: ~UN 4.484 / ~CX 1.768 itens ativos — quem nao tem sai vazio.
+    ean_cx.ean                       AS ean_cx,
+    ean_un.ean                       AS ean_un,
     CAST(p.inAtivo AS int)           AS ativo
 FROM (   -- as DUAS views Neogrid tem 1 linha POR EMBALAGEM -> pegar a LINHA
          -- inteira da maior caixa (nao misturar precos de embalagens diferentes)
@@ -120,6 +127,14 @@ LEFT JOIN dbo.tbClassificacaoProduto clp
 LEFT JOIN dbo.tbClassificacaoProduto clpp
        ON clpp.cdClassificacaoProduto = clp.cdClassificacaoProdutoPai
       AND clpp.cdEmpresa = clp.cdEmpresaPai
+LEFT JOIN (SELECT SEQPRODUTO, MAX(EAN) AS ean
+             FROM dbo.VW_NEOGRID_PRODUTO_EAN
+            WHERE TIPO_EMBALAGEM = 'CX' GROUP BY SEQPRODUTO) ean_cx
+       ON ean_cx.SEQPRODUTO = p.cdProduto
+LEFT JOIN (SELECT SEQPRODUTO, MAX(EAN) AS ean
+             FROM dbo.VW_NEOGRID_PRODUTO_EAN
+            WHERE TIPO_EMBALAGEM = 'UN' GROUP BY SEQPRODUTO) ean_un
+       ON ean_un.SEQPRODUTO = p.cdProduto
 LEFT JOIN (
     SELECT cdProduto, MIN(promo_vigente) AS promo_vigente FROM (
         SELECT pr2.cdProduto, MIN(pi.vlPromocao) AS promo_vigente
