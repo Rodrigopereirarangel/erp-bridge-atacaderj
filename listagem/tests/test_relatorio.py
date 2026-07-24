@@ -152,8 +152,8 @@ def test_impressao_compacta_economiza_papel():
     dados = {"COTACAO": [_linha(1, "X")], "GARCIA": [_linha(2, "Y")]}
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # margens curtas + fonte compacta + larguras fixas (dono, 24/07)
-    assert "@page { size:A4 portrait; margin:8mm 7mm 9mm }" in html
-    assert "font:8.6pt/1.15" in html
+    assert "@page { size:A4 portrait; margin:6mm 5mm 7mm }" in html
+    assert "font:8pt/1.05" in html
     assert "table-layout:fixed" in html
     assert html.count('col class="c-mao"') >= 8      # colgroups das 2 tabelas
     # multi-fornecedor = UMA tabela com faixa de grupo (sem thead repetido)
@@ -169,4 +169,4 @@ def test_ean_nao_vaza_e_tem_selo():
     assert 'class="eant"' in html                 # selo CX/UN
     # overflow:hidden impede o EAN de trepar na coluna vizinha no papel
     assert "overflow:hidden }" in html
-    assert "col.c-ean { width:31mm }" in html
+    assert "col.c-ean { width:29mm }" in html

@@ -214,22 +214,22 @@ _TEMPLATE = """<!doctype html>
  @media print {
    /* ECONOMIA DE PAPEL (dono, 24/07): margens curtas, fonte 8.6pt e linhas
       justas — sem mexer no conteudo. Media: ~25 linhas/folha -> ~55. */
-   @page { size:A4 portrait; margin:8mm 7mm 9mm }
+   @page { size:A4 portrait; margin:6mm 5mm 7mm }
    body { background:#fff; color:#000; padding-bottom:0;
-          font:8.6pt/1.15 "Segoe UI", system-ui, sans-serif }
+          font:8pt/1.05 "Segoe UI", system-ui, sans-serif }
    table { table-layout:fixed; width:100% }
-   th { padding:1.5pt 3pt !important; font-size:6.6pt !important;
-        letter-spacing:.03em !important }
+   th { padding:1pt 2.5pt !important; font-size:6pt !important;
+        letter-spacing:.02em !important; overflow:hidden }
    /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
       coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
-   td { padding:1pt 3pt !important; font-size:8.6pt; overflow:hidden }
-   th { overflow:hidden }
-   /* larguras fixas: sobra o maximo p/ o nome do produto (1 linha na
-      maioria); nome longo ainda quebra, e so nele que gastamos altura */
-   col.c-cod { width:11mm } col.c-ean { width:31mm } col.c-cor { width:15mm }
-   col.c-forn { width:26mm } col.c-cx { width:9mm } col.c-min { width:13mm }
-   col.c-mao { width:12mm }
-   td.ean { font-size:7.6pt; letter-spacing:0 }
+   td { padding:.6pt 2.5pt !important; font-size:8pt; overflow:hidden }
+   /* larguras fixas: sobra o maximo p/ o nome do produto (~48 caracteres
+      em 8pt = 1 linha na maioria). Cada nome que NAO quebra economiza uma
+      linha inteira — e o que mais reduz folha (dono, 24/07). */
+   col.c-cod { width:10mm } col.c-ean { width:29mm } col.c-cor { width:11mm }
+   col.c-forn { width:24mm } col.c-cx { width:8mm } col.c-min { width:12mm }
+   col.c-mao { width:11mm }
+   td.ean { font-size:7.2pt; letter-spacing:0 }
    .eant { font-size:6.4pt; color:#000; background:#e0e0e0;
            border:1px solid #999; border-radius:2px; padding:0 2px }
    td.desc { white-space:normal; word-break:break-word }
@@ -257,8 +257,8 @@ _TEMPLATE = """<!doctype html>
       cada bloco (395 fornecedores = ~16 folhas so de cabecalho) */
    #multi .tabela { margin:0; border:none }
    tr.grupo td { background:#e8e8e8 !important; color:#000;
-                 font-weight:700; font-size:8.6pt; padding:2.5pt 3pt !important;
-                 border-top:1.5px solid #666 }
+                 font-weight:700; font-size:8pt; padding:1.5pt 3pt !important;
+                 border-top:1.2px solid #666 }
    tr.grupo { break-after:avoid; page-break-after:avoid }
    tr:nth-child(even) td { background:#f3f3f3 !important }
    .rupt, .marca { display:none !important }
