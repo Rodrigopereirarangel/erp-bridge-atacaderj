@@ -222,7 +222,7 @@ _TEMPLATE = """<!doctype html>
                   font:var(--fp,9.4pt)/1.18 "Segoe UI", system-ui, sans-serif }
  .medindo col.c-cod { width:4.2em } .medindo col.c-ean { width:9.2em }
  .medindo col.c-cor { width:4.6em } .medindo col.c-cx { width:2.8em }
- .medindo col.c-min { width:4.2em } .medindo col.c-mao { width:3.6em }
+ .medindo col.c-min { width:4.2em } .medindo col.c-mao { width:3.3em }
  .medindo .rua { display:none }
  .medindo th { padding:1pt 2.5pt; font-size:calc(var(--fp,9.4pt) - 2.6pt) }
  .medindo td { padding:.8pt 2.5pt; font-size:var(--fp,9.4pt);
@@ -257,7 +257,7 @@ _TEMPLATE = """<!doctype html>
       24/07: codigo truncado e EAN por cima da coluna vizinha). */
    col.c-cod { width:4.2em } col.c-ean { width:9.2em } col.c-cor { width:4.6em }
    col.c-forn { width:9em } col.c-cx { width:2.8em } col.c-min { width:4.2em }
-   col.c-mao { width:3.6em }
+   col.c-mao { width:3.3em }
    /* a rua do deposito nao vai ao papel: no atacado vale o endereco do
       sistema, e ela roubava largura do nome do produto */
    .rua { display:none !important }
@@ -614,7 +614,10 @@ function ajustaFonteAmostrada(linhasHtml, colsHtml, cabHtml){
   var fator=n/amostra.length;
   var melhor=FONTE_MIN;
   for(var pt=FONTE_MAX; pt>=FONTE_MIN; pt=Math.round((pt-0.2)*10)/10){
-    var h=(h9+(h13-h9)*(pt-9)/4)*fator;        // interpolacao linear
+    // x1.10: a amostra pega os primeiros fornecedores, de nomes mais
+    // curtos; no resto ha mais nome que quebra em 2 linhas (medido
+    // no papel em 24/07: estimava 100 e saiam 110 folhas)
+    var h=(h9+(h13-h9)*(pt-9)/4)*fator*1.10;   // interpolacao linear
     if(Math.ceil(h/ALT_FOLHA_PX)<=TETO_FOLHAS){ melhor=pt; break; }
   }
   document.documentElement.style.setProperty('--fp', melhor+'pt');
