@@ -249,8 +249,13 @@ _TEMPLATE = """<!doctype html>
         letter-spacing:.02em !important; overflow:hidden }
    /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
       coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
+   /* bordas em PT (nao px): no papel, 1px cai em sub-pixel e o Chrome
+      "come" a linha de algumas celulas. E a excecao last-child da tela
+      apagava a separacao no fim de CADA lote (dono, 24/07). */
    td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt);
-        border-top:none; border-bottom:1px solid #ccc }
+        border-top:none; border-bottom:.4pt solid #999 !important }
+   tr:last-child td { border-bottom:.4pt solid #999 !important }
+   tr.grupo td { border-bottom:.4pt solid #666 !important }
    td.cod, td.ean, td.mao, td.num { overflow:hidden }
    /* larguras em EM: crescem junto com a fonte. Em mm elas nao
       acompanhavam e o texto era CORTADO quando a fonte subia (dono,
@@ -283,7 +288,7 @@ _TEMPLATE = """<!doctype html>
         border-bottom:1px solid #999 }
    td { background:#fff !important; color:#000; border-color:#ccc }
    /* grade completa no papel: colunas separadas por linha (dono, 24/07) */
-   th, td { border-right:1px solid #bbb }
+   th, td { border-right:.4pt solid #999 }
    th:last-child, td:last-child { border-right:none }
    td.cod, .forn, .rua { color:#333 }
    /* varios fornecedores no MESMO PDF: UMA tabela so, com o nome do
