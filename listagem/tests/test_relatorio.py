@@ -180,9 +180,9 @@ def test_fonte_confortavel_com_teto_de_100_folhas():
     assert "var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;" in html
     assert "function ajustaFonte(" in html
     assert "pt>FONTE_MIN" in html               # piso de legibilidade
-    assert "function folhasMedidas(" in html     # mede a folha real
+    assert "function alturaAmostra(" in html      # mede a folha real
     # os 3 caminhos de impressao chamam o ajuste antes de imprimir
-    assert "ajustaFontePorMedida(alvo)" in html  # mede antes de imprimir
+    assert "ajustaFonteAmostrada(linhas" in html # mede antes de imprimir
 
 
 def test_fonte_medida_de_verdade_e_fornecedor_proporcional():
@@ -190,8 +190,9 @@ def test_fonte_medida_de_verdade_e_fornecedor_proporcional():
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # regua de medicao fora da tela + busca binaria pela maior fonte
     assert ".medindo {" in html
-    assert "function ajustaFontePorMedida(" in html
-    assert "el.scrollHeight/ALT_FOLHA_PX" in html
+    assert "function ajustaFonteAmostrada(" in html
+    assert "regua.scrollHeight" in html
+    assert "var AMOSTRA=400;" in html            # nao trava com 5 mil linhas
     # nome do fornecedor cresce junto (proporcional ao corpo)
     assert html.count("calc(var(--fp,9.4pt) * 1.12)") == 2   # regua + papel
     # o PDF de um fornecedor usa o mesmo caminho medido

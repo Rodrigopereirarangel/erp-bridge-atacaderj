@@ -576,25 +576,31 @@ function renderResultados(q){
    8.6pt). Folha util A4 c/ margem 6mm = 284mm ~ 805pt. Piso 8.2pt. */
 var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;
 var PX_MM=96/25.4, ALT_FOLHA_PX=284*PX_MM;   // A4 util c/ margem 6mm/7mm
-function folhasMedidas(pt, el){
+var AMOSTRA=400;   // linhas medidas de verdade; o resto e proporcao
+/* Mede a altura REAL de uma amostra em 2 fontes e interpola — 2 medicoes
+   rapidas em vez de reflow repetido das 5.000 linhas (isso travava o
+   navegador; dono, 24/07). A altura da linha cresce ~linear com a fonte. */
+function alturaAmostra(pt, regua){
   document.documentElement.style.setProperty('--fp', pt+'pt');
-  el.offsetHeight;                            // forca o reflow antes de medir
-  return Math.ceil(el.scrollHeight/ALT_FOLHA_PX);
+  regua.offsetHeight;                          // forca o reflow
+  return regua.scrollHeight;
 }
-/* MEDE de verdade (nao estima): sobe a fonte enquanto couber no teto.
-   Busca binaria em passos de 0.2pt — ~7 medicoes, imperceptivel. */
-function ajustaFontePorMedida(el){
-  el.classList.add('medindo');
-  var lo=FONTE_MIN, hi=FONTE_MAX, melhor=FONTE_MIN;
-  if(folhasMedidas(hi, el)<=TETO_FOLHAS){ melhor=hi; }
-  else {
-    while(hi-lo>0.2){
-      var meio=Math.round(((lo+hi)/2)*5)/5;    // grade de 0.2pt
-      if(folhasMedidas(meio, el)<=TETO_FOLHAS){ melhor=meio; lo=meio; }
-      else { hi=meio; }
-    }
+function ajustaFonteAmostrada(linhasHtml, colsHtml, cabHtml){
+  var n=linhasHtml.length;
+  var amostra=linhasHtml.slice(0, Math.min(AMOSTRA, n));
+  var regua=document.createElement('div');
+  regua.className='medindo';
+  regua.innerHTML='<table>'+colsHtml+'<thead>'+cabHtml+'</thead><tbody>'+
+                  amostra.join('')+'</tbody></table>';
+  document.body.appendChild(regua);
+  var h9=alturaAmostra(9, regua), h13=alturaAmostra(13, regua);
+  document.body.removeChild(regua);
+  var fator=n/amostra.length;
+  var melhor=FONTE_MIN;
+  for(var pt=FONTE_MAX; pt>=FONTE_MIN; pt=Math.round((pt-0.2)*10)/10){
+    var h=(h9+(h13-h9)*(pt-9)/4)*fator;        // interpolacao linear
+    if(Math.ceil(h/ALT_FOLHA_PX)<=TETO_FOLHAS){ melhor=pt; break; }
   }
-  el.classList.remove('medindo');
   document.documentElement.style.setProperty('--fp', melhor+'pt');
   return melhor;
 }
@@ -613,33 +619,35 @@ var COLS_IMP='<colgroup><col class="c-cod"><col class="c-ean"><col>'+
   '<col class="c-cor"><col class="c-cx"><col class="c-min">'+
   '<col class="c-mao"><col class="c-mao"><col class="c-mao"><col class="c-mao">'+
   '</colgroup>';
+var CAB_IMP='<tr><th>c\\u00f3digo</th><th>EAN</th><th>produto</th>'+
+  '<th>corredor</th><th class="num">cx m\\u00e3e</th>'+
+  '<th class="num">est. m\\u00ednimo</th>'+
+  '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
+  '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th></tr>';
 function linhasImpressao(f){
-  // faixa do fornecedor + seus produtos, TUDO na mesma tabela
-  return '<tr class="grupo"><td colspan="10">'+esc(f.nome)+' \\u2014 '+
-    f.qtd+' produtos</td></tr>'+
-    sortLista(f.produtos, ordDet).map(function(p){
-      return '<tr><td class="cod">'+esc(p.codigo)+
-        '</td>'+celEan(p)+'<td class="desc">'+
-        esc(p.nome)+'</td>'+celCorredor(p)+
-        '<td class="num">'+esc(p.cx)+
-        '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
-        '<td class="mao"></td>'.repeat(4)+'</tr>';}).join('');
+  // faixa do fornecedor + seus produtos (array de <tr>, p/ amostrar)
+  var out=['<tr class="grupo"><td colspan="10">'+esc(f.nome)+' \\u2014 '+
+    f.qtd+' produtos</td></tr>'];
+  sortLista(f.produtos, ordDet).forEach(function(p){
+    out.push('<tr><td class="cod">'+esc(p.codigo)+
+      '</td>'+celEan(p)+'<td class="desc">'+
+      esc(p.nome)+'</td>'+celCorredor(p)+
+      '<td class="num">'+esc(p.cx)+
+      '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
+      '<td class="mao"></td>'.repeat(4)+'</tr>');});
+  return out;
 }
 function imprimirVarios(nomes){
-  var alvo=$('multi'), corpo='', n=0, linhas=0;
+  var alvo=$('multi'), linhas=[], n=0;
   DADOS.forEach(function(f){
     if(nomes.indexOf(f.nome)<0)return;
-    corpo+=linhasImpressao(f); n++; linhas+=f.qtd+1;});
+    linhas=linhas.concat(linhasImpressao(f)); n++;});
   if(!n)return;
-  alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead><tr>'+
-    '<th>c\\u00f3digo</th><th>EAN</th><th>produto</th><th>corredor</th>'+
-    '<th class="num">cx m\\u00e3e</th><th class="num">est. m\\u00ednimo</th>'+
-    '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
-    '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
-    '</tr></thead><tbody>'+corpo+'</tbody></table></div>';
-  var pt=ajustaFontePorMedida(alvo);          // maior fonte que cabe
+  var pt=ajustaFonteAmostrada(linhas, COLS_IMP, CAB_IMP);
+  alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead>'+CAB_IMP+
+    '</thead><tbody>'+linhas.join('')+'</tbody></table></div>';
   document.body.classList.add('multi');
-  toast('impress\\u00e3o em '+pt+'pt');
+  toast(n+' fornecedor(es) \\u00b7 '+pt+'pt');
   window.print();
   setTimeout(function(){document.body.classList.remove('multi');
     alvo.innerHTML='';}, 500);
