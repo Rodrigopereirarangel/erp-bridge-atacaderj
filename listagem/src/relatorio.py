@@ -549,17 +549,20 @@ function renderResultados(q){
 /* ---- imprimir VARIOS fornecedores num PDF so (dono, 24/07) ----
    os blocos seguem na MESMA folha, um atras do outro — nada de uma folha
    por fornecedor (era o desperdicio que o dono apontou). */
-/* fonte do papel: comeca CONFORTAVEL (9.4pt) e so encolhe se o volume
-   passaria do teto de ~100 folhas (dono, 24/07). Cada linha ocupa
-   fonte*1.18 + 1.6pt de padding, e ~1.15 de folga p/ nome que quebra;
-   folha util = 284mm ~ 805pt. Piso 8.2pt: abaixo disso fica ilegivel. */
-var TETO_FOLHAS=100;
+/* fonte do papel: usa a MAIOR que couber no teto de folhas (dono, 24/07:
+   "aumente ate 100 pag"). Comeca em 12pt e so desce se precisar — quem
+   imprime 1 fornecedor ganha letra grande; so o "tudo de uma vez" encolhe.
+   Altura da linha = (fonte*1.18 + 1.6pt de padding) x 1.28 de folga p/ nome
+   que quebra em 2 linhas (fator medido no papel: 881 linhas = 17 folhas a
+   8.6pt). Folha util A4 c/ margem 6mm = 284mm ~ 805pt. Piso 8.2pt. */
+var TETO_FOLHAS=100, FONTE_MAX=12, FONTE_MIN=8.2;
+function folhasCom(pt, nLinhas){
+  var porFolha=Math.floor(805/((pt*1.18+1.6)*1.28));
+  return Math.ceil(nLinhas/Math.max(porFolha,1));
+}
 function ajustaFonte(nLinhas){
-  var pt=9.4;
-  for(var i=0;i<8;i++){
-    var alturaLinha=(pt*1.18+1.6)*1.15;
-    var porFolha=Math.floor(805/alturaLinha);
-    if(Math.ceil(nLinhas/porFolha)<=TETO_FOLHAS || pt<=8.2)break;
+  var pt=FONTE_MAX;
+  while(pt>FONTE_MIN && folhasCom(pt,nLinhas)>TETO_FOLHAS){
     pt=Math.round((pt-0.2)*10)/10;
   }
   document.documentElement.style.setProperty('--fp', pt+'pt');

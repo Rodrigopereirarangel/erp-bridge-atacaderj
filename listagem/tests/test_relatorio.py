@@ -177,8 +177,9 @@ def test_fonte_confortavel_com_teto_de_100_folhas():
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # padrao confortavel + variavel que o JS ajusta pelo volume
     assert "font:var(--fp,9.4pt)/1.18" in html
-    assert "var TETO_FOLHAS=100;" in html
+    assert "var TETO_FOLHAS=100, FONTE_MAX=12, FONTE_MIN=8.2;" in html
     assert "function ajustaFonte(" in html
-    assert "pt<=8.2" in html                    # piso de legibilidade
+    assert "pt>FONTE_MIN" in html               # piso de legibilidade
+    assert "function folhasCom(" in html        # cresce ate o teto
     # os 3 caminhos de impressao chamam o ajuste antes de imprimir
     assert html.count("ajustaFonte(") >= 4      # def + 3 chamadas
