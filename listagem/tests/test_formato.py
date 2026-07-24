@@ -49,3 +49,11 @@ def test_ean_unico_por_linha_com_selo_cx_ou_un():
         ("17891107101628", "CX")
     assert formato.ean_exibir(None, 7891107101621) == ("7891107101621", "UN")
     assert formato.ean_exibir("", "") == ("", "")
+
+
+def test_varejo_e_vazio_nao_viram_corredor():
+    # dono, 24/07: so ATACADO 1/2 conta como corredor; o resto sai "—"
+    assert formato.corredor_curto("ATACADO 1") == "AT 1"
+    assert formato.corredor_curto("ATACADO 2") == "AT 2"
+    assert formato.corredor_curto("VAREJO") == ""
+    assert formato.corredor_curto(None) == ""

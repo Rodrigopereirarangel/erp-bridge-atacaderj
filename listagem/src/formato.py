@@ -44,7 +44,9 @@ def corredor_curto(nome):
     (dono, 24/07). Serve tambem p/ o corredor mercadologico antigo
     ("CORREDOR 130(DOCE)" -> "130(DOCE)"), caso volte a ser usado."""
     txt = str(nome or "").strip()
-    if not txt or txt.upper() == "SEM CLASSIFICACAO":
+    if not txt or txt.upper() in ("SEM CLASSIFICACAO", "VAREJO"):
+        # VAREJO nao e corredor de deposito (dono, 24/07): sai vazio,
+        # igual a quem nao tem endereco nenhum cadastrado
         return ""
     sem = txt.upper()
     if sem.startswith("ATACADO"):
