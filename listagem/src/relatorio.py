@@ -208,8 +208,24 @@ _TEMPLATE = """<!doctype html>
  footer { color:var(--mut); font-size:.76rem; line-height:1.6;
           padding-bottom:1rem }
  @media print {
+   /* ECONOMIA DE PAPEL (dono, 24/07): margens curtas, fonte 8.6pt e linhas
+      justas — sem mexer no conteudo. Media: ~25 linhas/folha -> ~55. */
+   @page { size:A4 portrait; margin:8mm 7mm 9mm }
    body { background:#fff; color:#000; padding-bottom:0;
-          font:12px/1.35 "Segoe UI", system-ui, sans-serif }
+          font:8.6pt/1.15 "Segoe UI", system-ui, sans-serif }
+   table { table-layout:fixed; width:100% }
+   th { padding:1.5pt 3pt !important; font-size:6.6pt !important;
+        letter-spacing:.03em !important }
+   td { padding:1pt 3pt !important; font-size:8.6pt }
+   /* larguras fixas: sobra o maximo p/ o nome do produto (1 linha na
+      maioria); nome longo ainda quebra, e so nele que gastamos altura */
+   col.c-cod { width:9mm } col.c-ean { width:23mm } col.c-cor { width:14mm }
+   col.c-forn { width:26mm } col.c-cx { width:9mm } col.c-min { width:13mm }
+   col.c-mao { width:13mm }
+   td.desc { white-space:normal; word-break:break-word }
+   .tabela { break-inside:auto }
+   tr { break-inside:avoid; page-break-inside:avoid }
+   thead { display:table-header-group }   /* cabecalho repete por folha */
    header, footer, .acoes, #lista, #barra, #dlg, #toast { display:none !important }
    body.multi #detalhe, body.multi #resultados { display:none !important }
    body.multi #multi { display:block !important }
@@ -226,11 +242,14 @@ _TEMPLATE = """<!doctype html>
    th, td { border-right:1px solid #bbb }
    th:last-child, td:last-child { border-right:none }
    td.cod, .forn, .rua { color:#333 }
-   /* varios fornecedores no MESMO PDF: seguem na mesma folha, sem
-      quebra forcada — so nao partem o titulo do bloco (dono, 24/07) */
-   #multi h2 { color:#000; font:650 1rem/1.3 "Segoe UI", system-ui, sans-serif;
-               margin:10px 0 4px; break-after:avoid; page-break-after:avoid }
-   #multi .tabela { margin-bottom:10px }
+   /* varios fornecedores no MESMO PDF: UMA tabela so, com o nome do
+      fornecedor como faixa de grupo — economiza o cabecalho repetido de
+      cada bloco (395 fornecedores = ~16 folhas so de cabecalho) */
+   #multi .tabela { margin:0; border:none }
+   tr.grupo td { background:#e8e8e8 !important; color:#000;
+                 font-weight:700; font-size:8.6pt; padding:2.5pt 3pt !important;
+                 border-top:1.5px solid #666 }
+   tr.grupo { break-after:avoid; page-break-after:avoid }
    tr:nth-child(even) td { background:#f3f3f3 !important }
    .rupt, .marca { display:none !important }
    th.mao { color:#333 }
@@ -264,7 +283,11 @@ _TEMPLATE = """<!doctype html>
  <h2 id="titulo"></h2>
  <div class="agrupa" id="agrupaInfo"></div>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
- <div class="tabela"><table><thead><tr id="cabDet">
+ <div class="tabela"><table>
+ <colgroup><col class="c-cod"><col class="c-ean"><col><col class="c-cor">
+ <col class="c-cx"><col class="c-min"><col class="c-mao"><col class="c-mao">
+ <col class="c-mao"><col class="c-mao"></colgroup>
+ <thead><tr id="cabDet">
  <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
  <th class="ord" data-k="ean" data-rot="EAN">EAN</th>
  <th class="ord" data-k="nome" data-rot="produto">produto</th>
@@ -283,7 +306,10 @@ _TEMPLATE = """<!doctype html>
  </div>
  <h2 id="tituloRes"></h2>
  <div class="soprint">dados de __DADOS_DE__ &middot; AtacadeRJ</div>
- <div class="tabela"><table><thead><tr id="cabRes">
+ <div class="tabela"><table>
+ <colgroup><col class="c-cod"><col class="c-ean"><col><col class="c-forn">
+ <col class="c-cor"><col class="c-cx"><col class="c-min"></colgroup>
+ <thead><tr id="cabRes">
  <th class="ord" data-k="codigo" data-rot="c&oacute;digo">c&oacute;digo</th>
  <th class="ord" data-k="ean" data-rot="EAN">EAN</th>
  <th class="ord" data-k="nome" data-rot="produto">produto</th>
@@ -504,29 +530,34 @@ function renderResultados(q){
 /* ---- imprimir VARIOS fornecedores num PDF so (dono, 24/07) ----
    os blocos seguem na MESMA folha, um atras do outro — nada de uma folha
    por fornecedor (era o desperdicio que o dono apontou). */
-function tabelaImpressao(f){
-  var linhas=sortLista(f.produtos, ordDet).map(function(p){
-    return '<tr><td class="cod">'+esc(p.codigo)+
-      '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
-      esc(p.nome)+'</td>'+celCorredor(p)+
-      '<td class="num">'+esc(p.cx)+
-      '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
-      '<td class="mao"></td>'.repeat(4)+'</tr>';}).join('');
-  return '<h2>'+esc(f.nome)+' \\u2014 '+f.qtd+' produtos</h2>'+
-    '<div class="tabela"><table><thead><tr>'+
+var COLS_IMP='<colgroup><col class="c-cod"><col class="c-ean"><col>'+
+  '<col class="c-cor"><col class="c-cx"><col class="c-min">'+
+  '<col class="c-mao"><col class="c-mao"><col class="c-mao"><col class="c-mao">'+
+  '</colgroup>';
+function linhasImpressao(f){
+  // faixa do fornecedor + seus produtos, TUDO na mesma tabela
+  return '<tr class="grupo"><td colspan="10">'+esc(f.nome)+' \\u2014 '+
+    f.qtd+' produtos</td></tr>'+
+    sortLista(f.produtos, ordDet).map(function(p){
+      return '<tr><td class="cod">'+esc(p.codigo)+
+        '</td><td class="cod ean">'+esc(p.ean)+'</td><td class="desc">'+
+        esc(p.nome)+'</td>'+celCorredor(p)+
+        '<td class="num">'+esc(p.cx)+
+        '</td><td class="num minimo">'+esc(p.minimo)+'</td>'+
+        '<td class="mao"></td>'.repeat(4)+'</tr>';}).join('');
+}
+function imprimirVarios(nomes){
+  var alvo=$('multi'), corpo='', n=0;
+  DADOS.forEach(function(f){
+    if(nomes.indexOf(f.nome)<0)return;
+    corpo+=linhasImpressao(f); n++;});
+  if(!n)return;
+  alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead><tr>'+
     '<th>c\\u00f3digo</th><th>EAN</th><th>produto</th><th>corredor</th>'+
     '<th class="num">cx m\\u00e3e</th><th class="num">est. m\\u00ednimo</th>'+
     '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
     '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
-    '</tr></thead><tbody>'+linhas+'</tbody></table></div>';
-}
-function imprimirVarios(nomes){
-  var alvo=$('multi'), html='', n=0;
-  DADOS.forEach(function(f){
-    if(nomes.indexOf(f.nome)<0)return;
-    html+=tabelaImpressao(f); n++;});
-  if(!n)return;
-  alvo.innerHTML=html;
+    '</tr></thead><tbody>'+corpo+'</tbody></table></div>';
   document.body.classList.add('multi');
   window.print();
   setTimeout(function(){document.body.classList.remove('multi');

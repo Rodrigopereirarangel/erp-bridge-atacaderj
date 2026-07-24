@@ -132,7 +132,7 @@ def test_coluna_ean_linhas_e_impressao_multipla():
     assert "function imprimirVarios(" in html
     assert 'id="multi"' in html
     assert "body.multi #multi { display:block !important }" in html
-    assert "page-break-after:avoid" in html      # so o titulo nao se separa
+    assert "page-break-after:avoid" in html      # faixa do grupo nao se separa
     # corredor do sistema + rua do deposito em cinza
     assert "function celCorredor(" in html
 
@@ -146,3 +146,17 @@ def test_arrastar_marca_varios_fornecedores():
     assert "function marcaForn(" in html
     # mouseup solta os dois arrastos (itens e fornecedores)
     assert "window._drag=false; window._dragF=false;" in html
+
+
+def test_impressao_compacta_economiza_papel():
+    dados = {"COTACAO": [_linha(1, "X")], "GARCIA": [_linha(2, "Y")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # margens curtas + fonte compacta + larguras fixas (dono, 24/07)
+    assert "@page { size:A4 portrait; margin:8mm 7mm 9mm }" in html
+    assert "font:8.6pt/1.15" in html
+    assert "table-layout:fixed" in html
+    assert html.count('col class="c-mao"') >= 8      # colgroups das 2 tabelas
+    # multi-fornecedor = UMA tabela com faixa de grupo (sem thead repetido)
+    assert "tr.grupo" in html
+    assert "function linhasImpressao(" in html
+    assert "thead { display:table-header-group }" in html
