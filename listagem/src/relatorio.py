@@ -215,21 +215,25 @@ _TEMPLATE = """<!doctype html>
    /* ECONOMIA DE PAPEL (dono, 24/07): margens curtas, fonte 8.6pt e linhas
       justas — sem mexer no conteudo. Media: ~25 linhas/folha -> ~55. */
    @page { size:A4 portrait; margin:6mm 5mm 7mm }
+   /* --fp = corpo da fonte no papel. Padrao CONFORTAVEL (9.4pt); o JS
+      so encolhe quando o volume exigiria passar de ~100 folhas — teto
+      pedido pelo dono (24/07). Nunca desce de 8.2pt. */
    body { background:#fff; color:#000; padding-bottom:0;
-          font:8pt/1.05 "Segoe UI", system-ui, sans-serif }
+          font:var(--fp,9.4pt)/1.18 "Segoe UI", system-ui, sans-serif }
    table { table-layout:fixed; width:100% }
-   th { padding:1pt 2.5pt !important; font-size:6pt !important;
+   th { padding:1pt 2.5pt !important; font-size:6.8pt !important;
         letter-spacing:.02em !important; overflow:hidden }
    /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
       coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
-   td { padding:.6pt 2.5pt !important; font-size:8pt; overflow:hidden }
+   td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt);
+        overflow:hidden }
    /* larguras fixas: sobra o maximo p/ o nome do produto (~48 caracteres
       em 8pt = 1 linha na maioria). Cada nome que NAO quebra economiza uma
       linha inteira — e o que mais reduz folha (dono, 24/07). */
    col.c-cod { width:10mm } col.c-ean { width:29mm } col.c-cor { width:11mm }
    col.c-forn { width:24mm } col.c-cx { width:8mm } col.c-min { width:12mm }
    col.c-mao { width:11mm }
-   td.ean { font-size:7.2pt; letter-spacing:0 }
+   td.ean { font-size:calc(var(--fp,9.4pt) - 1.1pt); letter-spacing:0 }
    .eant { font-size:6.4pt; color:#000; background:#e0e0e0;
            border:1px solid #999; border-radius:2px; padding:0 2px }
    td.desc { white-space:normal; word-break:break-word }
@@ -257,8 +261,8 @@ _TEMPLATE = """<!doctype html>
       cada bloco (395 fornecedores = ~16 folhas so de cabecalho) */
    #multi .tabela { margin:0; border:none }
    tr.grupo td { background:#e8e8e8 !important; color:#000;
-                 font-weight:700; font-size:8pt; padding:1.5pt 3pt !important;
-                 border-top:1.2px solid #666 }
+                 font-weight:700; font-size:var(--fp,9.4pt);
+                 padding:1.5pt 3pt !important; border-top:1.2px solid #666 }
    tr.grupo { break-after:avoid; page-break-after:avoid }
    tr:nth-child(even) td { background:#f3f3f3 !important }
    .rupt, .marca { display:none !important }
@@ -545,6 +549,22 @@ function renderResultados(q){
 /* ---- imprimir VARIOS fornecedores num PDF so (dono, 24/07) ----
    os blocos seguem na MESMA folha, um atras do outro — nada de uma folha
    por fornecedor (era o desperdicio que o dono apontou). */
+/* fonte do papel: comeca CONFORTAVEL (9.4pt) e so encolhe se o volume
+   passaria do teto de ~100 folhas (dono, 24/07). Cada linha ocupa
+   fonte*1.18 + 1.6pt de padding, e ~1.15 de folga p/ nome que quebra;
+   folha util = 284mm ~ 805pt. Piso 8.2pt: abaixo disso fica ilegivel. */
+var TETO_FOLHAS=100;
+function ajustaFonte(nLinhas){
+  var pt=9.4;
+  for(var i=0;i<8;i++){
+    var alturaLinha=(pt*1.18+1.6)*1.15;
+    var porFolha=Math.floor(805/alturaLinha);
+    if(Math.ceil(nLinhas/porFolha)<=TETO_FOLHAS || pt<=8.2)break;
+    pt=Math.round((pt-0.2)*10)/10;
+  }
+  document.documentElement.style.setProperty('--fp', pt+'pt');
+  return pt;
+}
 var COLS_IMP='<colgroup><col class="c-cod"><col class="c-ean"><col>'+
   '<col class="c-cor"><col class="c-cx"><col class="c-min">'+
   '<col class="c-mao"><col class="c-mao"><col class="c-mao"><col class="c-mao">'+
@@ -562,11 +582,12 @@ function linhasImpressao(f){
         '<td class="mao"></td>'.repeat(4)+'</tr>';}).join('');
 }
 function imprimirVarios(nomes){
-  var alvo=$('multi'), corpo='', n=0;
+  var alvo=$('multi'), corpo='', n=0, linhas=0;
   DADOS.forEach(function(f){
     if(nomes.indexOf(f.nome)<0)return;
-    corpo+=linhasImpressao(f); n++;});
+    corpo+=linhasImpressao(f); n++; linhas+=f.qtd+1;});
   if(!n)return;
+  ajustaFonte(linhas);
   alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead><tr>'+
     '<th>c\\u00f3digo</th><th>EAN</th><th>produto</th><th>corredor</th>'+
     '<th class="num">cx m\\u00e3e</th><th class="num">est. m\\u00ednimo</th>'+
@@ -755,8 +776,11 @@ $('volta').onclick=function(){modoItem=false;selItem={};
   document.body.className='';
   $('btnMover').className='';renderBarra();mostra('lista');};
 $('voltaRes').onclick=function(){$('buscaProd').value='';mostra('lista');};
-$('pdf').onclick=function(){window.print();};
-$('pdfRes').onclick=function(){window.print();};
+$('pdf').onclick=function(){
+  var f=null; DADOS.forEach(function(x){if(x.nome===abertoNome)f=x;});
+  ajustaFonte(f?f.qtd+1:0); window.print();};
+$('pdfRes').onclick=function(){
+  ajustaFonte($('corpoRes').rows.length+1); window.print();};
 $('busca').oninput=function(){
   $('buscaProd').value=''; mostra('lista'); renderLista(this.value);};
 $('buscaProd').oninput=function(){

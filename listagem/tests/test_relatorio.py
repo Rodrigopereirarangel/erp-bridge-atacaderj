@@ -153,7 +153,7 @@ def test_impressao_compacta_economiza_papel():
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # margens curtas + fonte compacta + larguras fixas (dono, 24/07)
     assert "@page { size:A4 portrait; margin:6mm 5mm 7mm }" in html
-    assert "font:8pt/1.05" in html
+    assert "font:var(--fp,9.4pt)/1.18" in html
     assert "table-layout:fixed" in html
     assert html.count('col class="c-mao"') >= 8      # colgroups das 2 tabelas
     # multi-fornecedor = UMA tabela com faixa de grupo (sem thead repetido)
@@ -170,3 +170,15 @@ def test_ean_nao_vaza_e_tem_selo():
     # overflow:hidden impede o EAN de trepar na coluna vizinha no papel
     assert "overflow:hidden }" in html
     assert "col.c-ean { width:29mm }" in html
+
+
+def test_fonte_confortavel_com_teto_de_100_folhas():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # padrao confortavel + variavel que o JS ajusta pelo volume
+    assert "font:var(--fp,9.4pt)/1.18" in html
+    assert "var TETO_FOLHAS=100;" in html
+    assert "function ajustaFonte(" in html
+    assert "pt<=8.2" in html                    # piso de legibilidade
+    # os 3 caminhos de impressao chamam o ajuste antes de imprimir
+    assert html.count("ajustaFonte(") >= 4      # def + 3 chamadas
