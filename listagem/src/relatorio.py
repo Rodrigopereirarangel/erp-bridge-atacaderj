@@ -415,11 +415,16 @@ function renderLista(filtro){
     var c=document.createElement('div');
     c.className='cartao'+(selForn[f.nome]?' sel':'');
     var fl=document.createElement('span');
-    fl.className='flag'; fl.title='marcar para agrupar';
-    fl.onclick=function(e){e.stopPropagation();
-      if(selForn[f.nome])delete selForn[f.nome];
-      else selForn[f.nome]=true;
-      renderLista(filtro); renderBarra();};
+    fl.className='flag';
+    fl.title='marcar (segure e arraste para marcar v\\u00e1rios)';
+    // toque marca; segurar e ARRASTAR pelas linhas marca varios (dono, 24/07)
+    fl.onmousedown=function(e){e.preventDefault(); e.stopPropagation();
+      window._dragF=true; window._dragFVal=!selForn[f.nome];
+      document.body.classList.add('arraste');
+      marcaForn(c, f.nome, window._dragFVal);};
+    fl.onclick=function(e){e.stopPropagation();};   // o mousedown ja marcou
+    c.onmouseenter=function(){ if(window._dragF)
+      marcaForn(c, f.nome, window._dragFVal); };
     var b=document.createElement('button');
     b.innerHTML=esc(f.nome)+' <b>'+f.qtd+'</b>';
     b.onclick=function(){abrir(f.nome);};
@@ -536,7 +541,15 @@ function marcaItem(tr, cod, val){
     tr.cells[0].textContent=val?'\\u2611':'\\u2610';
   renderBarra();
 }
-document.addEventListener('mouseup', function(){window._drag=false;});
+/* idem p/ FORNECEDOR na lista principal (arrasto sobre os cartoes) */
+function marcaForn(cartao, nome, val){
+  if(val)selForn[nome]=true; else delete selForn[nome];
+  cartao.className='cartao'+(val?' sel':'');
+  renderBarra();
+}
+document.addEventListener('mouseup', function(){
+  window._drag=false; window._dragF=false;
+  if(!modoItem)document.body.classList.remove('arraste');});
 
 /* ---- barra fixa: aparece quando ha selecao ---- */
 function renderBarra(){

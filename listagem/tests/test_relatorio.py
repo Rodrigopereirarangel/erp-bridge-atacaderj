@@ -135,3 +135,14 @@ def test_coluna_ean_linhas_e_impressao_multipla():
     assert "page-break-after:avoid" in html      # so o titulo nao se separa
     # corredor do sistema + rua do deposito em cinza
     assert "function celCorredor(" in html
+
+
+def test_arrastar_marca_varios_fornecedores():
+    dados = {"COTACAO": [_linha(1, "X")], "GARCIA": [_linha(2, "Y")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # arrasto na lista de fornecedores (mesma mecanica dos itens)
+    assert "window._dragF=true" in html
+    assert "c.onmouseenter=function(){ if(window._dragF)" in html
+    assert "function marcaForn(" in html
+    # mouseup solta os dois arrastos (itens e fornecedores)
+    assert "window._drag=false; window._dragF=false;" in html
