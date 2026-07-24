@@ -177,9 +177,22 @@ def test_fonte_confortavel_com_teto_de_100_folhas():
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # padrao confortavel + variavel que o JS ajusta pelo volume
     assert "font:var(--fp,9.4pt)/1.18" in html
-    assert "var TETO_FOLHAS=100, FONTE_MAX=12, FONTE_MIN=8.2;" in html
+    assert "var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;" in html
     assert "function ajustaFonte(" in html
     assert "pt>FONTE_MIN" in html               # piso de legibilidade
-    assert "function folhasCom(" in html        # cresce ate o teto
+    assert "function folhasMedidas(" in html     # mede a folha real
     # os 3 caminhos de impressao chamam o ajuste antes de imprimir
-    assert html.count("ajustaFonte(") >= 4      # def + 3 chamadas
+    assert "ajustaFontePorMedida(alvo)" in html  # mede antes de imprimir
+
+
+def test_fonte_medida_de_verdade_e_fornecedor_proporcional():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # regua de medicao fora da tela + busca binaria pela maior fonte
+    assert ".medindo {" in html
+    assert "function ajustaFontePorMedida(" in html
+    assert "el.scrollHeight/ALT_FOLHA_PX" in html
+    # nome do fornecedor cresce junto (proporcional ao corpo)
+    assert html.count("calc(var(--fp,9.4pt) * 1.12)") == 2   # regua + papel
+    # o PDF de um fornecedor usa o mesmo caminho medido
+    assert "if(abertoNome)imprimirVarios([abertoNome])" in html

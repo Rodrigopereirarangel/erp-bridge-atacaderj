@@ -211,6 +211,24 @@ _TEMPLATE = """<!doctype html>
  .soprint { display:none }
  footer { color:var(--mut); font-size:.76rem; line-height:1.6;
           padding-bottom:1rem }
+ /* ---- REGUA DE MEDICAO (dono, 24/07: "aumente ate 100pg") ----
+    copia fiel do layout de impressao, fora da tela: o JS mede a altura
+    real do conteudo aqui e escolhe a MAIOR fonte que cabe no teto de
+    folhas. Manter em sincronia com o bloco @media print abaixo. */
+ .medindo { position:absolute !important; left:-99999px !important;
+            top:0 !important; width:200mm !important;
+            display:block !important; visibility:hidden }
+ .medindo table { table-layout:fixed; width:100%;
+                  font:var(--fp,9.4pt)/1.18 "Segoe UI", system-ui, sans-serif }
+ .medindo col.c-cod { width:10mm } .medindo col.c-ean { width:29mm }
+ .medindo col.c-cor { width:11mm } .medindo col.c-cx { width:8mm }
+ .medindo col.c-min { width:12mm } .medindo col.c-mao { width:11mm }
+ .medindo th { padding:1pt 2.5pt; font-size:calc(var(--fp,9.4pt) - 2.6pt) }
+ .medindo td { padding:.8pt 2.5pt; font-size:var(--fp,9.4pt);
+               white-space:nowrap; overflow:hidden }
+ .medindo td.desc { white-space:normal; word-break:break-word }
+ .medindo tr.grupo td { font-size:calc(var(--fp,9.4pt) * 1.12);
+                        font-weight:700; padding:1.5pt 3pt }
  @media print {
    /* ECONOMIA DE PAPEL (dono, 24/07): margens curtas, fonte 8.6pt e linhas
       justas — sem mexer no conteudo. Media: ~25 linhas/folha -> ~55. */
@@ -260,8 +278,9 @@ _TEMPLATE = """<!doctype html>
       fornecedor como faixa de grupo — economiza o cabecalho repetido de
       cada bloco (395 fornecedores = ~16 folhas so de cabecalho) */
    #multi .tabela { margin:0; border:none }
+   /* nome do fornecedor cresce JUNTO com o corpo (dono, 24/07) */
    tr.grupo td { background:#e8e8e8 !important; color:#000;
-                 font-weight:700; font-size:var(--fp,9.4pt);
+                 font-weight:700; font-size:calc(var(--fp,9.4pt) * 1.12);
                  padding:1.5pt 3pt !important; border-top:1.2px solid #666 }
    tr.grupo { break-after:avoid; page-break-after:avoid }
    tr:nth-child(even) td { background:#f3f3f3 !important }
@@ -555,14 +574,36 @@ function renderResultados(q){
    Altura da linha = (fonte*1.18 + 1.6pt de padding) x 1.28 de folga p/ nome
    que quebra em 2 linhas (fator medido no papel: 881 linhas = 17 folhas a
    8.6pt). Folha util A4 c/ margem 6mm = 284mm ~ 805pt. Piso 8.2pt. */
-var TETO_FOLHAS=100, FONTE_MAX=12, FONTE_MIN=8.2;
-function folhasCom(pt, nLinhas){
-  var porFolha=Math.floor(805/((pt*1.18+1.6)*1.28));
-  return Math.ceil(nLinhas/Math.max(porFolha,1));
+var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;
+var PX_MM=96/25.4, ALT_FOLHA_PX=284*PX_MM;   // A4 util c/ margem 6mm/7mm
+function folhasMedidas(pt, el){
+  document.documentElement.style.setProperty('--fp', pt+'pt');
+  el.offsetHeight;                            // forca o reflow antes de medir
+  return Math.ceil(el.scrollHeight/ALT_FOLHA_PX);
 }
+/* MEDE de verdade (nao estima): sobe a fonte enquanto couber no teto.
+   Busca binaria em passos de 0.2pt — ~7 medicoes, imperceptivel. */
+function ajustaFontePorMedida(el){
+  el.classList.add('medindo');
+  var lo=FONTE_MIN, hi=FONTE_MAX, melhor=FONTE_MIN;
+  if(folhasMedidas(hi, el)<=TETO_FOLHAS){ melhor=hi; }
+  else {
+    while(hi-lo>0.2){
+      var meio=Math.round(((lo+hi)/2)*5)/5;    // grade de 0.2pt
+      if(folhasMedidas(meio, el)<=TETO_FOLHAS){ melhor=meio; lo=meio; }
+      else { hi=meio; }
+    }
+  }
+  el.classList.remove('medindo');
+  document.documentElement.style.setProperty('--fp', melhor+'pt');
+  return melhor;
+}
+/* fallback por estimativa (usado na aba de busca, que nao tem regua) */
 function ajustaFonte(nLinhas){
   var pt=FONTE_MAX;
-  while(pt>FONTE_MIN && folhasCom(pt,nLinhas)>TETO_FOLHAS){
+  while(pt>FONTE_MIN &&
+        Math.ceil(nLinhas/Math.max(Math.floor(805/((pt*1.18+1.6)*1.28)),1))
+          >TETO_FOLHAS){
     pt=Math.round((pt-0.2)*10)/10;
   }
   document.documentElement.style.setProperty('--fp', pt+'pt');
@@ -590,14 +631,15 @@ function imprimirVarios(nomes){
     if(nomes.indexOf(f.nome)<0)return;
     corpo+=linhasImpressao(f); n++; linhas+=f.qtd+1;});
   if(!n)return;
-  ajustaFonte(linhas);
   alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead><tr>'+
     '<th>c\\u00f3digo</th><th>EAN</th><th>produto</th><th>corredor</th>'+
     '<th class="num">cx m\\u00e3e</th><th class="num">est. m\\u00ednimo</th>'+
     '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
     '<th class="mao">data __/__/__</th><th class="mao">data __/__/__</th>'+
     '</tr></thead><tbody>'+corpo+'</tbody></table></div>';
+  var pt=ajustaFontePorMedida(alvo);          // maior fonte que cabe
   document.body.classList.add('multi');
+  toast('impress\\u00e3o em '+pt+'pt');
   window.print();
   setTimeout(function(){document.body.classList.remove('multi');
     alvo.innerHTML='';}, 500);
@@ -779,9 +821,9 @@ $('volta').onclick=function(){modoItem=false;selItem={};
   document.body.className='';
   $('btnMover').className='';renderBarra();mostra('lista');};
 $('voltaRes').onclick=function(){$('buscaProd').value='';mostra('lista');};
-$('pdf').onclick=function(){
-  var f=null; DADOS.forEach(function(x){if(x.nome===abertoNome)f=x;});
-  ajustaFonte(f?f.qtd+1:0); window.print();};
+/* o PDF do fornecedor aberto usa o MESMO caminho da impressao multipla
+   (mesma medicao, mesmo layout) — so com um nome na lista */
+$('pdf').onclick=function(){ if(abertoNome)imprimirVarios([abertoNome]); };
 $('pdfRes').onclick=function(){
   ajustaFonte($('corpoRes').rows.length+1); window.print();};
 $('busca').oninput=function(){
