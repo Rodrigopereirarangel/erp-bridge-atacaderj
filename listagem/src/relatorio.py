@@ -243,8 +243,8 @@ _TEMPLATE = """<!doctype html>
         letter-spacing:.02em !important; overflow:hidden }
    /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
       coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
-   td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt);
-        overflow:hidden }
+   td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt) }
+   td.cod, td.ean, td.mao, td.num { overflow:hidden }
    /* larguras fixas: sobra o maximo p/ o nome do produto (~48 caracteres
       em 8pt = 1 linha na maioria). Cada nome que NAO quebra economiza uma
       linha inteira — e o que mais reduz folha (dono, 24/07). */
@@ -256,7 +256,9 @@ _TEMPLATE = """<!doctype html>
            border:1px solid #999; border-radius:2px; padding:0 2px }
    td.desc { white-space:normal; word-break:break-word }
    .tabela { break-inside:auto }
-   tr { break-inside:avoid; page-break-inside:avoid }
+   /* NAO usar break-inside:avoid em TODA linha: com milhares de <tr> o
+      Chrome trava paginando (dono, 24/07 — pagina sem resposta). So a
+      faixa do fornecedor precisa ficar colada no que vem depois. */
    thead { display:table-header-group }   /* cabecalho repete por folha */
    header, footer, .acoes, #lista, #barra, #dlg, #toast { display:none !important }
    body.multi #detalhe, body.multi #resultados { display:none !important }
@@ -576,7 +578,8 @@ function renderResultados(q){
    8.6pt). Folha util A4 c/ margem 6mm = 284mm ~ 805pt. Piso 8.2pt. */
 var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;
 var PX_MM=96/25.4, ALT_FOLHA_PX=284*PX_MM;   // A4 util c/ margem 6mm/7mm
-var AMOSTRA=400;   // linhas medidas de verdade; o resto e proporcao
+var AMOSTRA=400;        // linhas medidas de verdade; o resto e proporcao
+var LOTE_LINHAS=500;    // uma tabela por lote (paginacao rapida no Chrome)
 /* Mede a altura REAL de uma amostra em 2 fontes e interpola — 2 medicoes
    rapidas em vez de reflow repetido das 5.000 linhas (isso travava o
    navegador; dono, 24/07). A altura da linha cresce ~linear com a fonte. */
@@ -644,13 +647,24 @@ function imprimirVarios(nomes){
     linhas=linhas.concat(linhasImpressao(f)); n++;});
   if(!n)return;
   var pt=ajustaFonteAmostrada(linhas, COLS_IMP, CAB_IMP);
-  alvo.innerHTML='<div class="tabela"><table>'+COLS_IMP+'<thead>'+CAB_IMP+
-    '</thead><tbody>'+linhas.join('')+'</tbody></table></div>';
+  // LOTES: uma tabela gigante trava a paginacao do Chrome; varias
+  // tabelas de LOTE_LINHAS paginam rapido e o cabecalho reaparece
+  // a cada lote (util em lista longa). Dono, 24/07.
+  var html='', i;
+  for(i=0;i<linhas.length;i+=LOTE_LINHAS){
+    html+='<div class="tabela"><table>'+COLS_IMP+'<thead>'+CAB_IMP+
+      '</thead><tbody>'+linhas.slice(i,i+LOTE_LINHAS).join('')+
+      '</tbody></table></div>';
+  }
+  toast(n+' fornecedor(es) \\u00b7 '+pt+'pt \\u00b7 preparando...');
+  alvo.innerHTML=html;
   document.body.classList.add('multi');
-  toast(n+' fornecedor(es) \\u00b7 '+pt+'pt');
-  window.print();
-  setTimeout(function(){document.body.classList.remove('multi');
-    alvo.innerHTML='';}, 500);
+  // deixa o navegador desenhar antes de abrir o dialogo (senao parece travado)
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){document.body.classList.remove('multi');
+      alvo.innerHTML='';}, 500);
+  }, 60);
 }
 
 /* ---- marcar item (toque ou arrasto) sem re-renderizar a tabela ---- */
