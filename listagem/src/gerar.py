@@ -175,10 +175,12 @@ def main():
         # so como ORDEM do percurso e etiqueta pequena.
         linha = {"codigo": cod, "nome": p["descricao"],
                  "curva": p.get("curva") or "", "rua": rua,
-                 # corredor exibido = ENDERECO do sistema (ATACADO 1/2,
-                 # VAREJO); sem endereco, cai no corredor mercadologico
-                 "corredor_erp": formato.corredor_curto(
-                     p.get("endereco") or p.get("corredor_erp")),
+                 # corredor = SO o endereco que existe no banco hoje
+                 # (ATACADO 1/2 ou VAREJO). O dono (24/07) foi explicito:
+                 # corredor de verdade ainda nao esta cadastrado, entao
+                 # NADA de cair na classificacao mercadologica — sem
+                 # endereco, a celula fica vazia.
+                 "corredor_erp": formato.corredor_curto(p.get("endereco")),
                  "ean": ean_num, "ean_tipo": ean_tipo,
                  "rua_rotulo": formato.rotulo_rua(rua),
                  # ordem numerica p/ o JS reordenar apos agrupar/mover

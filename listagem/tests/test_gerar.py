@@ -209,3 +209,6 @@ def test_ean_e_corredor_do_sistema_saem_no_html(tmp_path):
     # sem EAN de caixa: cai no da unidade marcado, ou vazio
     assert '"ean": ""' in html            # 222 nao tem EAN nenhum
     assert '"cor": "VAREJO"' in html
+    # sem endereco no banco -> celula VAZIA (nao cai na
+    # classificacao mercadologica; dono 24/07)
+    assert '"cor": "30"' not in html
