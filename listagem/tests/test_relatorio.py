@@ -127,7 +127,7 @@ def test_coluna_ean_linhas_e_impressao_multipla():
     assert html.count('data-k="ean"') == 2
     # linhas verticais separando colunas (tela e papel)
     assert "th, td { border-right:1px solid var(--linha) }" in html
-    assert "th, td { border-right:1px solid #bbb }" in html
+    assert "th, td { border-right:.4pt solid #999 }" in html
     # imprimir varios fornecedores num PDF so, sem quebra de folha entre eles
     assert "function imprimirVarios(" in html
     assert 'id="multi"' in html
@@ -197,3 +197,11 @@ def test_fonte_medida_de_verdade_e_fornecedor_proporcional():
     assert html.count("calc(var(--fp,9.4pt) * 1.12)") == 2   # regua + papel
     # o PDF de um fornecedor usa o mesmo caminho medido
     assert "if(abertoNome)imprimirVarios([abertoNome])" in html
+
+
+def test_separacao_entre_produtos_em_todas_as_linhas():
+    dados = {"COTACAO": [_linha(1, "X")]}
+    html = relatorio.montar(relatorio.preparar(dados), "x")
+    # no papel a ultima linha de cada LOTE tambem leva separacao
+    assert "tr:last-child td { border-bottom:.4pt solid #999 !important }" in html
+    assert "tr.grupo td { border-bottom:.4pt solid #666 !important }" in html
