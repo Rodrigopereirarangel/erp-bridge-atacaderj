@@ -169,7 +169,7 @@ def test_ean_nao_vaza_e_tem_selo():
     assert 'class="eant"' in html                 # selo CX/UN
     # overflow:hidden impede o EAN de trepar na coluna vizinha no papel
     assert "overflow:hidden }" in html
-    assert "col.c-ean { width:29mm }" in html
+    assert "col.c-ean { width:9.2em }" in html   # em, nao mm: escala c/ a fonte
 
 
 def test_fonte_confortavel_com_teto_de_100_folhas():
@@ -177,7 +177,7 @@ def test_fonte_confortavel_com_teto_de_100_folhas():
     html = relatorio.montar(relatorio.preparar(dados), "x")
     # padrao confortavel + variavel que o JS ajusta pelo volume
     assert "font:var(--fp,9.4pt)/1.18" in html
-    assert "var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;" in html
+    assert "var TETO_FOLHAS=100, FONTE_MAX=10, FONTE_MIN=8.2;" in html
     assert "function ajustaFonte(" in html
     assert "pt>FONTE_MIN" in html               # piso de legibilidade
     assert "function alturaAmostra(" in html      # mede a folha real

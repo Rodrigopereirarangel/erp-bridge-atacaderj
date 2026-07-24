@@ -220,9 +220,10 @@ _TEMPLATE = """<!doctype html>
             display:block !important; visibility:hidden }
  .medindo table { table-layout:fixed; width:100%;
                   font:var(--fp,9.4pt)/1.18 "Segoe UI", system-ui, sans-serif }
- .medindo col.c-cod { width:10mm } .medindo col.c-ean { width:29mm }
- .medindo col.c-cor { width:11mm } .medindo col.c-cx { width:8mm }
- .medindo col.c-min { width:12mm } .medindo col.c-mao { width:11mm }
+ .medindo col.c-cod { width:4.2em } .medindo col.c-ean { width:9.2em }
+ .medindo col.c-cor { width:4.6em } .medindo col.c-cx { width:2.8em }
+ .medindo col.c-min { width:4.2em } .medindo col.c-mao { width:3.6em }
+ .medindo .rua { display:none }
  .medindo th { padding:1pt 2.5pt; font-size:calc(var(--fp,9.4pt) - 2.6pt) }
  .medindo td { padding:.8pt 2.5pt; font-size:var(--fp,9.4pt);
                white-space:nowrap; overflow:hidden }
@@ -251,12 +252,15 @@ _TEMPLATE = """<!doctype html>
    td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt);
         border-top:none; border-bottom:1px solid #ccc }
    td.cod, td.ean, td.mao, td.num { overflow:hidden }
-   /* larguras fixas: sobra o maximo p/ o nome do produto (~48 caracteres
-      em 8pt = 1 linha na maioria). Cada nome que NAO quebra economiza uma
-      linha inteira — e o que mais reduz folha (dono, 24/07). */
-   col.c-cod { width:10mm } col.c-ean { width:29mm } col.c-cor { width:11mm }
-   col.c-forn { width:24mm } col.c-cx { width:8mm } col.c-min { width:12mm }
-   col.c-mao { width:11mm }
+   /* larguras em EM: crescem junto com a fonte. Em mm elas nao
+      acompanhavam e o texto era CORTADO quando a fonte subia (dono,
+      24/07: codigo truncado e EAN por cima da coluna vizinha). */
+   col.c-cod { width:4.2em } col.c-ean { width:9.2em } col.c-cor { width:4.6em }
+   col.c-forn { width:9em } col.c-cx { width:2.8em } col.c-min { width:4.2em }
+   col.c-mao { width:3.6em }
+   /* a rua do deposito nao vai ao papel: no atacado vale o endereco do
+      sistema, e ela roubava largura do nome do produto */
+   .rua { display:none !important }
    td.ean { font-size:calc(var(--fp,9.4pt) - 1.1pt); letter-spacing:0 }
    .eant { font-size:6.4pt; color:#000; background:#e0e0e0;
            border:1px solid #999; border-radius:2px; padding:0 2px }
@@ -582,7 +586,10 @@ function renderResultados(q){
    Altura da linha = (fonte*1.18 + 1.6pt de padding) x 1.28 de folga p/ nome
    que quebra em 2 linhas (fator medido no papel: 881 linhas = 17 folhas a
    8.6pt). Folha util A4 c/ margem 6mm = 284mm ~ 805pt. Piso 8.2pt. */
-var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;
+/* FONTE_MAX vem da LARGURA, nao do gosto: as colunas fixas somam ~32.4em
+   e o nome do produto precisa de ~24em p/ caber numa linha. 200mm uteis /
+   56.4em = 3.55mm por em = 10pt. Passar disso corta texto (dono, 24/07). */
+var TETO_FOLHAS=100, FONTE_MAX=10, FONTE_MIN=8.2;
 var PX_MM=96/25.4, ALT_FOLHA_PX=284*PX_MM;   // A4 util c/ margem 6mm/7mm
 var AMOSTRA=400;        // linhas medidas de verdade; o resto e proporcao
 var LOTE_LINHAS=250;    // uma tabela por lote (paginacao rapida no Chrome)
