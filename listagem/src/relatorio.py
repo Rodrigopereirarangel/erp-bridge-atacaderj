@@ -238,12 +238,18 @@ _TEMPLATE = """<!doctype html>
       pedido pelo dono (24/07). Nunca desce de 8.2pt. */
    body { background:#fff; color:#000; padding-bottom:0;
           font:var(--fp,9.4pt)/1.18 "Segoe UI", system-ui, sans-serif }
-   table { table-layout:fixed; width:100% }
+   /* border-collapse:separate e MUITO mais barato de paginar no Chrome
+      que collapse — com ~5.000 linhas era a diferenca entre 1s e travar
+      (dono, 24/07: "pagina sem resposta"). As linhas da grade vem das
+      bordas das proprias celulas, entao o visual nao muda. */
+   table { table-layout:fixed; width:100%;
+           border-collapse:separate; border-spacing:0 }
    th { padding:1pt 2.5pt !important; font-size:6.8pt !important;
         letter-spacing:.02em !important; overflow:hidden }
    /* overflow:hidden e o que impede o EAN (14 digitos) de VAZAR sobre a
       coluna vizinha — sem isso, table-layout:fixed deixa o texto trepar */
-   td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt) }
+   td { padding:.8pt 2.5pt !important; font-size:var(--fp,9.4pt);
+        border-top:none; border-bottom:1px solid #ccc }
    td.cod, td.ean, td.mao, td.num { overflow:hidden }
    /* larguras fixas: sobra o maximo p/ o nome do produto (~48 caracteres
       em 8pt = 1 linha na maioria). Cada nome que NAO quebra economiza uma
@@ -579,7 +585,7 @@ function renderResultados(q){
 var TETO_FOLHAS=100, FONTE_MAX=14, FONTE_MIN=8.2;
 var PX_MM=96/25.4, ALT_FOLHA_PX=284*PX_MM;   // A4 util c/ margem 6mm/7mm
 var AMOSTRA=400;        // linhas medidas de verdade; o resto e proporcao
-var LOTE_LINHAS=500;    // uma tabela por lote (paginacao rapida no Chrome)
+var LOTE_LINHAS=250;    // uma tabela por lote (paginacao rapida no Chrome)
 /* Mede a altura REAL de uma amostra em 2 fontes e interpola — 2 medicoes
    rapidas em vez de reflow repetido das 5.000 linhas (isso travava o
    navegador; dono, 24/07). A altura da linha cresce ~linear com a fonte. */
